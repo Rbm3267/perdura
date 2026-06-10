@@ -221,7 +221,7 @@ source-of-truth fields remain authoritative either way.
 Briefings may include the memoric binary per node. Workers don't *use* it
 (they see the text); it's there for the conductor to reason about.
 
-### 6.3 Contention recompute — DECIDED: blended by default
+### 6.3 Contention recompute — DECIDED: default tracks Phase 0 status
 
 Implemented in `Graph.contention(node_ids, memoric_weight=...)`:
 
@@ -229,8 +229,9 @@ Implemented in `Graph.contention(node_ids, memoric_weight=...)`:
 contention = (1 - w) * edge_signal + w * embedding_scatter(claim_mbs)
 ```
 
-`w` defaults to **0.5** (flipped 2026-06-10 by Bennett, ahead of Phase 0
-validation — the blend is now the live default for CLI and MCP station).
+`w` defaults to **0.0** (edge-only) until experiments 1 and 3 clear their
+bars — the blend is the thing under test, so it stays out of the default
+routing signal (issue #11; this reverts the brief 2026-06-10 early flip).
 `--memoric-weight 0` (or `memoric_weight=0` per call) reproduces the
 original edge-only docs/design.md §5 metric bit-for-bit; experiments 1 and
 3 should keep using `w=0` as the baseline arm so validation still measures

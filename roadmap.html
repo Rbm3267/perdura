@@ -68,6 +68,10 @@
 <p>Perdura is a persistent knowledge graph where LLMs are ephemeral workers. The roadmap now includes Phase 0 — foundational research on <strong>memoric binary</strong>, a native epistemic encoding that enables early contention detection and per-model track records in vector space.</p>
 <hr />
 <h2>Phase 0: Memoric Binary (NOW)</h2>
+<p><strong>Validation status (2026-06-10):</strong> synthetic arm complete — experiment 1
+(hidden disagreement, temporal replay) passes; experiment 3 near-miss
+(0.87 vs 0.9); experiment 2 needs the real-session arm. Spec not locked.
+Full results and the local run instructions: docs/phase0-validation.md.</p>
 <p><strong>Goal:</strong> Design, implement, and validate a 96-bit epistemic encoding that captures semantic content, node type, confidence, domain tags, temporal context, and supersession lineage.</p>
 <p><strong>Deliverables:</strong></p>
 <ul>
@@ -101,7 +105,14 @@
 <li><code>perdura_graph.json</code> — live graph state (local, gitignored)</li>
 </ul>
 <hr />
-<h2>Phase 1.5: Memoric Retrieval Layer</h2>
+<h2>Phase 1.5: Memoric Retrieval Layer (STARTED)</h2>
+<p><strong>Status (2026-06-10):</strong> retrieval layer shipped behind a pluggable
+<code>Retriever</code> interface (<code>perdura_retrieval.py</code>): <code>--retriever graph</code>
+(default, byte-identical Phase 1 baseline), <code>hybrid</code> (BM25 + dense +
+graph expansion), <code>chroma</code> (hybrid with a persistent ChromaDB index).
+Mind-map visualization shipped (<code>perdura.py viz</code>). Remaining: memoric
+binary in briefings, learned dense embeddings, retrieval A/B on real
+sessions (research question #1).</p>
 <p><strong>Goal:</strong> Integrate memoric binary into the graph storage and briefing assembly.</p>
 <p><strong>Scope:</strong></p>
 <ul>
