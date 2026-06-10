@@ -1,0 +1,272 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Perdura — Memoric Binary RFC</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,400;0,9..144,600;0,9..144,700;1,9..144,400&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root { --ink:#0a0e1f; --ink-2:#0e1430; --ink-3:#131a3d; --paper:#f0f3fa;
+    --muted:#97a3c4; --faint:#5b6688; --cyan:#2dd9ff; --amber:#ffb454;
+    --line:rgba(151,163,196,0.16); }
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body { background:var(--ink); color:var(--paper);
+    font-family:"IBM Plex Sans",-apple-system,sans-serif; font-size:16.5px;
+    line-height:1.7; -webkit-font-smoothing:antialiased; }
+  ::selection { background:var(--cyan); color:var(--ink); }
+  nav { position:sticky; top:0; z-index:50; background:rgba(10,14,31,0.85);
+    backdrop-filter:blur(12px); border-bottom:1px solid var(--line); }
+  .nav-inner { max-width:880px; margin:0 auto; padding:0 28px; height:60px;
+    display:flex; align-items:center; justify-content:space-between; }
+  .wordmark { font-family:"Fraunces",serif; font-weight:700; font-size:1.25rem;
+    color:var(--paper); text-decoration:none; }
+  .wordmark .dot { color:var(--cyan); }
+  nav .links a { color:var(--muted); text-decoration:none; font-size:0.88rem;
+    margin-left:20px; }
+  nav .links a:hover { color:var(--cyan); }
+  main { max-width:880px; margin:0 auto; padding:64px 28px 96px; }
+  .doc-kicker { font-family:"IBM Plex Mono",monospace; font-size:0.78rem;
+    letter-spacing:0.18em; text-transform:uppercase; color:var(--cyan);
+    margin-bottom:10px; }
+  h1,h2,h3,h4 { font-family:"Fraunces",Georgia,serif; font-weight:600;
+    line-height:1.2; margin:2.2em 0 0.6em; }
+  h1 { font-size:2.3rem; margin-top:0; }
+  h2 { font-size:1.6rem; border-bottom:1px solid var(--line);
+    padding-bottom:0.35em; }
+  h3 { font-size:1.25rem; } h4 { font-size:1.05rem; }
+  p, ul, ol { margin:0.9em 0; color:var(--muted); }
+  li { margin:0.35em 0; } ul, ol { padding-left:1.4em; }
+  strong { color:var(--paper); } em { color:var(--paper); }
+  a { color:var(--cyan); }
+  blockquote { border-left:3px solid var(--amber); padding:0.4em 1.1em;
+    margin:1.2em 0; background:var(--ink-2); border-radius:0 8px 8px 0; }
+  code { font-family:"IBM Plex Mono",monospace; font-size:0.85em;
+    color:var(--cyan); background:var(--ink-3); padding:2px 6px;
+    border-radius:4px; }
+  pre { background:var(--ink-2); border:1px solid var(--line);
+    border-radius:10px; padding:18px 20px; overflow-x:auto; margin:1.2em 0; }
+  pre code { background:none; padding:0; color:var(--paper);
+    font-size:0.84rem; line-height:1.6; }
+  table { border-collapse:collapse; width:100%; margin:1.2em 0;
+    font-size:0.92rem; }
+  th, td { border:1px solid var(--line); padding:9px 13px; text-align:left;
+    color:var(--muted); }
+  th { color:var(--paper); background:var(--ink-2);
+    font-family:"IBM Plex Mono",monospace; font-size:0.8rem; }
+  hr { border:none; border-top:1px solid var(--line); margin:2.4em 0; }
+  footer { max-width:880px; margin:0 auto; padding:0 28px 56px;
+    font-family:"IBM Plex Mono",monospace; font-size:0.78rem;
+    color:var(--faint); }
+</style></head><body>
+<nav><div class="nav-inner">
+  <a class="wordmark" href="index.html">perdura<span class="dot">.</span></a>
+  <div class="links"><a href="design.html">Design</a> <a href="memoric-binary.html">Memoric</a> <a href="roadmap.html">Roadmap</a> <a href="validation.html">Phase</a> <a href="index.html#access">Request access</a></div>
+</div></nav>
+<main><div class="doc-kicker">Documentation</div>
+<h1>Memoric Binary — Perdura's Native Epistemic Encoding</h1>
+<p><strong>RFC Status:</strong> Phase 0 (validation required before Phase 1.5 retrieval layer)
+<strong>Date:</strong> 2026-06-10
+<strong>Implementation:</strong> <code>perdura_memoric.py</code> · <strong>Validation:</strong> <code>experiments/memoric_eval.py</code></p>
+<h2>Abstract</h2>
+<p>Memoric binary is a compact bit-packed encoding that captures not just semantic content but the <em>epistemic context</em> of a knowledge graph node: its type, confidence, domain, temporal position, and supersession lineage. Unlike generic embeddings (nomic-embed-text, etc.), memoric binary is tailored to Perdura's specific job: detecting hidden disagreement, enabling per-model track records in vector space, and compressing the graph without losing routing quality.</p>
+<h2>1. Design Rationale</h2>
+<p><strong>Generic embeddings are semantically lossy for Perdura's use case.</strong> Two claims with opposite meanings might embed nearby if they use similar language. A claim with 0.3 confidence and one with 0.8 confidence embed identically if the text is the same. A question claim and an evidence claim embed the same even though they serve different epistemic roles.</p>
+<p>Memoric binary solves this by encoding the <em>context of assertion</em>, not just the assertion itself. Every bit carries provenance.</p>
+<h2>2. Specification</h2>
+<p>Memoric binary is a <strong>96-bit encoding</strong> (12 bytes). It is composed of five fields, packed in this order:</p>
+<h3>2.1 Semantic field (48 bits)</h3>
+<p>The first 48 bits are a <strong>semantic hash</strong> of the node's text. This is not a full embedding — it's a fast, lossy, dimensionality-reduced sketch:</p>
+<pre><code>semantic_hash = hash_text_to_48bits(node.text)
+  method: Blake2b(text)[:6] (first 6 bytes of Blake2b output)
+  property: deterministic, fast, captures text content
+</code></pre>
+<p>Why 48 bits? Enough to detect near-duplicates and text similarity via bitwise distance (Hamming), compact enough to keep the full encoding small.</p>
+<blockquote>
+<p><strong>⚠ Known limitation (see Open Question 6):</strong> Blake2b is a cryptographic
+hash with the avalanche property — any two <em>distinct</em> texts differ in
+~24/48 bits regardless of how similar they are. As specified, this field
+detects exact duplicates only; it does not give graded text similarity.
+<code>perdura_memoric.simhash_48bits</code> (a locality-sensitive sketch over
+character 3-grams, same width) is implemented as a candidate replacement,
+selectable via <code>encode(..., semantic_fn=simhash_48bits)</code>. Validation
+should be run with both before the spec is locked.</p>
+</blockquote>
+<h3>2.2 Type field (4 bits)</h3>
+<p>Encodes the node type. Each type has distinct epistemic weight:</p>
+<pre><code>0000 = question    (driving work, no confidence value usually)
+0001 = claim       (assertion, confidence-scored)
+0010 = evidence    (supporting material, sourced)
+0011 = decision    (resolved choice, highest epistemic weight)
+0100 = rejected    (abandoned path, includes reason)
+1111 = reserved    (future use)
+</code></pre>
+<h3>2.3 Confidence field (5 bits)</h3>
+<p>Quantized confidence score (0.0–1.0 mapped to 0–31):</p>
+<pre><code>conf_bits = int(node.confidence * 31)  # 0–31 (5 bits)
+  0–10   = low confidence (0.0–0.32)
+  11–20  = medium (0.35–0.65)
+  21–31  = high (0.68–1.0)
+</code></pre>
+<p>Questions have a fixed confidence_bits = 31 (assumed certainty of the question itself).</p>
+<h3>2.4 Domain field (6 bits)</h3>
+<p>A <strong>domain bitmap</strong> — each bit represents a domain tag. 6 bits = 6 first-class domains:</p>
+<pre><code>bit 0 = &quot;architecture&quot;
+bit 1 = &quot;epistemology&quot;
+bit 2 = &quot;economics&quot;
+bit 3 = &quot;engineering&quot;
+bit 4 = &quot;design&quot;
+bit 5 = &quot;research&quot;
+
+domain_bits = 0
+for tag in node.domain_tags:
+    if tag in DOMAIN_MAP:
+        domain_bits |= (1 &lt;&lt; DOMAIN_MAP[tag])
+</code></pre>
+<p>Allows fast filtering: find all economics + engineering claims with <code>domain_bits &amp; 0b001100</code>.</p>
+<h3>2.5 Provenance field (33 bits)</h3>
+<p>The most interesting part: encodes <em>temporal and supersession context</em>.</p>
+<p><strong>Temporal (16 bits):</strong></p>
+<ul>
+<li>Quantized node creation time relative to graph birth</li>
+<li><code>time_bits = (created_at - graph_start) // TIME_RESOLUTION</code></li>
+<li>TIME_RESOLUTION = 3600 (1 hour granularity)</li>
+<li>Allows ~7.5 years of history in 16 bits (clamped at the max)</li>
+</ul>
+<p><strong>Supersession (17 bits = 1 stale flag + 16-bit target hash):</strong></p>
+<ul>
+<li>If the node is live: <code>supersession_bits = 0</code></li>
+<li>If superseded: stale flag set, plus a 16-bit hash of the superseding id:</li>
+</ul>
+<pre><code>if node.superseded_by:
+    supersession_bits = 0x10000 | blake2b_16bits(node.superseded_by)
+else:
+    supersession_bits = 0
+</code></pre>
+<h2>3. Binary Layout</h2>
+<pre><code>Byte   0–5  : semantic_hash (48 bits)
+Byte   6    : type (4 bits) | confidence_hi (4 bits of the 5-bit confidence)
+Byte   7    : confidence_lo (1 bit) | domain (6 bits) | stale flag (1 bit)
+Byte   8–11 : time (16 bits) | supersession target hash (16 bits)
+</code></pre>
+<p>Total: <strong>96 bits (12 bytes)</strong> per node. Every bit is allocated:
+48 + 4 + 5 + 6 + 1 + 16 + 16 = 96.</p>
+<h3>Implementation notes (v0.1)</h3>
+<p>Two deviations from the original draft, made because 33 provenance bits
+cannot fit in the 4-byte tail alongside nothing else:</p>
+<ol>
+<li>The byte-7 bit originally marked <em>reserved</em> now carries the supersession
+   <strong>stale flag</strong>; the tail holds exactly time (16) + target hash (16).
+   Without this, <code>time &gt;= 2^15</code> overflowed the 32-bit pack and the high
+   time bit was silently lost on round-trip.</li>
+<li>The draft's second supersession variant ("I am a replacement" + count of
+   nodes replaced) is <strong>not implemented</strong> — it overloaded the same bit
+   pattern as the stale flag and is deferred until an experiment needs it.</li>
+</ol>
+<h2>4. Distance Metrics</h2>
+<h3>4.1 Semantic distance (text similarity)</h3>
+<p><strong>Hamming distance</strong> on the semantic_hash field:</p>
+<pre><code class="language-python">def semantic_distance(mb1: MemoricBinary, mb2: MemoricBinary) -&gt; int:
+    # XOR the 48-bit semantic fields and count 1-bits
+    return popcount(mb1.semantic ^ mb2.semantic)  # 0–48
+</code></pre>
+<p>Low distance = similar text (with simhash; with Blake2b, only 0 is meaningful — see §2.1).</p>
+<h3>4.2 Epistemic distance (disagreement detection)</h3>
+<p><strong>Composite distance</strong> accounting for type, confidence, and supersession:</p>
+<pre><code class="language-python">def epistemic_distance(mb1, mb2) -&gt; float:
+    # If either node is stale, contention is resolved, not live
+    if mb1.is_stale or mb2.is_stale:
+        return 0.0
+
+    type_penalty = 2.0 if mb1.type != mb2.type else 0.0      # epistemic roles
+    conf_delta = abs(mb1.confidence - mb2.confidence) / 31.0  # disagreement signal
+    semantic_norm = semantic_distance(mb1, mb2) / 48.0
+
+    return min(1.0, (type_penalty + 2.0 * conf_delta + 1.0 * semantic_norm) / 5.0)
+</code></pre>
+<h3>4.3 Embedding scatter (contention signal)</h3>
+<p><strong>For a set of claims on the same question:</strong></p>
+<pre><code class="language-python">def embedding_scatter(nodes: list[MemoricBinary]) -&gt; float:
+    &quot;&quot;&quot;Average pairwise epistemic distance.&quot;&quot;&quot;
+    if len(nodes) &lt; 2:
+        return 0.0
+    distances = [epistemic_distance(n1, n2)
+                 for i, n1 in enumerate(nodes) for n2 in nodes[i+1:]]
+    return sum(distances) / len(distances)
+</code></pre>
+<p>High scatter = the graph disagrees with itself here = contention signal.</p>
+<h2>5. Encoder / Decoder</h2>
+<p>See <code>perdura_memoric.py</code> for the reference implementation: <code>encode(node_dict,
+graph_start_time, semantic_fn=...)</code> → <code>MemoricBinary</code>, <code>decode(mb,
+graph_start_time)</code> → metadata dict, plus <code>to_bytes</code>/<code>from_bytes</code> (12-byte
+round-trip) and base64 helpers for JSON storage.</p>
+<p>Decoding is <strong>lossy by design</strong>: you cannot reconstruct the original text
+from memoric binary. You can reconstruct type, confidence (5-bit precision),
+domain tags, creation hour, liveness, and the supersession target hash.</p>
+<h2>6. Integration with Perdura</h2>
+<h3>6.1 Storage — DECIDED: derived, never persisted</h3>
+<p>Memoric binary is <strong>derived state</strong>: deterministically recomputable from
+fields the graph already stores (text, type, confidence, domain_tags,
+created_at, superseded_by). It is therefore computed on demand via
+<code>encode_node(node, graph_start_time)</code> and <strong>not</strong> written into
+<code>perdura_graph.json</code>.</p>
+<p>Consequences of this decision:</p>
+<ul>
+<li><strong>No schema change, no migration.</strong> Old graph files load in new code and
+  vice versa; <code>Node(**n)</code> loading never meets an unknown field.</li>
+<li><strong>No staleness.</strong> Confidence updates and supersession changes are picked
+  up automatically on the next encode; a persisted copy would silently rot.</li>
+<li><strong>The spec stays free to change</strong> (bit allocation, semantic_fn — open
+  question 6) without re-encoding anything, because nothing is encoded at
+  rest.</li>
+</ul>
+<p>If Phase 1.5's ChromaDB integration makes recomputation a measurable cost,
+persistence may be added then — strictly as a cache keyed by a
+<code>memoric_version</code> field, with recompute-on-mismatch. The graph's
+source-of-truth fields remain authoritative either way.</p>
+<h3>6.2 Briefing assembly (Phase 1.5)</h3>
+<p>Briefings may include the memoric binary per node. Workers don't <em>use</em> it
+(they see the text); it's there for the conductor to reason about.</p>
+<h3>6.3 Contention recompute — DECIDED: blended by default</h3>
+<p>Implemented in <code>Graph.contention(node_ids, memoric_weight=...)</code>:</p>
+<pre><code class="language-python">contention = (1 - w) * edge_signal + w * embedding_scatter(claim_mbs)
+</code></pre>
+<p><code>w</code> defaults to <strong>0.5</strong> (flipped 2026-06-10 by Bennett, ahead of Phase 0
+validation — the blend is now the live default for CLI and MCP station).
+<code>--memoric-weight 0</code> (or <code>memoric_weight=0</code> per call) reproduces the
+original edge-only docs/design.md §5 metric bit-for-bit; experiments 1 and
+3 should keep using <code>w=0</code> as the baseline arm so validation still measures
+the blend against the metric it replaced. The Phase 3 router eventually
+owns the weight.</p>
+<h2>7. Validation Experiments</h2>
+<p>Implemented in <code>experiments/memoric_eval.py</code>.</p>
+<h3>Experiment 1: Hidden disagreement detection</h3>
+<p><strong>Hypothesis:</strong> Epistemic distance in memoric binary detects disagreement <em>before</em> explicit <code>contradicts</code> edges.</p>
+<p><strong>Method:</strong> compute embedding scatter per question over its answering claims; measure AUC of scatter as a predictor of contradicts edges. <em>Current implementation measures association on the final graph state; testing temporal precedence ("before the edge appears") requires replaying the merge log turn by turn — planned refinement.</em></p>
+<p><strong>Success criteria:</strong> AUC &gt; 0.7</p>
+<h3>Experiment 2: Per-model track records in vector space</h3>
+<p><strong>Hypothesis:</strong> Models that produce claims close to future <code>decision</code> nodes are more reliable.</p>
+<p><strong>Method:</strong> per worker, scatter against decision-linked nodes (good) vs superseded/rejected nodes (bad) → reliability score; correlate with acceptance rate aggregated from the merge log.</p>
+<p><strong>Success criteria:</strong> |correlation| &gt; 0.6</p>
+<h3>Experiment 3: Compression without information loss</h3>
+<p><strong>Hypothesis:</strong> You can drop full-text retrieval and use memoric binary alone without losing routing quality.</p>
+<p><strong>Method:</strong> compare top-3 routing order under edge-only contention vs scatter-only contention. <em>Meaningful only with more than ~3 open questions.</em></p>
+<p><strong>Success criteria:</strong> &gt;90% routing agreement</p>
+<h2>8. Open Questions</h2>
+<ol>
+<li><strong>Time granularity</strong> — is 1 hour fine enough? Or should it be 1 minute for fast sessions?</li>
+<li><strong>Domain inflation</strong> — as Perdura grows, new domain tags appear. How do you handle them? Rotate bits?</li>
+<li><strong>Memoric binary versioning</strong> — when the encoding changes (e.g. semantic_fn swap), do you re-encode all nodes? (<code>memoric_version</code> field exists for this.)</li>
+<li><strong>Cross-model comparability</strong> — memoric binary is model-independent by construction (hashes, not embeddings), but does that hold once a learned semantic field is introduced?</li>
+<li><strong>Bit allocation</strong> — is 48 bits for semantics the right trade-off? (Early experiments will answer this.)</li>
+<li><strong>Semantic hash choice</strong> — Blake2b's avalanche property makes the semantic field a duplicate detector, not a similarity signal (§2.1). Should the spec switch to <code>simhash_48bits</code> (locality-sensitive, same width, still deterministic) before locking? Run experiments 1 and 3 under both and compare.</li>
+</ol>
+<h2>9. Timeline</h2>
+<ul>
+<li><strong>Week 1:</strong> Implement encoder/decoder (perdura_memoric.py) ✅</li>
+<li><strong>Week 2:</strong> Run Experiments 1–3 with mock data and real sessions</li>
+<li><strong>Week 3:</strong> Iterate on spec based on results (e.g., adjust bit allocations, settle Open Question 6)</li>
+<li><strong>Week 4:</strong> Lock spec, integrate into Phase 1.5 code (retrieval layer)</li>
+</ul>
+</main>
+<footer>© 2026 Perdura · perdura.network · MIT licensed · open research — content will change</footer>
+</body></html>

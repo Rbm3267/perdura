@@ -9,12 +9,12 @@ Three experiments validate the core claims:
 Run this after a Perdura session to evaluate memoric binary effectiveness:
 
     python experiments/memoric_eval.py --graph perdura_graph.json
+    python experiments/memoric_eval.py --graph perdura_graph.json --semantic simhash
 
-KNOWN LIMITATION (methodology, not code): experiment 1 measures association
-between scatter and contradicts edges on the *final* graph state. The RFC's
-hypothesis — scatter predicts contradictions *before* the edge appears —
-needs a turn-by-turn replay of the merge log, which this version does not do.
-Treat a pass here as necessary, not sufficient.
+Experiment 1 replays each question's claims in arrival order and tests
+whether scatter predicts contradictions *before* the explicit edge exists
+(the RFC's actual hypothesis). --semantic switches the 48-bit semantic
+hash between blake2b (RFC v0.1 spec) and simhash (open question 6).
 """
 
 import json
@@ -23,7 +23,15 @@ from collections import defaultdict
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
-from perdura_memoric import embedding_scatter, encode_node as _encode_node
+import perdura_memoric as pm
+from perdura_memoric import embedding_scatter
+
+# Semantic hash under test — switchable via --semantic (RFC open question 6)
+SEMANTIC_FN = pm.blake2b_48bits
+
+
+def _encode_node(n: dict, graph_start: float):
+    return pm.encode_node(n, graph_start, semantic_fn=SEMANTIC_FN)
 
 
 def _auc(scored: list) -> float:
@@ -44,12 +52,16 @@ def _auc(scored: list) -> float:
 
 def experiment_1_hidden_disagreement(graph_json_path: str, merge_log: list) -> dict:
     """
-    Hypothesis: Epistemic distance in memoric binary detects disagreement.
+    Hypothesis: memoric scatter detects disagreement BEFORE an explicit
+    contradicts edge appears.
 
-    Method (final-state association — see module docstring):
-    - For each question, compute embedding scatter over its answering claims.
-    - Label the question by whether a contradicts edge exists among them.
-    - Measure: AUC of scatter as a predictor of contradiction.
+    Method (temporal replay):
+    - For each question, replay its answering claims in arrival order.
+    - At each checkpoint with >=2 claims and no contradicts edge among them
+      yet, compute scatter; label = does a contradicts edge arrive later?
+    - Primary metric: AUC of checkpoint scatter as a predictor of *future*
+      contradiction. The final-state association AUC is reported for
+      reference only.
     """
     with open(graph_json_path, encoding="utf-8") as f:
         graph_data = json.load(f)
@@ -59,44 +71,57 @@ def experiment_1_hidden_disagreement(graph_json_path: str, merge_log: list) -> d
     graph_start = min((n.get("created_at", 0) for n in nodes.values()),
                       default=0)
 
-    scored = []  # (scatter, has_contradiction)
+    replay = []   # (scatter at pre-contradiction checkpoint, contradiction coming?)
+    final = []    # (final scatter, contradiction present?) — reference only
     for question in [n for n in nodes.values() if n["type"] == "question"]:
         qid = question["id"]
         related_ids = {qid} | {e["src"] for e in edges
                                if e["type"] == "answers" and e["dst"] == qid}
-        related_claims = [n for n in nodes.values()
-                          if n["id"] in related_ids and n["type"] == "claim"]
-        if len(related_claims) < 2:
+        claims = sorted((n for n in nodes.values()
+                         if n["id"] in related_ids and n["type"] == "claim"),
+                        key=lambda n: n.get("created_at", 0))
+        if len(claims) < 2:
             continue
 
-        mbs = [_encode_node(n, graph_start) for n in related_claims]
-        scatter = embedding_scatter(mbs, graph_start)
-        has_contradiction = any(
-            e["type"] == "contradicts"
-            and e["src"] in related_ids and e["dst"] in related_ids
-            for e in edges)
-        scored.append((scatter, has_contradiction))
+        contra_times = sorted(
+            e.get("created_at", 0) for e in edges
+            if e["type"] == "contradicts"
+            and e["src"] in related_ids and e["dst"] in related_ids)
+        first_contra = contra_times[0] if contra_times else None
 
-    if len(scored) < 2:
+        mbs = [_encode_node(n, graph_start) for n in claims]
+        final.append((embedding_scatter(mbs, graph_start), bool(contra_times)))
+
+        for k in range(2, len(claims) + 1):
+            t = claims[k - 1].get("created_at", 0)
+            if first_contra is not None and first_contra <= t:
+                break  # contradiction is explicit from here on — nothing to predict
+            replay.append((embedding_scatter(mbs[:k], graph_start),
+                           first_contra is not None))
+
+    if len(replay) < 4:
         return {"status": "insufficient_data",
-                "message": "Need at least 2 questions with >=2 claims each"}
+                "message": "Need more pre-contradiction checkpoints "
+                           "(>=2 claims per question, edges arriving late)"}
 
-    auc = _auc(scored)
-    if auc != auc:  # NaN: all questions share one label
+    auc_replay = _auc(replay)
+    if auc_replay != auc_replay:  # NaN: all checkpoints share one label
         return {"status": "insufficient_data",
                 "message": "Need both contended and uncontended questions"}
 
-    n_pos = sum(1 for _, c in scored if c)
+    n_pos = sum(1 for _, c in replay if c)
     return {
         "status": "success",
-        "total_questions": len(scored),
-        "questions_with_contradiction": n_pos,
-        "mean_scatter_with_contradiction":
-            sum(s for s, c in scored if c) / n_pos,
-        "mean_scatter_without":
-            sum(s for s, c in scored if not c) / (len(scored) - n_pos),
-        "auc": auc,
-        "success_criteria_met": auc > 0.7,
+        "questions_evaluated": len(final),
+        "replay_checkpoints": len(replay),
+        "checkpoints_preceding_contradiction": n_pos,
+        "mean_scatter_before_contradiction":
+            sum(s for s, c in replay if c) / max(1, n_pos),
+        "mean_scatter_no_contradiction":
+            sum(s for s, c in replay if not c) / max(1, len(replay) - n_pos),
+        "auc_replay": auc_replay,
+        "auc_final_state_reference": _auc(final),
+        "success_criteria_met": auc_replay > 0.7,
     }
 
 
@@ -110,11 +135,13 @@ def experiment_2_model_track_records(graph_json_path: str, merge_log: list) -> d
     are more reliable.
 
     Method:
-    - Good outcomes per worker: their decision nodes, plus their nodes linked
-      by any edge to a decision node.
-    - Bad outcomes per worker: their superseded or rejected nodes.
-    - Reliability from scatter against good vs bad outcomes; compare to the
-      acceptance rate aggregated from the merge log.
+    - Good outcomes (global): decision nodes plus nodes a decision links to.
+    - Bad outcomes (global): superseded or rejected nodes.
+    - Per worker, reliability = d_bad / (d_good + d_bad), where d_* is the
+      worker's claims' mean epistemic distance to each outcome set (self
+      excluded; outcome/worker nodes encoded as live, since the stale flag
+      zeroes epistemic distance by design and would erase the signal).
+    - Compare to acceptance rate aggregated from the merge log.
     """
     with open(graph_json_path, encoding="utf-8") as f:
         graph_data = json.load(f)
@@ -124,39 +151,48 @@ def experiment_2_model_track_records(graph_json_path: str, merge_log: list) -> d
     graph_start = min((n.get("created_at", 0) for n in nodes.values()),
                       default=0)
 
-    # Nodes connected to any decision node by any edge
+    def enc_live(n):
+        m = dict(n)
+        m["superseded_by"] = None
+        return _encode_node(m, graph_start)
+
+    # Global outcome sets
     decision_linked = set()
     for e in edges:
         if nodes.get(e["src"], {}).get("type") == "decision":
             decision_linked.add(e["dst"])
         if nodes.get(e["dst"], {}).get("type") == "decision":
             decision_linked.add(e["src"])
+    good = [(n["id"], enc_live(n)) for n in nodes.values()
+            if n["type"] == "decision" or n["id"] in decision_linked]
+    bad = [(n["id"], enc_live(n)) for n in nodes.values()
+           if n.get("superseded_by") is not None or n["type"] == "rejected"]
+
+    if not good or not bad:
+        return {"status": "insufficient_data",
+                "message": "Need both decision-linked and superseded/rejected "
+                           "nodes in the graph"}
+
+    from perdura_memoric import epistemic_distance
+
+    def mean_dist(claims, outcome_set):
+        ds = [epistemic_distance(mb, omb, graph_start)
+              for cid, mb in claims
+              for oid, omb in outcome_set if oid != cid]
+        return sum(ds) / len(ds) if ds else None
 
     nodes_by_worker = defaultdict(list)
     for n in nodes.values():
-        if n.get("created_by"):
+        if n.get("created_by") and n["type"] == "claim":
             nodes_by_worker[n["created_by"]].append(n)
 
     worker_metrics = {}
     for worker, worker_nodes in nodes_by_worker.items():
-        mbs = [_encode_node(n, graph_start) for n in worker_nodes]
-
-        good_outcomes = [n for n in worker_nodes
-                         if n["type"] == "decision" or n["id"] in decision_linked]
-        bad_outcomes = [n for n in worker_nodes
-                        if n.get("superseded_by") is not None
-                        or n["type"] == "rejected"]
-
-        good_mbs = [_encode_node(n, graph_start) for n in good_outcomes]
-        bad_mbs = [_encode_node(n, graph_start) for n in bad_outcomes]
-
-        good_scatter = (embedding_scatter(mbs + good_mbs, graph_start)
-                        if good_mbs else 1.0)   # worst case: no good outcomes
-        bad_scatter = (embedding_scatter(mbs + bad_mbs, graph_start)
-                       if bad_mbs else 0.0)     # best case: no bad outcomes
-
-        reliability = max(0, min(1, (bad_scatter - good_scatter)
-                                 / (bad_scatter + 0.01)))
+        claims = [(n["id"], enc_live(n)) for n in worker_nodes]
+        d_good, d_bad = mean_dist(claims, good), mean_dist(claims, bad)
+        if d_good is None or d_bad is None:
+            continue
+        reliability = d_bad / (d_good + d_bad + 1e-9)
 
         # Aggregate the merge log (it holds one entry per turn, not totals)
         accepted = sum(e.get("accepted", 0) for e in merge_log
@@ -166,11 +202,11 @@ def experiment_2_model_track_records(graph_json_path: str, merge_log: list) -> d
         acceptance_rate = accepted / max(1, accepted + rejected)
 
         worker_metrics[worker] = {
-            "reliability_score": reliability,
-            "acceptance_rate": acceptance_rate,
-            "nodes_contributed": len(worker_nodes),
-            "good_outcomes": len(good_outcomes),
-            "bad_outcomes": len(bad_outcomes),
+            "reliability_score": round(reliability, 4),
+            "acceptance_rate": round(acceptance_rate, 4),
+            "claims_contributed": len(worker_nodes),
+            "dist_to_good": round(d_good, 4),
+            "dist_to_bad": round(d_bad, 4),
         }
 
     if len(worker_metrics) < 2:
@@ -205,10 +241,11 @@ def experiment_3_compression_routing(graph_json_path: str) -> dict:
     Method:
     - Baseline: contention from contradicts-edge counts.
     - Variant: contention from embedding_scatter (memoric binary only).
-    - Compare top-3 routing decisions (which questions are worked next).
-
-    Caveat: with <=3 open questions the top-3 sets are identical by
-    construction; the agreement metric needs a larger graph to mean much.
+    - Routing agreement = order preservation: over every question pair the
+      edge metric strictly orders, the fraction where scatter orders the
+      same way (memoric ties count half). Top-3 lists reported for
+      reference. (The earlier top-3 set overlap was degenerate under the
+      ties that edge-counts produce constantly.)
     """
     with open(graph_json_path, encoding="utf-8") as f:
         graph_data = json.load(f)
@@ -240,19 +277,33 @@ def experiment_3_compression_routing(graph_json_path: str) -> dict:
         contention_memoric[qid] = (embedding_scatter(claim_mbs, graph_start)
                                    if claim_mbs else 0.0)
 
-    routing_baseline = sorted(contention_baseline.items(), key=lambda x: -x[1])[:3]
-    routing_memoric = sorted(contention_memoric.items(), key=lambda x: -x[1])[:3]
-    baseline_ids = {q[0] for q in routing_baseline}
-    memoric_ids = {q[0] for q in routing_memoric}
-    agreement = len(baseline_ids & memoric_ids) / max(1, len(baseline_ids | memoric_ids))
+    qids = list(contention_baseline)
+    score = total = 0.0
+    for i in range(len(qids)):
+        for j in range(i + 1, len(qids)):
+            b = contention_baseline[qids[i]] - contention_baseline[qids[j]]
+            if b == 0:
+                continue  # edge metric expresses no preference — skip
+            m = contention_memoric[qids[i]] - contention_memoric[qids[j]]
+            total += 1
+            if m == 0:
+                score += 0.5
+            elif (m > 0) == (b > 0):
+                score += 1
+    if total == 0:
+        return {"status": "insufficient_data",
+                "message": "Edge metric ties on every question pair"}
+    agreement = score / total
 
+    top3 = lambda d: [q for q, _ in sorted(d.items(), key=lambda x: -x[1])[:3]]
     return {
         "status": "success",
         "total_open_questions": len(open_questions),
-        "top3_baseline": [q[0] for q in routing_baseline],
-        "top3_memoric": [q[0] for q in routing_memoric],
-        "routing_agreement": agreement,
-        "success_criteria_met": agreement > 0.9,  # 90% routing overlap
+        "strictly_ordered_pairs": int(total),
+        "top3_baseline": top3(contention_baseline),
+        "top3_memoric": top3(contention_memoric),
+        "routing_agreement": round(agreement, 4),
+        "success_criteria_met": agreement > 0.9,  # 90% order preservation
     }
 
 
@@ -266,7 +317,14 @@ if __name__ == "__main__":
     p = argparse.ArgumentParser(description="Memoric binary validation experiments")
     p.add_argument("--graph", default="perdura_graph.json",
                    help="Path to perdura_graph.json")
+    p.add_argument("--semantic", choices=["blake2b", "simhash"], default="blake2b",
+                   help="48-bit semantic hash (RFC open question 6)")
     args = p.parse_args()
+
+    # Module scope: this rebinds the global SEMANTIC_FN used by _encode_node
+    SEMANTIC_FN = {"blake2b": pm.blake2b_48bits,
+                   "simhash": pm.simhash_48bits}[args.semantic]
+    print(f"semantic hash: {args.semantic}")
 
     if not Path(args.graph).exists():
         print(f"Graph file not found: {args.graph}")

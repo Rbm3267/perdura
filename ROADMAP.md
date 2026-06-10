@@ -8,6 +8,11 @@ Perdura is a persistent knowledge graph where LLMs are ephemeral workers. The ro
 
 ## Phase 0: Memoric Binary (NOW)
 
+**Validation status (2026-06-10):** synthetic arm complete — experiment 1
+(hidden disagreement, temporal replay) passes; experiment 3 near-miss
+(0.87 vs 0.9); experiment 2 needs the real-session arm. Spec not locked.
+Full results and the local run instructions: docs/phase0-validation.md.
+
 **Goal:** Design, implement, and validate a 96-bit epistemic encoding that captures semantic content, node type, confidence, domain tags, temporal context, and supersession lineage.
 
 **Deliverables:**
@@ -48,7 +53,15 @@ Graph memory + delta extraction with Claude, Gemini, and local Qwen.
 
 -----
 
-## Phase 1.5: Memoric Retrieval Layer
+## Phase 1.5: Memoric Retrieval Layer (STARTED)
+
+**Status (2026-06-10):** retrieval layer shipped behind a pluggable
+`Retriever` interface (`perdura_retrieval.py`): `--retriever graph`
+(default, byte-identical Phase 1 baseline), `hybrid` (BM25 + dense +
+graph expansion), `chroma` (hybrid with a persistent ChromaDB index).
+Mind-map visualization shipped (`perdura.py viz`). Remaining: memoric
+binary in briefings, learned dense embeddings, retrieval A/B on real
+sessions (research question #1).
 
 **Goal:** Integrate memoric binary into the graph storage and briefing assembly.
 

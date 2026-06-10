@@ -1,0 +1,214 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Perdura — Phase 0 Validation</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,400;0,9..144,600;0,9..144,700;1,9..144,400&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root { --ink:#0a0e1f; --ink-2:#0e1430; --ink-3:#131a3d; --paper:#f0f3fa;
+    --muted:#97a3c4; --faint:#5b6688; --cyan:#2dd9ff; --amber:#ffb454;
+    --line:rgba(151,163,196,0.16); }
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body { background:var(--ink); color:var(--paper);
+    font-family:"IBM Plex Sans",-apple-system,sans-serif; font-size:16.5px;
+    line-height:1.7; -webkit-font-smoothing:antialiased; }
+  ::selection { background:var(--cyan); color:var(--ink); }
+  nav { position:sticky; top:0; z-index:50; background:rgba(10,14,31,0.85);
+    backdrop-filter:blur(12px); border-bottom:1px solid var(--line); }
+  .nav-inner { max-width:880px; margin:0 auto; padding:0 28px; height:60px;
+    display:flex; align-items:center; justify-content:space-between; }
+  .wordmark { font-family:"Fraunces",serif; font-weight:700; font-size:1.25rem;
+    color:var(--paper); text-decoration:none; }
+  .wordmark .dot { color:var(--cyan); }
+  nav .links a { color:var(--muted); text-decoration:none; font-size:0.88rem;
+    margin-left:20px; }
+  nav .links a:hover { color:var(--cyan); }
+  main { max-width:880px; margin:0 auto; padding:64px 28px 96px; }
+  .doc-kicker { font-family:"IBM Plex Mono",monospace; font-size:0.78rem;
+    letter-spacing:0.18em; text-transform:uppercase; color:var(--cyan);
+    margin-bottom:10px; }
+  h1,h2,h3,h4 { font-family:"Fraunces",Georgia,serif; font-weight:600;
+    line-height:1.2; margin:2.2em 0 0.6em; }
+  h1 { font-size:2.3rem; margin-top:0; }
+  h2 { font-size:1.6rem; border-bottom:1px solid var(--line);
+    padding-bottom:0.35em; }
+  h3 { font-size:1.25rem; } h4 { font-size:1.05rem; }
+  p, ul, ol { margin:0.9em 0; color:var(--muted); }
+  li { margin:0.35em 0; } ul, ol { padding-left:1.4em; }
+  strong { color:var(--paper); } em { color:var(--paper); }
+  a { color:var(--cyan); }
+  blockquote { border-left:3px solid var(--amber); padding:0.4em 1.1em;
+    margin:1.2em 0; background:var(--ink-2); border-radius:0 8px 8px 0; }
+  code { font-family:"IBM Plex Mono",monospace; font-size:0.85em;
+    color:var(--cyan); background:var(--ink-3); padding:2px 6px;
+    border-radius:4px; }
+  pre { background:var(--ink-2); border:1px solid var(--line);
+    border-radius:10px; padding:18px 20px; overflow-x:auto; margin:1.2em 0; }
+  pre code { background:none; padding:0; color:var(--paper);
+    font-size:0.84rem; line-height:1.6; }
+  table { border-collapse:collapse; width:100%; margin:1.2em 0;
+    font-size:0.92rem; }
+  th, td { border:1px solid var(--line); padding:9px 13px; text-align:left;
+    color:var(--muted); }
+  th { color:var(--paper); background:var(--ink-2);
+    font-family:"IBM Plex Mono",monospace; font-size:0.8rem; }
+  hr { border:none; border-top:1px solid var(--line); margin:2.4em 0; }
+  footer { max-width:880px; margin:0 auto; padding:0 28px 56px;
+    font-family:"IBM Plex Mono",monospace; font-size:0.78rem;
+    color:var(--faint); }
+</style></head><body>
+<nav><div class="nav-inner">
+  <a class="wordmark" href="index.html">perdura<span class="dot">.</span></a>
+  <div class="links"><a href="design.html">Design</a> <a href="memoric-binary.html">Memoric</a> <a href="roadmap.html">Roadmap</a> <a href="validation.html">Phase</a> <a href="index.html#access">Request access</a></div>
+</div></nav>
+<main><div class="doc-kicker">Documentation</div>
+<h1>Phase 0 Validation — Synthetic Arm Results</h1>
+<p><strong>Date:</strong> 2026-06-10 · <strong>Arm:</strong> synthetic ground truth (necessary condition)
+<strong>Graph:</strong> <code>experiments/synthetic_session.py</code> (68 live nodes, 89 edges,
+16 contradicts, 3 workers with planted reliability, seed 7)
+<strong>Status: PARTIAL — do not lock the spec yet.</strong> The real-session arm must
+run before Phase 0 closes (see "Running the real-session arm" below).</p>
+<h2>Why a synthetic arm</h2>
+<p>This environment has no model API access, so these runs use controlled
+graphs with <em>planted</em> ground truth: contended questions (two lexically
+distinct camps, asymmetric confidence, <code>contradicts</code> edges arriving only
+after several claims exist) vs consensus questions (paraphrased agreement,
+decisions promoting reliable workers' claims). A pass here means the
+mechanism can detect what it was designed to detect — necessary, not
+sufficient. Real multi-model sessions are the sufficient-condition test.</p>
+<h2>Methodology corrections made during validation</h2>
+<p>Three of the draft experiments had structural defects that this run
+surfaced and fixed (all in <code>experiments/memoric_eval.py</code>):</p>
+<ol>
+<li><strong>Experiment 1 now replays time.</strong> The draft measured final-state
+   association (circular: scatter of a contended graph vs edges of a
+   contended graph). It now replays each question's claims in arrival
+   order and scores scatter at checkpoints <em>before any contradicts edge
+   exists</em> against whether one arrives later — the RFC's actual claim.</li>
+<li><strong>Experiment 2's reliability formula was degenerate.</strong> A worker with
+   zero bad outcomes got <code>bad_scatter = 0</code> → reliability clamped to 0, so
+   the best and worst workers scored identically (correlation exactly 0.0).
+   Also, superseded nodes carry the stale flag, and <code>epistemic_distance</code>
+   returns 0 for stale nodes by design — distances to the bad-outcome set
+   were always zero. Replaced with <code>d_bad / (d_good + d_bad)</code> against
+   <em>global</em> outcome sets, with outcome nodes encoded as live.</li>
+<li><strong>Experiment 3's top-3 overlap was tie-brittle.</strong> Edge counts tie
+   constantly; both metrics then pick an arbitrary 3 of the tied set and
+   the overlap measures dict ordering. Replaced with pairwise order
+   preservation: over every question pair the edge metric strictly orders,
+   the fraction scatter orders the same way.</li>
+</ol>
+<h2>Results</h2>
+<table>
+<thead>
+<tr>
+<th>Experiment</th>
+<th>Criterion</th>
+<th>blake2b</th>
+<th>simhash</th>
+<th>Verdict</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>1 — Hidden disagreement (temporal replay)</td>
+<td>AUC &gt; 0.7</td>
+<td><strong>1.00</strong></td>
+<td><strong>1.00</strong></td>
+<td>✅ PASS</td>
+</tr>
+<tr>
+<td>2 — Track records in vector space</td>
+<td>|r| &gt; 0.6</td>
+<td>0.04</td>
+<td>−0.61</td>
+<td>⚠️ <strong>INCONCLUSIVE</strong></td>
+</tr>
+<tr>
+<td>3 — Compression / routing equivalence</td>
+<td>&gt; 0.9 order preservation</td>
+<td>0.872</td>
+<td>0.830</td>
+<td>❌ NEAR-MISS</td>
+</tr>
+</tbody>
+</table>
+<h3>Experiment 1 — PASS (with a caveat)</h3>
+<p>Scatter at pre-contradiction checkpoints perfectly separates questions
+heading toward contradiction from consensus questions (contended mean
+scatter ≈ 0.19/0.16 vs consensus ≈ 0.05/0.04; separation ratio ≈ 4.0×
+blake2b, 4.5× simhash). The planted signal (confidence asymmetry +
+lexically distinct camps) is deliberately clean, so AUC 1.0 reflects an
+easy synthetic separation, not expected real-world performance. The
+mechanism works; the real-session arm calibrates how well.</p>
+<h3>Experiment 2 — INCONCLUSIVE, not a pass</h3>
+<p>The simhash arm technically clears the |r| &gt; 0.6 bar, <strong>and we decline
+it</strong>: the correlation is computed over 3 workers (3 data points), the
+reliability spread is ~0.01, and the sign is negative. That is noise
+clearing a bar, not signal. The corrected metric behaves sanely (no more
+degenerate zeros), but per-worker distance-to-outcome discrimination needs
+many more workers and organically produced outcomes than a synthetic
+session provides. <strong>Decision: experiment 2 requires the real-session arm
+with ≥4 workers and several dozen outcome nodes.</strong></p>
+<h3>Experiment 3 — near-miss worth understanding</h3>
+<p>0.87/0.83 order preservation means memoric-only contention reproduces the
+edge metric's strict preferences ~85% of the time, with disagreements
+concentrated among questions of <em>similar</em> contention — where ordering
+matters least for routing. Two readings: (a) slightly tune distance
+weights to close the gap, or (b) note that perfect agreement is not
+actually the goal — the blend exists because scatter sees things edges
+don't (experiment 1). Re-evaluate on real sessions before tuning weights
+toward a metric we partially want to disagree with.</p>
+<h3>Open question 6 (blake2b vs simhash) — still open</h3>
+<p>Both hashes pass experiment 1 on synthetic text; blake2b shows larger
+absolute separation, simhash a larger ratio. Synthetic paraphrases can't
+settle this — real model prose (where opposing claims share vocabulary)
+is exactly the case simhash exists for. Keep both arms in the
+real-session run.</p>
+<h2>Running the real-session arm (local machine, keys + LM Studio)</h2>
+<pre><code class="language-bash"># build a real graph: ~6 questions, 24+ turns, 3 workers
+python perdura.py new &quot;What memory compaction policy best preserves epistemic history?&quot;
+# ...add 5 more questions...
+python perdura.py run --turns 24            # qwen, claude, gemini round-robin
+
+# evaluate both semantic-hash arms
+python experiments/memoric_eval.py --graph perdura_graph.json --semantic blake2b
+python experiments/memoric_eval.py --graph perdura_graph.json --semantic simhash
+# baseline routing arm for comparison
+python perdura.py show --memoric-weight 0
+</code></pre>
+<h2>Verdict</h2>
+<table>
+<thead>
+<tr>
+<th></th>
+<th></th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Mechanism (exp 1)</td>
+<td><strong>Validated</strong> — scatter predicts contradiction before edges exist</td>
+</tr>
+<tr>
+<td>Track records (exp 2)</td>
+<td><strong>Not yet testable</strong> — needs real workers and outcomes</td>
+</tr>
+<tr>
+<td>Routing equivalence (exp 3)</td>
+<td><strong>Close</strong> — 0.87; re-test on real sessions before tuning</td>
+</tr>
+<tr>
+<td>Spec lock</td>
+<td><strong>No</strong> — blocked on the real-session arm</td>
+</tr>
+<tr>
+<td>Phase 1.5 start</td>
+<td><strong>Unblocked</strong> — exp 1 is the signal Phase 1.5 consumes, and it holds</td>
+</tr>
+</tbody>
+</table>
+</main>
+<footer>© 2026 Perdura · perdura.network · MIT licensed · open research — content will change</footer>
+</body></html>

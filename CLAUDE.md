@@ -34,9 +34,12 @@ experiments/debate.py  Precursor multi-model debate loop
 
 ## Phase roadmap
 Full detail in ROADMAP.md; docs/memoric-binary.md is the Phase 0 RFC.
-- Phase 0   Memoric binary (96-bit epistemic encoding) — validation in progress
+- Phase 0   Memoric binary — synthetic arm done (docs/phase0-validation.md);
+  real-session arm pending; spec NOT locked
 - Phase 1   ✅ Graph + delta loop, Claude/Gemini/Qwen, round-robin, CLI + MCP station
-- Phase 1.5 ChromaDB hybrid retrieval (BM25 + dense + graph expansion)
+- Phase 1.5 STARTED — pluggable retrieval (perdura_retrieval.py;
+  --retriever graph|hybrid|chroma, graph = required baseline arm) and
+  mind-map viz (perdura.py viz)
 - Phase 2   Per-model track records from node outcomes
 - Phase 3   Epistemic router (contention-driven escalation, cost budgets)
 

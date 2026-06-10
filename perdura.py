@@ -222,10 +222,13 @@ Existing edges among them:
 """
 
 
-def build_briefing(graph: Graph, question: Node):
-    ids = graph.neighborhood(question.id, hops=2)
-    # Always include other open questions so workers can link across them
-    ids |= {q.id for q in graph.open_questions()}
+def build_briefing(graph: Graph, question: Node, retriever=None):
+    # Phase 1.5: candidate selection is pluggable. Default reproduces the
+    # Phase 1 behavior exactly (2-hop neighborhood + open questions).
+    if retriever is None:
+        from perdura_retrieval import GraphRetriever
+        retriever = GraphRetriever()
+    ids = retriever.retrieve(graph, question)
     nodes = [graph.nodes[i] for i in ids
              if graph.nodes[i].superseded_by is None]
     nodes.sort(key=lambda n: -n.confidence)
@@ -239,9 +242,19 @@ def build_briefing(graph: Graph, question: Node):
         lines.append(line)
         used += len(line)
     shown = {l.split(" | ")[0] for l in lines}
-    edge_lines = [f"{e.src} -[{e.type}]-> {e.dst}"
-                  for e in graph.edges.values()
-                  if e.src in shown and e.dst in shown]
+    # Edge section is bounded too (a third of the node budget) — retrieval
+    # can surface nodes from across the graph, and the boundedness invariant
+    # covers the whole briefing, not just node lines. contradicts edges are
+    # the contention signal, so they survive truncation first.
+    edge_lines, eused = [], 0
+    for e in sorted(graph.edges.values(),
+                    key=lambda e: e.type != "contradicts"):
+        if e.src in shown and e.dst in shown:
+            line = f"{e.src} -[{e.type}]-> {e.dst}"
+            if eused + len(line) > BRIEFING_CHAR_BUDGET // 3:
+                break
+            edge_lines.append(line)
+            eused += len(line)
     return DELTA_PROMPT.format(
         question=f"{question.id}: {question.text}",
         nodes="\n".join(lines) or "(none yet)",
@@ -434,7 +447,7 @@ WORKER_FACTORIES = {
 # Conductor loop + CLI
 # ---------------------------------------------------------------------------
 
-def run_turns(graph: Graph, workers: list, turns: int):
+def run_turns(graph: Graph, workers: list, turns: int, retriever=None):
     """Round-robin boarding (Phase 3 replaces this with the router)."""
     for t in range(turns):
         questions = graph.open_questions()
@@ -449,7 +462,7 @@ def run_turns(graph: Graph, workers: list, turns: int):
 
         print(f"\n[turn {t+1}] {worker.name} boards for {q.id}: "
               f"{q.text[:60]}...")
-        briefing = build_briefing(graph, q)
+        briefing = build_briefing(graph, q, retriever)
         try:
             raw = worker.generate(briefing)
             try:
@@ -502,9 +515,11 @@ def show(graph: Graph):
 
 def main():
     p = argparse.ArgumentParser(description="Perdura Phase 1")
-    p.add_argument("command", choices=["new", "run", "show", "demo"])
+    p.add_argument("command", choices=["new", "run", "show", "demo", "viz"])
     p.add_argument("text", nargs="?", help="question text (for `new`)")
     p.add_argument("--graph", default="perdura_graph.json")
+    p.add_argument("--out", default="perdura_mindmap.html",
+                   help="output path (for `viz`)")
     p.add_argument("--turns", type=int, default=6)
     p.add_argument("--workers", default="qwen,claude,gemini",
                    help="comma list: qwen,claude,gemini,mock")
@@ -520,6 +535,12 @@ def main():
                    help="contention blend (1-w)*edges + w*memoric scatter. "
                         "Default 0.5; pass 0 for the original edge-only "
                         "metric (experiment baseline)")
+    p.add_argument("--retriever", choices=["graph", "hybrid", "chroma"],
+                   default="graph",
+                   help="briefing candidate selection (Phase 1.5): graph = "
+                        "2-hop neighborhood (default/baseline), hybrid = "
+                        "BM25 + dense + expansion, chroma = hybrid with a "
+                        "persistent ChromaDB index")
     args = p.parse_args()
 
     graph = Graph(args.graph)
@@ -536,11 +557,17 @@ def main():
     elif args.command == "run":
         names = [w.strip() for w in args.workers.split(",")]
         workers = [WORKER_FACTORIES[n](args) for n in names]
-        run_turns(graph, workers, args.turns)
+        from perdura_retrieval import RETRIEVERS
+        run_turns(graph, workers, args.turns,
+                  retriever=RETRIEVERS[args.retriever]())
         show(graph)
 
     elif args.command == "show":
         show(graph)
+
+    elif args.command == "viz":
+        from perdura_viz import write
+        print(f"Mind map written to {write(graph, args.out)}")
 
     elif args.command == "demo":
         demo_path = "perdura_demo_graph.json"

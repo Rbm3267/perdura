@@ -17,6 +17,7 @@ dependencies = [
 
 [project.optional-dependencies]
 server = ["fastmcp>=2.0"]
+retrieval = ["chromadb>=1.0"]
 
 [project.scripts]
 perdura = "perdura:main"
@@ -25,4 +26,4 @@ perdura = "perdura:main"
 Repository = "https://github.com/Rbm3267/perdura"
 
 [tool.setuptools]
-py-modules = ["perdura", "perdura_memoric"]
+py-modules = ["perdura", "perdura_memoric", "perdura_retrieval", "perdura_viz"]

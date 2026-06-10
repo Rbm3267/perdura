@@ -1,0 +1,295 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Perdura — Design Document</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,400;0,9..144,600;0,9..144,700;1,9..144,400&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root { --ink:#0a0e1f; --ink-2:#0e1430; --ink-3:#131a3d; --paper:#f0f3fa;
+    --muted:#97a3c4; --faint:#5b6688; --cyan:#2dd9ff; --amber:#ffb454;
+    --line:rgba(151,163,196,0.16); }
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body { background:var(--ink); color:var(--paper);
+    font-family:"IBM Plex Sans",-apple-system,sans-serif; font-size:16.5px;
+    line-height:1.7; -webkit-font-smoothing:antialiased; }
+  ::selection { background:var(--cyan); color:var(--ink); }
+  nav { position:sticky; top:0; z-index:50; background:rgba(10,14,31,0.85);
+    backdrop-filter:blur(12px); border-bottom:1px solid var(--line); }
+  .nav-inner { max-width:880px; margin:0 auto; padding:0 28px; height:60px;
+    display:flex; align-items:center; justify-content:space-between; }
+  .wordmark { font-family:"Fraunces",serif; font-weight:700; font-size:1.25rem;
+    color:var(--paper); text-decoration:none; }
+  .wordmark .dot { color:var(--cyan); }
+  nav .links a { color:var(--muted); text-decoration:none; font-size:0.88rem;
+    margin-left:20px; }
+  nav .links a:hover { color:var(--cyan); }
+  main { max-width:880px; margin:0 auto; padding:64px 28px 96px; }
+  .doc-kicker { font-family:"IBM Plex Mono",monospace; font-size:0.78rem;
+    letter-spacing:0.18em; text-transform:uppercase; color:var(--cyan);
+    margin-bottom:10px; }
+  h1,h2,h3,h4 { font-family:"Fraunces",Georgia,serif; font-weight:600;
+    line-height:1.2; margin:2.2em 0 0.6em; }
+  h1 { font-size:2.3rem; margin-top:0; }
+  h2 { font-size:1.6rem; border-bottom:1px solid var(--line);
+    padding-bottom:0.35em; }
+  h3 { font-size:1.25rem; } h4 { font-size:1.05rem; }
+  p, ul, ol { margin:0.9em 0; color:var(--muted); }
+  li { margin:0.35em 0; } ul, ol { padding-left:1.4em; }
+  strong { color:var(--paper); } em { color:var(--paper); }
+  a { color:var(--cyan); }
+  blockquote { border-left:3px solid var(--amber); padding:0.4em 1.1em;
+    margin:1.2em 0; background:var(--ink-2); border-radius:0 8px 8px 0; }
+  code { font-family:"IBM Plex Mono",monospace; font-size:0.85em;
+    color:var(--cyan); background:var(--ink-3); padding:2px 6px;
+    border-radius:4px; }
+  pre { background:var(--ink-2); border:1px solid var(--line);
+    border-radius:10px; padding:18px 20px; overflow-x:auto; margin:1.2em 0; }
+  pre code { background:none; padding:0; color:var(--paper);
+    font-size:0.84rem; line-height:1.6; }
+  table { border-collapse:collapse; width:100%; margin:1.2em 0;
+    font-size:0.92rem; }
+  th, td { border:1px solid var(--line); padding:9px 13px; text-align:left;
+    color:var(--muted); }
+  th { color:var(--paper); background:var(--ink-2);
+    font-family:"IBM Plex Mono",monospace; font-size:0.8rem; }
+  hr { border:none; border-top:1px solid var(--line); margin:2.4em 0; }
+  footer { max-width:880px; margin:0 auto; padding:0 28px 56px;
+    font-family:"IBM Plex Mono",monospace; font-size:0.78rem;
+    color:var(--faint); }
+</style></head><body>
+<nav><div class="nav-inner">
+  <a class="wordmark" href="index.html">perdura<span class="dot">.</span></a>
+  <div class="links"><a href="design.html">Design</a> <a href="memoric-binary.html">Memoric</a> <a href="roadmap.html">Roadmap</a> <a href="validation.html">Phase</a> <a href="index.html#access">Request access</a></div>
+</div></nav>
+<main><div class="doc-kicker">Documentation</div>
+<h1>Perdura — Design Document</h1>
+<p><strong>Tagline:</strong> The mind that outlives its models.
+<strong>Name:</strong> From <em>perdurantism</em> — the philosophy that a thing persists as a series
+of temporal parts rather than one enduring object. Also literally "it endures"
+(Spanish/Italian/Portuguese). Namespace verified clean on PyPI, npm, and GitHub
+as of 2026-06-09.
+<strong>Author:</strong> Bennett · <strong>Date:</strong> 2026-06-09 · <strong>Status:</strong> Draft v0.1</p>
+<hr />
+<h2>1. Thesis</h2>
+<blockquote>
+<p>A persistent knowledge graph that hires and fires LLMs based on what it has
+learned about them, spending money only where it disagrees with itself.</p>
+</blockquote>
+<p>Conventional multi-agent systems treat agents as persistent and memory as
+incidental. Perdura inverts this: <strong>memory is the persistent entity; LLMs are
+ephemeral workers</strong> that board, contribute graph deltas, and disembark. The
+"mind" survives every model that ever powered it.</p>
+<h2>2. Novel claims</h2>
+<p>These are the three claims this project exists to prove. Each layer requires
+the one before it.</p>
+<ol>
+<li><strong>Inverted persistence.</strong> The knowledge graph is the system of record.
+   Models are interchangeable, stateless labor. A model can be swapped
+   mid-task with zero loss of working state because no working state lives in
+   the model.</li>
+<li><strong>Per-model epistemic track records.</strong> Every node and edge is attributed to
+   the model that produced it, with a confidence score. Over time the graph
+   accumulates evidence about which models are reliable in which domains —
+   the memory evaluates its workers.</li>
+<li><strong>Contention-driven economics.</strong> Routing decisions are made on <em>epistemic
+   state</em>, not just cost. Cheap/local models are the default labor force;
+   expensive frontier models are summoned only when contradiction-edge
+   density rises in a subgraph or a high-stakes node is contested. Spend
+   money where the graph disagrees with itself.</li>
+</ol>
+<h2>3. Prior art positioning (what this is <em>not</em>)</h2>
+<ul>
+<li><strong>Blackboard systems (classic AI):</strong> shared workspace, but workers were
+  hand-coded specialists, not commodity LLMs with learned track records.</li>
+<li><strong>MemGPT / Letta, Zep/Graphiti:</strong> give <em>an agent</em> long-term memory. Perdura
+  has no privileged agent; the memory itself is the agent-like entity.</li>
+<li><strong>Multi-agent debate (Du et al.):</strong> improves answers via critique rounds, but
+  agents are fixed for the session and memory is the transcript.</li>
+<li><strong>LLM routers (RouteLLM, Martian):</strong> route per-query on cost/quality
+  predictions. Perdura routes per-<em>subgraph</em> on live epistemic signals
+  (contention, confidence, attribution history).</li>
+</ul>
+<p><em>Survey updated 2026-06-10 — closest new neighbors since the draft:</em></p>
+<ul>
+<li><strong>Blackboard-MAS revival (<a href="https://arxiv.org/abs/2507.01701">arXiv:2507.01701</a>,
+  <a href="https://arxiv.org/abs/2510.01285">arXiv:2510.01285</a>):</strong> stateless LLM agents
+  around a shared workspace, beating master-slave orchestration by 13–57%.
+  Structurally the closest neighbor — but the workspace is untyped, nothing is
+  attributed, and there are no track records or contention economics.</li>
+<li><strong>Memory-augmented routing (<a href="https://arxiv.org/abs/2603.23013">arXiv:2603.23013</a>):</strong>
+  "knowledge access beats model size" — an 8B model with memory recovers 69% of
+  a 235B model at 4% of cost. Flat conversational memory, though, and routing
+  decisions are unchanged by it. In Perdura the routing signal <em>is</em> the
+  memory's epistemic state.</li>
+<li><strong>Cascade / self-consistency escalation (production routers, surveyed in
+  <a href="https://arxiv.org/html/2603.04445v2">arXiv:2603.04445</a>):</strong> escalate when
+  samples of one model disagree on one query — per-query, ephemeral, then
+  forgotten. Perdura escalates on disagreement accumulated in the persistent
+  artifact, across models and over time.</li>
+</ul>
+<p>Borrowed infrastructure is a feature, not a compromise: graph storage,
+embeddings, and hybrid retrieval are solved problems (ChromaDB, BM25+dense —
+same stack as forge-rag).</p>
+<h2>4. Architecture</h2>
+<pre><code>┌─────────────────────────────────────────────────────┐
+│                    THE TRAIN (persistent)            │
+│                                                      │
+│   Knowledge Graph ──── Retrieval Index (Phase 1.5)   │
+│        │                                             │
+│   Conductor (deterministic code + thin LLM step)     │
+│        │                                             │
+│   Router / Registry (Phase 3)                        │
+└────────┬────────────────┬────────────────┬──────────┘
+         │ board          │ board          │ board
+     ┌───┴───┐        ┌───┴────┐       ┌───┴───┐
+     │ Qwen  │        │ Claude │       │Gemini │   ← STATIONS (ephemeral)
+     └───────┘        └────────┘       └───────┘
+</code></pre>
+<ul>
+<li><strong>Knowledge graph</strong> — typed nodes and edges (schema below). The living
+  mind map. Append-mostly; nodes are superseded, not deleted, preserving the
+  temporal record.</li>
+<li><strong>Conductor</strong> — deterministic code that manages boarding/disembarking,
+  generates briefings (bounded subgraph extracts), validates and merges
+  deltas, and maintains contention metrics. The only LLM involvement is the
+  delta-extraction step performed by the boarding worker itself.</li>
+<li><strong>Workers</strong> — any LLM behind a uniform interface. Receive a briefing, return
+  a JSON delta. No transcript access; the briefing stays bounded regardless of
+  how many models have ever boarded.</li>
+<li><strong>Router (Phase 3)</strong> — model registry with domain tags, cost, latency, and
+  accumulated track record. Matches open questions to workers; escalates on
+  contention.</li>
+</ul>
+<h2>5. Graph schema</h2>
+<h3>Node types</h3>
+<table>
+<thead>
+<tr>
+<th>Type</th>
+<th>Meaning</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>question</code></td>
+<td>An open question driving work. Has <code>status: open/resolved</code></td>
+</tr>
+<tr>
+<td><code>claim</code></td>
+<td>A position/assertion. Has <code>confidence: 0–1</code></td>
+</tr>
+<tr>
+<td><code>evidence</code></td>
+<td>Supporting material, source-attributed</td>
+</tr>
+<tr>
+<td><code>decision</code></td>
+<td>A resolved choice, links to the claims that won</td>
+</tr>
+<tr>
+<td><code>rejected</code></td>
+<td>A path abandoned, with the reason (prevents re-litigating)</td>
+</tr>
+</tbody>
+</table>
+<h3>Common node metadata</h3>
+<p><code>id</code>, <code>type</code>, <code>text</code>, <code>domain_tags[]</code>, <code>created_by</code> (model id),
+<code>confidence</code>, <code>created_at</code>, <code>superseded_by</code> (nullable)</p>
+<h3>Edge types</h3>
+<table>
+<thead>
+<tr>
+<th>Type</th>
+<th>Meaning</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>supports</code></td>
+<td>claim/evidence → claim</td>
+</tr>
+<tr>
+<td><code>contradicts</code></td>
+<td>claim ↔ claim (drives contention metrics)</td>
+</tr>
+<tr>
+<td><code>refines</code></td>
+<td>claim → claim (sharper version)</td>
+</tr>
+<tr>
+<td><code>answers</code></td>
+<td>claim → question</td>
+</tr>
+<tr>
+<td><code>depends_on</code></td>
+<td>claim/decision → claim/decision</td>
+</tr>
+</tbody>
+</table>
+<h3>Contention metric (the routing signal)</h3>
+<p>For any subgraph S:</p>
+<pre><code>edge_signal(S) = contradicts_edges(S) / claim_nodes(S), confidence-weighted
+contention(S)  = (1 - w) * edge_signal(S) + w * embedding_scatter(S)
+</code></pre>
+<p>where <code>embedding_scatter</code> is the mean pairwise epistemic distance of S's
+claims in memoric binary (docs/memoric-binary.md §4.3) and <code>w = 0.5</code> by
+default (adopted 2026-06-10; <code>--memoric-weight 0</code> reproduces the original
+edge-only metric for baselines). Rising contention → escalate to a stronger
+or domain-specialist model.</p>
+<h2>6. Worker lifecycle ("stations")</h2>
+<ol>
+<li><strong>Board</strong> — conductor selects open questions (Phase 1: round-robin;
+   Phase 3: routed) and assembles a briefing: the open question(s) plus the
+   1–2 hop neighborhood of relevant nodes, capped at a token budget.</li>
+<li><strong>Contribute</strong> — worker returns a strict-JSON delta: new nodes, new edges,
+   confidence updates, and optionally <code>supersedes</code> references. No prose.</li>
+<li><strong>Validate &amp; merge</strong> — conductor schema-checks the delta, assigns IDs,
+   stamps attribution, merges, recomputes contention.</li>
+<li><strong>Disembark</strong> — worker is released. Nothing it "knew" is lost because it
+   never knew anything the graph didn't.</li>
+</ol>
+<p>Swap triggers (Phase 3): cost/usage budgets, domain-tag match to a specialist
+model, stagnation (no new edges for k turns), or contention escalation.</p>
+<h2>7. Phase plan</h2>
+<ul>
+<li><strong>Phase 1 (now):</strong> Graph memory + delta extraction with Claude, Gemini, and
+  local Qwen. JSON-file persistence. Round-robin boarding. CLI. Proves the
+  inverted-persistence loop works end to end.</li>
+<li><strong>Phase 1.5:</strong> Retrieval layer — embed nodes into ChromaDB (forge-rag
+  pattern), briefings assembled by hybrid search + graph expansion instead of
+  tag matching. Mind-map visualization (likely MapLibre-style force graph in
+  Tech-Editorial Futurism dark/cyan).</li>
+<li><strong>Phase 2:</strong> Attribution analytics — per-model, per-domain track records
+  computed from how often a model's claims end up supported, contradicted,
+  superseded, or promoted to decisions.</li>
+<li><strong>Phase 3:</strong> The router — registry + contention-driven escalation +
+  cost/usage budgets + specialist summoning. This is where claims #2 and #3
+  get proven with real accumulated data.</li>
+</ul>
+<h2>8. Open research questions</h2>
+<ol>
+<li>Does briefing-only context (no transcript) degrade contribution quality vs.
+   full-history debate, and at what graph size does it win?</li>
+<li>What contention threshold actually predicts "a frontier model will change
+   the outcome here"? (Measure: how often escalation flips a consensus.)</li>
+<li>Do small local models contribute net-positive deltas or mostly noise the
+   conductor must filter? (Per-model precision of merged-and-surviving nodes.)</li>
+<li>Who compacts best — should superseding/merging of stale claims be
+   deterministic, done by the departing worker, or by a dedicated model?</li>
+</ol>
+<h2>9. Risks</h2>
+<ul>
+<li><strong>Delta-extraction reliability:</strong> small models may emit malformed JSON or
+  low-quality graph structure. Mitigation: strict schema validation, retry
+  with repair prompt, and per-model rejection-rate tracking (which itself
+  feeds claim #2).</li>
+<li><strong>Graph sprawl:</strong> without compaction the briefing budget erodes. Mitigation:
+  supersede semantics from day one; compaction policy is research question #4.</li>
+<li><strong>Anchoring/sycophancy:</strong> workers may defer to high-confidence existing
+  nodes. Mitigation: attribution is hidden from workers (they see content and
+  confidence, never which model wrote it).</li>
+</ul>
+</main>
+<footer>© 2026 Perdura · perdura.network · MIT licensed · open research — content will change</footer>
+</body></html>
