@@ -159,22 +159,23 @@ def encode(node_dict: dict, graph_start_time: float,
     Returns:
         MemoricBinary instance
     """
-    semantic = semantic_fn(node_dict.get("text", ""))
+    semantic = semantic_fn(node_dict.get("text") or "")
 
     type_bits = TYPE_MAP.get(node_dict.get("type", "claim"), 0b0001)
 
     if node_dict.get("type") == "question":
         conf_bits = 31
     else:
-        conf = node_dict.get("confidence", 0.5)
+        conf = node_dict.get("confidence")
+        conf = 0.5 if conf is None else conf
         conf_bits = max(0, min(31, int(conf * 31)))
 
     domain_bits = 0
-    for tag in node_dict.get("domain_tags", []):
+    for tag in node_dict.get("domain_tags") or []:
         if tag in DOMAIN_MAP:
             domain_bits |= (1 << DOMAIN_MAP[tag])
 
-    created_at = node_dict.get("created_at", graph_start_time)
+    created_at = node_dict.get("created_at") or graph_start_time
     time_bits = max(0, min(0xFFFF,
                            int((created_at - graph_start_time) // TIME_RESOLUTION)))
 
@@ -193,6 +194,23 @@ def encode(node_dict: dict, graph_start_time: float,
         time=time_bits,
         supersession=supersession_bits,
     )
+
+
+def encode_node(node, graph_start_time: float,
+                semantic_fn=blake2b_48bits) -> MemoricBinary:
+    """Encode a perdura Node (dataclass or dict) on demand.
+
+    Memoric binary is DERIVED state: deterministically recomputable from
+    the node's source-of-truth fields. It is therefore never persisted in
+    the graph file — no migrations, no staleness when confidence or
+    supersession changes, and the spec (incl. semantic_fn) can evolve
+    freely until Phase 0 locks it.
+    """
+    if not isinstance(node, dict):
+        node = {k: getattr(node, k, None)
+                for k in ("type", "text", "confidence", "domain_tags",
+                          "created_at", "superseded_by")}
+    return encode(node, graph_start_time, semantic_fn)
 
 
 # ---------------------------------------------------------------------------

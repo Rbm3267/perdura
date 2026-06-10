@@ -69,6 +69,9 @@ class Graph:
         self.nodes: dict[str, Node] = {}
         self.edges: dict[str, Edge] = {}
         self.log: list = []  # merge log: (ts, worker, accepted, rejected)
+        # Phase 0 opt-in: 0.0 = the design.md §5 edge-only metric, exactly.
+        # Raise only per-call/per-session until Phase 0 validation passes.
+        self.memoric_weight: float = 0.0
         if os.path.exists(path):
             self._load()
 
@@ -140,8 +143,16 @@ class Graph:
             frontier = nxt
         return seen
 
-    def contention(self, node_ids=None):
-        """contradicts-edges per claim, confidence-weighted. The routing signal."""
+    def contention(self, node_ids=None, memoric_weight=None):
+        """contradicts-edges per claim, confidence-weighted. The routing signal.
+
+        memoric_weight (or self.memoric_weight) optionally blends in
+        embedding scatter from memoric binary, computed on demand:
+        (1-w)*edge_signal + w*scatter. The default 0.0 preserves the
+        design.md §5 metric bit-for-bit; the encoding is derived state and
+        is never persisted (docs/memoric-binary.md §6.1).
+        """
+        w = self.memoric_weight if memoric_weight is None else memoric_weight
         ids = node_ids or {n.id for n in self.live_nodes()}
         claims = [n for n in self.live_nodes()
                   if n.id in ids and n.type == "claim"]
@@ -152,7 +163,14 @@ class Graph:
             for e in self.edges.values()
             if e.type == "contradicts" and e.src in ids and e.dst in ids
             and e.src in self.nodes and e.dst in self.nodes)
-        return round(contra / len(claims), 3)
+        edge_signal = contra / len(claims)
+        if not w:
+            return round(edge_signal, 3)
+        # Lazy import: the core loop has no Phase 0 dependency unless opted in
+        from perdura_memoric import embedding_scatter, encode_node
+        start = min((n.created_at for n in self.nodes.values()), default=0.0)
+        scatter = embedding_scatter([encode_node(n, start) for n in claims])
+        return round((1 - w) * edge_signal + w * scatter, 3)
 
 
 # ---------------------------------------------------------------------------
@@ -497,9 +515,14 @@ def main():
     p.add_argument("--qwen-url", default="http://localhost:1234/v1",
                    help="OpenAI-compatible base URL (LM Studio default; "
                         "Ollama: http://localhost:11434/v1)")
+    p.add_argument("--memoric-weight", type=float, default=0.0,
+                   help="blend memoric-binary scatter into contention: "
+                        "(1-w)*edges + w*scatter. Phase 0 experiment only; "
+                        "0.0 (default) = the design.md metric unchanged")
     args = p.parse_args()
 
     graph = Graph(args.graph)
+    graph.memoric_weight = max(0.0, min(1.0, args.memoric_weight))
 
     if args.command == "new":
         if not args.text:

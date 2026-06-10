@@ -23,18 +23,7 @@ from collections import defaultdict
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
-from perdura_memoric import encode, embedding_scatter
-
-
-def _encode_node(n: dict, graph_start: float):
-    return encode({
-        "type": n["type"],
-        "text": n["text"],
-        "confidence": n.get("confidence", 0.5),
-        "domain_tags": n.get("domain_tags", []),
-        "created_at": n.get("created_at", graph_start),
-        "superseded_by": n.get("superseded_by"),
-    }, graph_start)
+from perdura_memoric import embedding_scatter, encode_node as _encode_node
 
 
 def _auc(scored: list) -> float:

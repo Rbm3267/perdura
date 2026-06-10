@@ -193,44 +193,48 @@ domain tags, creation hour, liveness, and the supersession target hash.
 
 ## 6. Integration with Perdura
 
-### 6.1 Storage
+### 6.1 Storage — DECIDED: derived, never persisted
 
-Add to Node dataclass (Phase 1.5; this is a graph-schema change and follows
-the schema-change discussion rule in CLAUDE.md):
+Memoric binary is **derived state**: deterministically recomputable from
+fields the graph already stores (text, type, confidence, domain_tags,
+created_at, superseded_by). It is therefore computed on demand via
+`encode_node(node, graph_start_time)` and **not** written into
+`perdura_graph.json`.
 
-```python
-@dataclass
-class Node:
-    # ... existing fields ...
-    memoric_binary: Optional[str] = None   # base64 of 12 bytes, set on creation
-    memoric_version: str = "memoric-v0.1"
-```
+Consequences of this decision:
 
-Compute when the node is created, inside the deterministic merge path:
+- **No schema change, no migration.** Old graph files load in new code and
+  vice versa; `Node(**n)` loading never meets an unknown field.
+- **No staleness.** Confidence updates and supersession changes are picked
+  up automatically on the next encode; a persisted copy would silently rot.
+- **The spec stays free to change** (bit allocation, semantic_fn — open
+  question 6) without re-encoding anything, because nothing is encoded at
+  rest.
 
-```python
-def add_node(self, ...):
-    n = Node(...)
-    n.memoric_binary = memoric_to_base64(encode(asdict(n), self.graph_created_at))
-    self.nodes[n.id] = n
-    return n.id
-```
+If Phase 1.5's ChromaDB integration makes recomputation a measurable cost,
+persistence may be added then — strictly as a cache keyed by a
+`memoric_version` field, with recompute-on-mismatch. The graph's
+source-of-truth fields remain authoritative either way.
 
 ### 6.2 Briefing assembly (Phase 1.5)
 
 Briefings may include the memoric binary per node. Workers don't *use* it
 (they see the text); it's there for the conductor to reason about.
 
-### 6.3 Contention recompute (Phase 1.5 onward)
+### 6.3 Contention recompute — DECIDED: opt-in blend, default unchanged
 
-Instead of just counting `contradicts` edges:
+Implemented in `Graph.contention(node_ids, memoric_weight=...)`:
 
 ```python
-contention = 0.5 * edge_signal + 0.5 * embedding_scatter(neighborhood_mbs)
+contention = (1 - w) * edge_signal + w * embedding_scatter(claim_mbs)
 ```
 
-The Phase 3 router tunes the weights. (Note: this changes the contention
-metric defined in docs/design.md §5 — adopt only after Phase 0 validation.)
+`w` defaults to **0.0**, which preserves the docs/design.md §5 edge-only
+metric bit-for-bit — every existing caller (CLI loop, MCP station,
+experiments) is unaffected. Opt in per session with
+`perdura.py run --memoric-weight 0.5` or per call. The default may only be
+raised after Phase 0 validation passes; the Phase 3 router then owns the
+weight.
 
 ## 7. Validation Experiments
 

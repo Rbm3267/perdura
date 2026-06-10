@@ -44,3 +44,7 @@ Full detail in ROADMAP.md; docs/memoric-binary.md is the Phase 0 RFC.
 - perdura_graph.json is gitignored; the mind's state stays local by default
 - Workers never see authorship of prior nodes (counters anchoring)
 - Schema validation is strict; fix malformed deltas in parse_delta, not schema
+- Memoric binary is derived state — computed on demand (encode_node), never
+  persisted into the graph file (no migrations, no staleness, spec stays free)
+- contention() defaults to the edge-only design.md metric; memoric blending
+  is opt-in (--memoric-weight / memoric_weight) until Phase 0 validation passes
