@@ -1,0 +1,205 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Perdura Network</title>
+    <style>
+        :root {
+            --bg-base: #070709;
+            --bg-surface: #111116;
+            --cyan: #00F0FF;
+            --fuchsia: #FF0055;
+            --text-primary: #F8FAFC;
+            --text-secondary: #94A3B8;
+            --border-subtle: rgba(255, 255, 255, 0.05);
+        }
+
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+
+        body, html {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            background-color: var(--bg-base);
+            color: var(--text-primary);
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            overflow: hidden;
+            -webkit-font-smoothing: antialiased;
+        }
+
+        .grid-overlay {
+            position: absolute;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background-image: 
+                linear-gradient(var(--border-subtle) 1px, transparent 1px),
+                linear-gradient(90deg, var(--border-subtle) 1px, transparent 1px);
+            background-size: 64px 64px;
+            background-position: center center;
+            z-index: 0;
+            pointer-events: none;
+            opacity: 0.6;
+        }
+
+        .glow {
+            position: absolute;
+            width: 80vw;
+            height: 80vw;
+            background: radial-gradient(circle at center, rgba(0, 240, 255, 0.03) 0%, rgba(255, 0, 85, 0.03) 40%, transparent 70%);
+            z-index: 0;
+            pointer-events: none;
+            animation: breathe 10s ease-in-out infinite alternate;
+        }
+
+        @keyframes breathe {
+            0% { transform: scale(0.9); opacity: 0.8; }
+            100% { transform: scale(1.1); opacity: 1; }
+        }
+
+        .terminal-container {
+            position: relative;
+            z-index: 10;
+            max-width: 900px;
+            width: 100%;
+            padding: 3rem;
+            display: flex;
+            flex-direction: column;
+            gap: 2rem;
+            align-items: flex-start;
+        }
+
+        .eyebrow {
+            font-family: monospace;
+            color: var(--cyan);
+            font-size: 0.875rem;
+            letter-spacing: 0.15em;
+            text-transform: uppercase;
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+        }
+
+        .eyebrow::before {
+            content: '';
+            display: inline-block;
+            width: 8px;
+            height: 8px;
+            background-color: var(--fuchsia);
+            box-shadow: 0 0 10px var(--fuchsia);
+        }
+
+        h1 {
+            font-size: clamp(4rem, 8vw, 7rem);
+            font-weight: 800;
+            line-height: 0.95;
+            letter-spacing: -0.04em;
+        }
+
+        .gradient-text {
+            background: linear-gradient(135deg, var(--text-primary) 20%, #475569 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            display: block;
+        }
+
+        .accent-text {
+            background: linear-gradient(to right, var(--cyan), var(--fuchsia));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        p.lead {
+            font-size: 1.25rem;
+            color: var(--text-secondary);
+            max-width: 500px;
+            line-height: 1.6;
+            font-weight: 400;
+            margin-top: 1rem;
+        }
+
+        .actions {
+            display: flex;
+            gap: 1.5rem;
+            margin-top: 2rem;
+            align-items: center;
+        }
+
+        .btn-primary {
+            background: transparent;
+            color: var(--text-primary);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            padding: 1rem 2rem;
+            font-size: 0.875rem;
+            font-weight: 500;
+            letter-spacing: 0.05em;
+            text-transform: uppercase;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            position: relative;
+            overflow: hidden;
+            text-decoration: none;
+            backdrop-filter: blur(10px);
+        }
+
+        .btn-primary::before {
+            content: '';
+            position: absolute;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: linear-gradient(90deg, var(--cyan), var(--fuchsia));
+            opacity: 0;
+            transition: opacity 0.3s ease;
+            z-index: -1;
+        }
+
+        .btn-primary:hover::before { opacity: 0.15; }
+
+        .btn-primary:hover {
+            border-color: rgba(255, 255, 255, 0.3);
+            box-shadow: 0 0 20px rgba(0, 240, 255, 0.1);
+        }
+
+        .system-status {
+            font-family: monospace;
+            font-size: 0.875rem;
+            color: var(--text-secondary);
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .pulse-dot {
+            width: 6px;
+            height: 6px;
+            background-color: var(--cyan);
+            border-radius: 50%;
+            animation: blink 1.5s infinite;
+        }
+
+        @keyframes blink {
+            0%, 100% { opacity: 1; box-shadow: 0 0 8px var(--cyan); }
+            50% { opacity: 0.3; box-shadow: none; }
+        }
+    </style>
+</head>
+<body>
+    <div class="grid-overlay"></div>
+    <div class="glow"></div>
+    <main class="terminal-container">
+        <div class="eyebrow">Protocol Active</div>
+        <h1>
+            <span class="gradient-text">Perdura</span>
+            <span class="accent-text">Network</span>
+        </h1>
+        <p class="lead">Autonomous infrastructure mapping. High-fidelity agentic workflows engineered for immediate enterprise deployment.</p>
+        <div class="actions">
+            <a href="#connect" class="btn-primary">Initialize Node</a>
+            <div class="system-status">
+                <div class="pulse-dot"></div>
+                System Nominal
+            </div>
+        </div>
+    </main>
+</body>
+</html>
