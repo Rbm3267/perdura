@@ -1,0 +1,278 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Perdura — Roadmap</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,400;0,9..144,600;0,9..144,700;1,9..144,400&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root { --ink:#0a0e1f; --ink-2:#0e1430; --ink-3:#131a3d; --paper:#f0f3fa;
+    --muted:#97a3c4; --faint:#5b6688; --cyan:#2dd9ff; --amber:#ffb454;
+    --line:rgba(151,163,196,0.16); }
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body { background:var(--ink); color:var(--paper);
+    font-family:"IBM Plex Sans",-apple-system,sans-serif; font-size:16.5px;
+    line-height:1.7; -webkit-font-smoothing:antialiased; }
+  ::selection { background:var(--cyan); color:var(--ink); }
+  nav { position:sticky; top:0; z-index:50; background:rgba(10,14,31,0.85);
+    backdrop-filter:blur(12px); border-bottom:1px solid var(--line); }
+  .nav-inner { max-width:880px; margin:0 auto; padding:0 28px; height:60px;
+    display:flex; align-items:center; justify-content:space-between; }
+  .wordmark { font-family:"Fraunces",serif; font-weight:700; font-size:1.25rem;
+    color:var(--paper); text-decoration:none; }
+  .wordmark .dot { color:var(--cyan); }
+  nav .links a { color:var(--muted); text-decoration:none; font-size:0.88rem;
+    margin-left:20px; }
+  nav .links a:hover { color:var(--cyan); }
+  main { max-width:880px; margin:0 auto; padding:64px 28px 96px; }
+  .doc-kicker { font-family:"IBM Plex Mono",monospace; font-size:0.78rem;
+    letter-spacing:0.18em; text-transform:uppercase; color:var(--cyan);
+    margin-bottom:10px; }
+  h1,h2,h3,h4 { font-family:"Fraunces",Georgia,serif; font-weight:600;
+    line-height:1.2; margin:2.2em 0 0.6em; }
+  h1 { font-size:2.3rem; margin-top:0; }
+  h2 { font-size:1.6rem; border-bottom:1px solid var(--line);
+    padding-bottom:0.35em; }
+  h3 { font-size:1.25rem; } h4 { font-size:1.05rem; }
+  p, ul, ol { margin:0.9em 0; color:var(--muted); }
+  li { margin:0.35em 0; } ul, ol { padding-left:1.4em; }
+  strong { color:var(--paper); } em { color:var(--paper); }
+  a { color:var(--cyan); }
+  blockquote { border-left:3px solid var(--amber); padding:0.4em 1.1em;
+    margin:1.2em 0; background:var(--ink-2); border-radius:0 8px 8px 0; }
+  code { font-family:"IBM Plex Mono",monospace; font-size:0.85em;
+    color:var(--cyan); background:var(--ink-3); padding:2px 6px;
+    border-radius:4px; }
+  pre { background:var(--ink-2); border:1px solid var(--line);
+    border-radius:10px; padding:18px 20px; overflow-x:auto; margin:1.2em 0; }
+  pre code { background:none; padding:0; color:var(--paper);
+    font-size:0.84rem; line-height:1.6; }
+  table { border-collapse:collapse; width:100%; margin:1.2em 0;
+    font-size:0.92rem; }
+  th, td { border:1px solid var(--line); padding:9px 13px; text-align:left;
+    color:var(--muted); }
+  th { color:var(--paper); background:var(--ink-2);
+    font-family:"IBM Plex Mono",monospace; font-size:0.8rem; }
+  hr { border:none; border-top:1px solid var(--line); margin:2.4em 0; }
+  footer { max-width:880px; margin:0 auto; padding:0 28px 56px;
+    font-family:"IBM Plex Mono",monospace; font-size:0.78rem;
+    color:var(--faint); }
+</style></head><body>
+<nav><div class="nav-inner">
+  <a class="wordmark" href="index.html">perdura<span class="dot">.</span></a>
+  <div class="links"><a href="design.html">Design</a> <a href="memoric-binary.html">Memoric</a> <a href="roadmap.html">Roadmap</a> <a href="validation.html">Phase</a> <a href="index.html#access">Request access</a></div>
+</div></nav>
+<main><div class="doc-kicker">Documentation</div>
+<h1>Perdura Roadmap — Updated with Phase 0</h1>
+<h2>Overview</h2>
+<p>Perdura is a persistent knowledge graph where LLMs are ephemeral workers. The roadmap now includes Phase 0 — foundational research on <strong>memoric binary</strong>, a native epistemic encoding that enables early contention detection and per-model track records in vector space.</p>
+<hr />
+<h2>Phase 0: Memoric Binary (NOW)</h2>
+<p><strong>Goal:</strong> Design, implement, and validate a 96-bit epistemic encoding that captures semantic content, node type, confidence, domain tags, temporal context, and supersession lineage.</p>
+<p><strong>Deliverables:</strong></p>
+<ul>
+<li><code>docs/memoric-binary.md</code> — formal RFC with spec, encoding/decoding, distance metrics</li>
+<li><code>perdura_memoric.py</code> — encoder/decoder and distance metric implementations</li>
+<li><code>experiments/memoric_eval.py</code> — three validation experiments</li>
+</ul>
+<p><strong>Validation criteria:</strong> All three experiments pass</p>
+<ol>
+<li>Hidden disagreement detection: AUC &gt; 0.7 (embedding scatter predicts contradicts edges)</li>
+<li>Per-model track records: |correlation| &gt; 0.6 (vector-space reliability matches merge stats)</li>
+<li>Compression without loss: &gt;90% routing agreement (memoric binary routes equivalently to edge-only metrics)</li>
+</ol>
+<p><strong>Success path:</strong> Lock the memoric binary spec, commit Phase 0 artifacts, then proceed to Phase 1.5.</p>
+<p><strong>Risk:</strong> If validation fails, revisit bit allocation, distance metrics, or domain encoding. Open question: the semantic-hash choice (Blake2b vs simhash — RFC open question 6) must be settled before the spec is locked.</p>
+<hr />
+<h2>Phase 1: Graph + Workers (COMPLETED)</h2>
+<p><strong>Status:</strong> ✅ Built and verified</p>
+<p>Graph memory + delta extraction with Claude, Gemini, and local Qwen.</p>
+<ul>
+<li>Knowledge graph with typed nodes and edges</li>
+<li>Round-robin worker boarding (CLI)</li>
+<li>JSON persistence</li>
+<li>Conductor: deterministic merge, attribution, contention recompute</li>
+<li>Per-worker merge ledger (seed of Phase 2 track records)</li>
+</ul>
+<p><strong>Artifacts:</strong></p>
+<ul>
+<li><code>perdura.py</code> — CLI implementation</li>
+<li><code>perdura_server.py</code> — MCP station (any MCP client can board as a worker)</li>
+<li><code>perdura_graph.json</code> — live graph state (local, gitignored)</li>
+</ul>
+<hr />
+<h2>Phase 1.5: Memoric Retrieval Layer</h2>
+<p><strong>Goal:</strong> Integrate memoric binary into the graph storage and briefing assembly.</p>
+<p><strong>Scope:</strong></p>
+<ul>
+<li>Memoric binary per node — <strong>derived on demand</strong> via <code>encode_node</code>, never
+  persisted (decision: docs/memoric-binary.md §6.1; persistence only ever
+  as a versioned cache if ChromaDB integration needs it)</li>
+<li>Assemble briefings with memoric binary included</li>
+<li>Contention blend <code>(1-w)*edge_signal + w*embedding_scatter</code> — implemented;
+  <strong>default flipped to w=0.5 on 2026-06-10</strong> (ahead of Phase 0 validation,
+  by decision). <code>--memoric-weight 0</code> remains the edge-only baseline for
+  experiments; if validation fails, flipping back is the same one-liner</li>
+<li>Visualize graph as a force-directed mind map (connectivity + contention)</li>
+<li>ChromaDB hybrid retrieval (BM25 + dense embeddings + graph expansion)</li>
+</ul>
+<p><strong>Deliverables:</strong></p>
+<ul>
+<li>Updated <code>perdura.py</code> with memoric binary computation</li>
+<li>Retrieval index integration</li>
+<li>Graph visualization (web or graphviz)</li>
+<li>Updated briefing format to include memoric binary</li>
+</ul>
+<p><strong>Timeline:</strong> 2–3 weeks post-Phase 0 validation</p>
+<hr />
+<h2>Phase 2: Track Records</h2>
+<p><strong>Goal:</strong> Compute per-model, per-domain reliability from accumulated node outcomes.</p>
+<p><strong>Scope:</strong></p>
+<ul>
+<li>For each model: which of its claims ended up <code>supported</code>, <code>contradicted</code>, <code>superseded</code>, or promoted to <code>decision</code>?</li>
+<li>Compute reliability score per model and per domain (using domain bitmap from memoric binary)</li>
+<li>Track embedding-space quality (nodes produced close to future decisions?)</li>
+<li>Expose track records in <code>perdura_show</code> output (operator mode only — workers never see attribution)</li>
+</ul>
+<p><strong>Deliverables:</strong></p>
+<ul>
+<li>Track record computation engine</li>
+<li>Per-model/domain scorecard in graph view</li>
+<li>Track record queries in MCP server</li>
+</ul>
+<p><strong>Timeline:</strong> 3–4 weeks post-Phase 1.5</p>
+<hr />
+<h2>Phase 3: Epistemic Router</h2>
+<p><strong>Goal:</strong> Implement cost-driven routing: escalate to frontier/specialist models only where contention is high.</p>
+<p><strong>Scope:</strong></p>
+<ul>
+<li>Model registry with domain tags, cost, latency, accumulated track records</li>
+<li>Contention-driven boarding: high scatter = expensive model; low scatter = local model</li>
+<li>Cost budgets: per session, per question, per domain</li>
+<li>Specialist summoning: query requests can specify domain tags or required model types</li>
+<li>Fallback: if specialist unavailable, route to next-best in cost/reliability order</li>
+</ul>
+<p><strong>Deliverables:</strong></p>
+<ul>
+<li>Router engine</li>
+<li>Model registry and registration protocol</li>
+<li>Cost tracking and budget enforcement</li>
+<li>Fallback policies</li>
+</ul>
+<p><strong>Routing decision logic:</strong></p>
+<pre><code class="language-python">contention_score = 0.5 * edge_signal + 0.5 * embedding_scatter
+cost_budget_remaining = ...
+model_registry.sort_by(
+    (contention_score * reliability[model] / cost[model]) DESC
+)
+selected_model = next available within budget
+</code></pre>
+<p><strong>Timeline:</strong> 4–6 weeks post-Phase 2</p>
+<hr />
+<h2>Phase 4: Multi-Model Collaborative Routing (Optional)</h2>
+<p><strong>Goal:</strong> Enable workers to request specific collaborators for sub-questions.</p>
+<p><strong>Scope:</strong></p>
+<ul>
+<li>Workers can call <code>perdura_escalate_to(domain_tags=["epistemology"], model_preference="claude")</code></li>
+<li>Chains of delegation tracked in the graph</li>
+<li>Sub-question linkage: does this derive from a parent question?</li>
+</ul>
+<p><strong>Timeline:</strong> Beyond Phase 3 (if proven valuable)</p>
+<hr />
+<h2>How the Phases Build on Each Other</h2>
+<pre><code>Phase 0: Memoric Binary
+    ↓
+  Validation experiments run
+    ↓ (if passed)
+    ↓
+Phase 1.5: Embed memoric binary into graph + retrieval
+    ↓
+  Workers use briefings with memoric signals
+    ↓
+Phase 2: Compute track records from node outcomes
+    ↓
+  Now we know which models are reliable where
+    ↓
+Phase 3: Route based on contention + reliability + cost
+    ↓
+  Perdura is a functioning epistemic router
+</code></pre>
+<hr />
+<h2>Key Research Questions Answered by Each Phase</h2>
+<table>
+<thead>
+<tr>
+<th>Phase</th>
+<th>Question</th>
+<th>Answer Method</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>0</td>
+<td>Does memoric binary encoding work?</td>
+<td>Three validation experiments</td>
+</tr>
+<tr>
+<td>1.5</td>
+<td>Can we detect disagreement before explicit edges?</td>
+<td>Embedding scatter vs contradicts log</td>
+</tr>
+<tr>
+<td>2</td>
+<td>Which models are actually reliable?</td>
+<td>Per-model outcome distribution analysis</td>
+</tr>
+<tr>
+<td>3</td>
+<td>Does contention-driven routing save money?</td>
+<td>Cost tracking + performance comparison</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2>Artifacts by Phase</h2>
+<pre><code>Phase 0 (NOW)
+├── docs/memoric-binary.md         (RFC)
+├── perdura_memoric.py             (encoder/decoder)
+└── experiments/memoric_eval.py    (validation)
+
+Phase 1 (DONE)
+├── perdura.py                     (CLI)
+├── perdura_server.py              (MCP station)
+└── perdura_graph.json             (state, local)
+
+Phase 1.5 (PLANNED)
+├── perdura.py (updated)           (graph + memoric integration)
+├── visualization/                 (mind map web UI)
+└── docs/
+
+Phase 2 (PLANNED)
+├── perdura.py (updated)           (track record computation)
+├── track_records.json             (per-model scores)
+└── analytics/
+
+Phase 3 (PLANNED)
+├── perdura_router.py              (routing engine)
+├── model_registry.json            (model metadata)
+└── cost_tracking.json
+</code></pre>
+<hr />
+<h2>Success Metrics</h2>
+<p>By end of Phase 3, Perdura should exhibit:</p>
+<ol>
+<li><strong>Inverted persistence claim:</strong> A model can be swapped mid-session; graph state survives unharmed. ✓ (testable in Phase 1)</li>
+<li><strong>Epistemic track records claim:</strong> Per-model reliability measurable from embedding space and merge history. ✓ (testable in Phase 2)</li>
+<li><strong>Contention-driven economics claim:</strong> Cheap models handle low-contention subgraphs; expensive models see only where disagreement clusters. ✓ (measurable in Phase 3)</li>
+</ol>
+<hr />
+<h2>Next Steps</h2>
+<ol>
+<li><strong>This week:</strong> Run Phase 0 validation experiments on a real Perdura session</li>
+<li><strong>If all three pass:</strong> Lock memoric binary spec (incl. semantic-hash choice), commit to repo</li>
+<li><strong>Iterate:</strong> Adjust distance metrics or bit allocations if experiments hint at improvements</li>
+<li><strong>Phase 1.5 kickoff:</strong> Integrate memoric binary into graph storage and briefing assembly</li>
+</ol>
+</main>
+<footer>© 2026 Perdura · perdura.network · MIT licensed · open research — content will change</footer>
+</body></html>
