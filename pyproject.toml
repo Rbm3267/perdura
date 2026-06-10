@@ -8,7 +8,7 @@ version = "0.1.0"
 description = "The mind that outlives its models — a persistent knowledge graph with ephemeral LLM workers"
 readme = "README.md"
 requires-python = ">=3.11"
-license = { text = "All rights reserved" }
+license = { text = "MIT" }
 dependencies = [
     "anthropic>=0.40",
     "google-genai>=1.0",
