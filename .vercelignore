@@ -1,0 +1,11 @@
+# Deploy only the static site — keep code and internal docs out of the bundle
+*.py
+*.toml
+*.txt
+.venv
+experiments
+CLAUDE.md
+ROADMAP.md
+README.md
+LICENSE
+CNAME

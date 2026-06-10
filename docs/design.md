@@ -49,6 +49,24 @@ the one before it.
   predictions. Perdura routes per-*subgraph* on live epistemic signals
   (contention, confidence, attribution history).
 
+*Survey updated 2026-06-10 — closest new neighbors since the draft:*
+
+- **Blackboard-MAS revival ([arXiv:2507.01701](https://arxiv.org/abs/2507.01701),
+  [arXiv:2510.01285](https://arxiv.org/abs/2510.01285)):** stateless LLM agents
+  around a shared workspace, beating master-slave orchestration by 13–57%.
+  Structurally the closest neighbor — but the workspace is untyped, nothing is
+  attributed, and there are no track records or contention economics.
+- **Memory-augmented routing ([arXiv:2603.23013](https://arxiv.org/abs/2603.23013)):**
+  "knowledge access beats model size" — an 8B model with memory recovers 69% of
+  a 235B model at 4% of cost. Flat conversational memory, though, and routing
+  decisions are unchanged by it. In Perdura the routing signal *is* the
+  memory's epistemic state.
+- **Cascade / self-consistency escalation (production routers, surveyed in
+  [arXiv:2603.04445](https://arxiv.org/html/2603.04445v2)):** escalate when
+  samples of one model disagree on one query — per-query, ephemeral, then
+  forgotten. Perdura escalates on disagreement accumulated in the persistent
+  artifact, across models and over time.
+
 Borrowed infrastructure is a feature, not a compromise: graph storage,
 embeddings, and hybrid retrieval are solved problems (ChromaDB, BM25+dense —
 same stack as forge-rag).

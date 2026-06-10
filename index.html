@@ -1,0 +1,660 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Perdura — The Mind That Outlives Its Models</title>
+<meta name="description" content="Perdura is a persistent knowledge graph that hires and fires LLMs based on what it has learned about them — spending money only where it disagrees with itself.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,400;0,9..144,600;0,9..144,700;1,9..144,400;1,9..144,600&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --ink: #0a0e1f;
+    --ink-2: #0e1430;
+    --ink-3: #131a3d;
+    --paper: #f0f3fa;
+    --muted: #97a3c4;
+    --faint: #5b6688;
+    --cyan: #2dd9ff;
+    --cyan-dim: #1a9fc0;
+    --amber: #ffb454;
+    --rose: #ff5d8f;
+    --green: #3ddc97;
+    --line: rgba(151, 163, 196, 0.16);
+    --serif: "Fraunces", Georgia, serif;
+    --sans: "IBM Plex Sans", -apple-system, sans-serif;
+    --mono: "IBM Plex Mono", ui-monospace, monospace;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
+  body {
+    background: var(--ink);
+    color: var(--paper);
+    font-family: var(--sans);
+    font-size: 17px;
+    line-height: 1.65;
+    -webkit-font-smoothing: antialiased;
+  }
+  ::selection { background: var(--cyan); color: var(--ink); }
+
+  .wrap { max-width: 1060px; margin: 0 auto; padding: 0 28px; }
+
+  /* ── Nav ─────────────────────────────────────── */
+  nav {
+    position: sticky; top: 0; z-index: 50;
+    background: rgba(10, 14, 31, 0.85);
+    backdrop-filter: blur(12px);
+    border-bottom: 1px solid var(--line);
+  }
+  .nav-inner { display: flex; align-items: center; justify-content: space-between; height: 64px; }
+  .wordmark {
+    font-family: var(--serif); font-weight: 700; font-size: 1.35rem;
+    color: var(--paper); text-decoration: none; letter-spacing: 0.01em;
+  }
+  .wordmark .dot { color: var(--cyan); }
+  .nav-links { display: flex; gap: 28px; align-items: center; }
+  .nav-links a {
+    color: var(--muted); text-decoration: none; font-size: 0.92rem; font-weight: 500;
+    transition: color 0.15s;
+  }
+  .nav-links a:hover { color: var(--paper); }
+  .nav-links a.gh {
+    color: var(--ink); background: var(--cyan); padding: 7px 16px; border-radius: 6px;
+    font-weight: 600;
+  }
+  .nav-links a.gh:hover { background: #6ae5ff; }
+  @media (max-width: 720px) { .nav-links a:not(.gh) { display: none; } }
+
+  /* ── Hero ────────────────────────────────────── */
+  header { padding: 96px 0 72px; position: relative; overflow: hidden; }
+  header::before {
+    content: ""; position: absolute; inset: 0;
+    background:
+      radial-gradient(ellipse 60% 45% at 75% 8%, rgba(45, 217, 255, 0.10), transparent),
+      radial-gradient(ellipse 45% 35% at 15% 90%, rgba(255, 93, 143, 0.06), transparent);
+    pointer-events: none;
+  }
+  .status-pill {
+    display: inline-flex; align-items: center; gap: 8px;
+    font-family: var(--mono); font-size: 0.78rem; color: var(--cyan);
+    border: 1px solid rgba(45, 217, 255, 0.35); border-radius: 99px;
+    padding: 5px 14px; margin-bottom: 28px;
+  }
+  .status-pill .blink {
+    width: 7px; height: 7px; border-radius: 50%; background: var(--cyan);
+    animation: pulse 2.4s ease-in-out infinite;
+  }
+  @keyframes pulse { 0%,100% { opacity: 1 } 50% { opacity: 0.25 } }
+  h1 {
+    font-family: var(--serif); font-weight: 600; font-size: clamp(2.6rem, 6vw, 4.4rem);
+    line-height: 1.06; letter-spacing: -0.015em; max-width: 16ch;
+  }
+  h1 em { font-style: italic; color: var(--cyan); }
+  .lede {
+    margin-top: 26px; max-width: 56ch; font-size: 1.18rem; color: var(--muted);
+  }
+  .lede strong { color: var(--paper); font-weight: 600; }
+  .hero-ctas { margin-top: 38px; display: flex; gap: 14px; flex-wrap: wrap; }
+  .btn {
+    display: inline-block; text-decoration: none; font-weight: 600; font-size: 0.95rem;
+    padding: 12px 24px; border-radius: 8px; transition: all 0.15s;
+  }
+  .btn-primary { background: var(--cyan); color: var(--ink); }
+  .btn-primary:hover { background: #6ae5ff; transform: translateY(-1px); }
+  .btn-ghost { color: var(--paper); border: 1px solid rgba(151,163,196,0.4); }
+  .btn-ghost:hover { border-color: var(--cyan); color: var(--cyan); }
+
+  /* ── Sections ────────────────────────────────── */
+  section { padding: 84px 0; border-top: 1px solid var(--line); }
+  .kicker {
+    font-family: var(--mono); font-size: 0.8rem; letter-spacing: 0.18em;
+    text-transform: uppercase; color: var(--cyan); margin-bottom: 14px;
+  }
+  h2 {
+    font-family: var(--serif); font-weight: 600; font-size: clamp(1.7rem, 3.4vw, 2.5rem);
+    line-height: 1.15; letter-spacing: -0.01em; max-width: 24ch;
+  }
+  h2 em { font-style: italic; color: var(--cyan); }
+  .section-lede { margin-top: 18px; max-width: 62ch; color: var(--muted); font-size: 1.05rem; }
+  .section-lede code, p code {
+    font-family: var(--mono); font-size: 0.86em; color: var(--cyan);
+    background: var(--ink-3); padding: 2px 6px; border-radius: 4px;
+  }
+
+  /* ── Inversion panels ────────────────────────── */
+  .invert-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 22px; margin-top: 48px; }
+  @media (max-width: 760px) { .invert-grid { grid-template-columns: 1fr; } }
+  .invert-card {
+    border: 1px solid var(--line); border-radius: 14px; padding: 30px;
+    background: var(--ink-2);
+  }
+  .invert-card.win { border-color: rgba(45, 217, 255, 0.35); }
+  .invert-tag {
+    font-family: var(--mono); font-size: 0.75rem; letter-spacing: 0.12em;
+    text-transform: uppercase; color: var(--faint); margin-bottom: 16px;
+  }
+  .invert-card.win .invert-tag { color: var(--cyan); }
+  .invert-card h3 { font-family: var(--serif); font-size: 1.3rem; font-weight: 600; margin-bottom: 10px; }
+  .invert-card p { color: var(--muted); font-size: 0.96rem; }
+  .invert-card svg { width: 100%; height: auto; margin-top: 22px; display: block; }
+
+  /* ── Claims ──────────────────────────────────── */
+  .claims { display: grid; grid-template-columns: repeat(3, 1fr); gap: 22px; margin-top: 48px; }
+  @media (max-width: 860px) { .claims { grid-template-columns: 1fr; } }
+  .claim {
+    border: 1px solid var(--line); border-radius: 14px; padding: 30px 26px;
+    background: linear-gradient(180deg, var(--ink-2), transparent);
+    transition: border-color 0.2s;
+  }
+  .claim:hover { border-color: rgba(45, 217, 255, 0.4); }
+  .claim .num {
+    font-family: var(--serif); font-style: italic; font-size: 2.2rem;
+    color: var(--cyan); line-height: 1;
+  }
+  .claim h3 { font-family: var(--serif); font-size: 1.25rem; font-weight: 600; margin: 14px 0 10px; }
+  .claim p { color: var(--muted); font-size: 0.95rem; }
+
+  /* ── Diagrams ────────────────────────────────── */
+  .diagram {
+    margin-top: 52px; border: 1px solid var(--line); border-radius: 16px;
+    background: var(--ink-2); padding: 36px 28px; overflow-x: auto;
+  }
+  .diagram svg { width: 100%; min-width: 640px; height: auto; display: block; }
+  .diagram-caption {
+    margin-top: 22px; font-size: 0.9rem; color: var(--faint);
+    font-family: var(--mono); text-align: center;
+  }
+  .diagram-caption b { color: var(--muted); font-weight: 500; }
+
+  /* ── Lifecycle steps ─────────────────────────── */
+  .steps { display: grid; grid-template-columns: repeat(4, 1fr); gap: 18px; margin-top: 40px; }
+  @media (max-width: 860px) { .steps { grid-template-columns: repeat(2, 1fr); } }
+  @media (max-width: 520px) { .steps { grid-template-columns: 1fr; } }
+  .step { padding: 22px; border: 1px solid var(--line); border-radius: 12px; background: var(--ink-2); }
+  .step .s-num { font-family: var(--mono); font-size: 0.78rem; color: var(--cyan); }
+  .step h4 { font-family: var(--serif); font-size: 1.1rem; margin: 8px 0 6px; }
+  .step p { font-size: 0.88rem; color: var(--muted); }
+
+  /* ── Schema chips ────────────────────────────── */
+  .schema-cols { display: grid; grid-template-columns: 1fr 1fr; gap: 40px; margin-top: 44px; }
+  @media (max-width: 720px) { .schema-cols { grid-template-columns: 1fr; } }
+  .schema-cols h4 {
+    font-family: var(--mono); font-size: 0.8rem; letter-spacing: 0.15em;
+    text-transform: uppercase; color: var(--faint); margin-bottom: 18px;
+  }
+  .chips { display: flex; flex-wrap: wrap; gap: 10px; }
+  .chip {
+    font-family: var(--mono); font-size: 0.88rem; padding: 8px 16px;
+    border-radius: 8px; border: 1px solid var(--line); color: var(--paper);
+    background: var(--ink-3);
+  }
+  .chip span { color: var(--faint); font-size: 0.78rem; margin-left: 8px; }
+  .chip.hot { border-color: rgba(255, 93, 143, 0.5); color: var(--rose); }
+  .chip.cool { border-color: rgba(45, 217, 255, 0.4); color: var(--cyan); }
+
+  /* ── Invariants ──────────────────────────────── */
+  .invariants { margin-top: 44px; display: grid; gap: 0; border: 1px solid var(--line); border-radius: 14px; overflow: hidden; }
+  .inv-row {
+    display: grid; grid-template-columns: 240px 1fr; gap: 24px;
+    padding: 22px 28px; background: var(--ink-2);
+  }
+  .inv-row + .inv-row { border-top: 1px solid var(--line); }
+  @media (max-width: 680px) { .inv-row { grid-template-columns: 1fr; gap: 6px; } }
+  .inv-row b { font-family: var(--serif); font-weight: 600; font-size: 1.02rem; }
+  .inv-row p { color: var(--muted); font-size: 0.93rem; }
+
+  /* ── Memoric bits ────────────────────────────── */
+  .phase-pill {
+    display: inline-block; font-family: var(--mono); font-size: 0.75rem;
+    color: var(--amber); border: 1px solid rgba(255, 180, 84, 0.4);
+    border-radius: 99px; padding: 4px 12px; margin-left: 12px; vertical-align: middle;
+  }
+
+  /* ── Roadmap ─────────────────────────────────── */
+  .timeline { margin-top: 48px; position: relative; padding-left: 32px; }
+  .timeline::before {
+    content: ""; position: absolute; left: 7px; top: 8px; bottom: 8px;
+    width: 2px; background: linear-gradient(180deg, var(--green), var(--cyan), var(--faint));
+  }
+  .t-item { position: relative; padding: 0 0 36px 24px; }
+  .t-item:last-child { padding-bottom: 0; }
+  .t-item::before {
+    content: ""; position: absolute; left: -32px; top: 7px;
+    width: 16px; height: 16px; border-radius: 50%;
+    background: var(--ink); border: 3px solid var(--faint);
+  }
+  .t-item.done::before { border-color: var(--green); background: var(--green); }
+  .t-item.now::before { border-color: var(--amber); background: var(--ink); animation: pulse 2.4s infinite; }
+  .t-item.next::before { border-color: var(--cyan); }
+  .t-item h4 { font-family: var(--serif); font-size: 1.18rem; font-weight: 600; }
+  .t-item h4 .t-tag {
+    font-family: var(--mono); font-size: 0.72rem; letter-spacing: 0.1em;
+    padding: 3px 10px; border-radius: 99px; margin-left: 10px; vertical-align: middle;
+  }
+  .done .t-tag { color: var(--green); border: 1px solid rgba(61,220,151,0.4); }
+  .now .t-tag { color: var(--amber); border: 1px solid rgba(255,180,84,0.4); }
+  .next .t-tag { color: var(--cyan); border: 1px solid rgba(45,217,255,0.35); }
+  .later .t-tag { color: var(--faint); border: 1px solid var(--line); }
+  .t-item p { color: var(--muted); font-size: 0.94rem; margin-top: 6px; max-width: 60ch; }
+
+  /* ── Footer ──────────────────────────────────── */
+  footer { border-top: 1px solid var(--line); padding: 56px 0; }
+  .foot-inner { display: flex; justify-content: space-between; align-items: flex-start; gap: 32px; flex-wrap: wrap; }
+  .foot-tag { font-family: var(--serif); font-style: italic; color: var(--muted); max-width: 36ch; }
+  .foot-links { display: flex; gap: 24px; }
+  .foot-links a { color: var(--muted); text-decoration: none; font-size: 0.92rem; }
+  .foot-links a:hover { color: var(--cyan); }
+  .foot-fine { margin-top: 36px; font-family: var(--mono); font-size: 0.78rem; color: var(--faint); }
+
+  /* ── Reveal animation ────────────────────────── */
+  .reveal { opacity: 0; transform: translateY(18px); transition: opacity 0.6s ease, transform 0.6s ease; }
+  .reveal.in { opacity: 1; transform: none; }
+  @media (prefers-reduced-motion: reduce) { .reveal { opacity: 1; transform: none; transition: none; } }
+
+  /* SVG shared text styles */
+  text { font-family: var(--mono); }
+</style>
+</head>
+<body>
+
+<nav>
+  <div class="wrap nav-inner">
+    <a class="wordmark" href="#">perdura<span class="dot">.</span></a>
+    <div class="nav-links">
+      <a href="#inversion">The Inversion</a>
+      <a href="#how">How It Works</a>
+      <a href="#architecture">Architecture</a>
+      <a href="#research">Research</a>
+      <a href="#roadmap">Roadmap</a>
+      <a class="gh" href="https://github.com/Rbm3267/perdura">GitHub →</a>
+    </div>
+  </div>
+</nav>
+
+<header>
+  <div class="wrap">
+    <div class="status-pill"><span class="blink"></span>OPEN RESEARCH · PHASE 0 VALIDATION IN PROGRESS</div>
+    <h1>The mind that <em>outlives</em> its models.</h1>
+    <p class="lede">
+      Perdura is a persistent knowledge graph that <strong>hires and fires LLMs</strong>
+      based on what it has learned about them — spending money only where it
+      <strong>disagrees with itself</strong>. Models board, contribute, and disembark.
+      The memory is the system of record. The agents never were.
+    </p>
+    <div class="hero-ctas">
+      <a class="btn btn-primary" href="https://github.com/Rbm3267/perdura">View on GitHub</a>
+      <a class="btn btn-ghost" href="https://github.com/Rbm3267/perdura/blob/main/docs/design.md">Read the design doc</a>
+    </div>
+  </div>
+</header>
+
+<!-- ════════ THE INVERSION ════════ -->
+<section id="inversion">
+  <div class="wrap">
+    <div class="kicker">01 · The Inversion</div>
+    <h2>Memory is the entity. Models are <em>labor</em>.</h2>
+    <p class="section-lede">
+      Conventional multi-agent systems treat agents as persistent and memory as incidental —
+      lose the agent, lose the plot. Perdura inverts this. Because no working state ever
+      lives inside a model, any model can be swapped mid-task with zero loss.
+    </p>
+
+    <div class="invert-grid reveal">
+      <div class="invert-card">
+        <div class="invert-tag">Conventional</div>
+        <h3>Agents persist, memory is a sidecar</h3>
+        <p>The transcript is the memory. Swap the model and the working state evaporates with it.</p>
+        <svg viewBox="0 0 400 130" role="img" aria-label="Conventional: large agent box with small memory attached">
+          <rect x="40" y="25" width="200" height="80" rx="10" fill="none" stroke="#97a3c4" stroke-width="2"/>
+          <text x="140" y="60" text-anchor="middle" fill="#f0f3fa" font-size="14">AGENT</text>
+          <text x="140" y="82" text-anchor="middle" fill="#5b6688" font-size="10">persistent · irreplaceable</text>
+          <rect x="285" y="48" width="80" height="34" rx="6" fill="none" stroke="#5b6688" stroke-width="1.5" stroke-dasharray="4 4"/>
+          <text x="325" y="69" text-anchor="middle" fill="#5b6688" font-size="10">memory</text>
+          <line x1="240" y1="65" x2="285" y2="65" stroke="#5b6688" stroke-width="1.5"/>
+        </svg>
+      </div>
+      <div class="invert-card win">
+        <div class="invert-tag">Perdura</div>
+        <h3>The graph persists, models are ephemeral</h3>
+        <p>Workers never knew anything the graph didn't. Disembarking loses nothing.</p>
+        <svg viewBox="0 0 400 130" role="img" aria-label="Perdura: large graph box with small interchangeable model workers">
+          <rect x="40" y="25" width="200" height="80" rx="10" fill="rgba(45,217,255,0.06)" stroke="#2dd9ff" stroke-width="2"/>
+          <circle cx="95" cy="55" r="5" fill="#2dd9ff"/><circle cx="150" cy="45" r="5" fill="#2dd9ff"/>
+          <circle cx="185" cy="75" r="5" fill="#ff5d8f"/><circle cx="115" cy="85" r="5" fill="#2dd9ff"/>
+          <line x1="95" y1="55" x2="150" y2="45" stroke="#2dd9ff" stroke-width="1" opacity="0.6"/>
+          <line x1="150" y1="45" x2="185" y2="75" stroke="#ff5d8f" stroke-width="1" opacity="0.7"/>
+          <line x1="95" y1="55" x2="115" y2="85" stroke="#2dd9ff" stroke-width="1" opacity="0.6"/>
+          <text x="140" y="118" text-anchor="middle" fill="#2dd9ff" font-size="10">THE GRAPH · system of record</text>
+          <g opacity="0.9">
+            <rect x="290" y="28" width="72" height="22" rx="5" fill="none" stroke="#5b6688" stroke-width="1.5" stroke-dasharray="3 3"/>
+            <text x="326" y="43" text-anchor="middle" fill="#97a3c4" font-size="9">model A</text>
+            <rect x="290" y="56" width="72" height="22" rx="5" fill="none" stroke="#5b6688" stroke-width="1.5" stroke-dasharray="3 3"/>
+            <text x="326" y="71" text-anchor="middle" fill="#97a3c4" font-size="9">model B</text>
+            <rect x="290" y="84" width="72" height="22" rx="5" fill="none" stroke="#5b6688" stroke-width="1.5" stroke-dasharray="3 3"/>
+            <text x="326" y="99" text-anchor="middle" fill="#97a3c4" font-size="9">model C</text>
+          </g>
+          <line x1="240" y1="65" x2="288" y2="65" stroke="#2dd9ff" stroke-width="1.5" marker-end="url(#arrowC)"/>
+          <defs><marker id="arrowC" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto"><path d="M0,0 L6,3 L0,6 z" fill="#2dd9ff"/></marker></defs>
+        </svg>
+      </div>
+    </div>
+
+    <div class="claims">
+      <div class="claim reveal">
+        <div class="num">01</div>
+        <h3>Inverted persistence</h3>
+        <p>The graph is the system of record; models are stateless, interchangeable workers.
+           Nothing is lost when a model is swapped — it never held anything to lose.</p>
+      </div>
+      <div class="claim reveal">
+        <div class="num">02</div>
+        <h3>Epistemic track records</h3>
+        <p>Every node is attributed. Over time the graph accumulates evidence about which
+           models are reliable in which domains. The memory evaluates its workers.</p>
+      </div>
+      <div class="claim reveal">
+        <div class="num">03</div>
+        <h3>Contention-driven economics</h3>
+        <p>Cheap local models are the default labor force. Frontier and specialist models are
+           summoned only where contradiction density rises in the graph.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ════════ HOW IT WORKS ════════ -->
+<section id="how">
+  <div class="wrap">
+    <div class="kicker">02 · How It Works</div>
+    <h2>Board. Contribute. <em>Disembark.</em></h2>
+    <p class="section-lede">
+      A worker never sees a transcript and never sees who wrote prior nodes — only a bounded
+      briefing of the most-contended question and its neighborhood. It returns a strict-JSON
+      graph delta. A deterministic conductor validates, attributes, and merges. No LLM ever
+      touches the merge path.
+    </p>
+
+    <div class="diagram reveal">
+      <svg viewBox="0 0 960 230" role="img" aria-label="Worker lifecycle: briefing out of the graph, delta back in through the conductor">
+        <defs>
+          <marker id="aCyan" markerWidth="9" markerHeight="9" refX="7" refY="3.5" orient="auto"><path d="M0,0 L7,3.5 L0,7 z" fill="#2dd9ff"/></marker>
+          <marker id="aAmber" markerWidth="9" markerHeight="9" refX="7" refY="3.5" orient="auto"><path d="M0,0 L7,3.5 L0,7 z" fill="#ffb454"/></marker>
+          <marker id="aGreen" markerWidth="9" markerHeight="9" refX="7" refY="3.5" orient="auto"><path d="M0,0 L7,3.5 L0,7 z" fill="#3ddc97"/></marker>
+        </defs>
+        <!-- Graph -->
+        <rect x="20" y="40" width="200" height="150" rx="14" fill="rgba(45,217,255,0.05)" stroke="#2dd9ff" stroke-width="2"/>
+        <text x="120" y="70" text-anchor="middle" fill="#f0f3fa" font-size="14" font-weight="600">KNOWLEDGE GRAPH</text>
+        <circle cx="75" cy="105" r="6" fill="#2dd9ff"/><circle cx="135" cy="95" r="6" fill="#2dd9ff"/>
+        <circle cx="170" cy="135" r="6" fill="#ff5d8f"/><circle cx="95" cy="150" r="6" fill="#2dd9ff"/>
+        <line x1="75" y1="105" x2="135" y2="95" stroke="#2dd9ff" opacity="0.6"/>
+        <line x1="135" y1="95" x2="170" y2="135" stroke="#ff5d8f" opacity="0.8" stroke-width="2"/>
+        <line x1="75" y1="105" x2="95" y2="150" stroke="#2dd9ff" opacity="0.6"/>
+        <text x="120" y="178" text-anchor="middle" fill="#5b6688" font-size="9">persistent · attributed · supersede-never-delete</text>
+
+        <!-- Briefing arrow out -->
+        <path d="M 220 85 C 290 85, 300 85, 360 85" fill="none" stroke="#2dd9ff" stroke-width="2" marker-end="url(#aCyan)"/>
+        <text x="290" y="72" text-anchor="middle" fill="#2dd9ff" font-size="11">bounded briefing</text>
+        <text x="290" y="102" text-anchor="middle" fill="#5b6688" font-size="9">2-hop neighborhood · no authorship · no transcript</text>
+
+        <!-- Worker -->
+        <rect x="365" y="45" width="180" height="80" rx="12" fill="none" stroke="#97a3c4" stroke-width="2" stroke-dasharray="6 5"/>
+        <text x="455" y="80" text-anchor="middle" fill="#f0f3fa" font-size="13" font-weight="600">EPHEMERAL WORKER</text>
+        <text x="455" y="102" text-anchor="middle" fill="#5b6688" font-size="9">any model · boards · thinks · disembarks</text>
+
+        <!-- Delta arrow to conductor -->
+        <path d="M 545 85 C 615 85, 625 85, 685 85" fill="none" stroke="#ffb454" stroke-width="2" marker-end="url(#aAmber)"/>
+        <text x="615" y="72" text-anchor="middle" fill="#ffb454" font-size="11">strict-JSON delta</text>
+        <text x="615" y="102" text-anchor="middle" fill="#5b6688" font-size="9">new nodes · edges · supersedes</text>
+
+        <!-- Conductor -->
+        <rect x="690" y="45" width="250" height="80" rx="12" fill="rgba(255,180,84,0.05)" stroke="#ffb454" stroke-width="2"/>
+        <text x="815" y="76" text-anchor="middle" fill="#f0f3fa" font-size="13" font-weight="600">CONDUCTOR</text>
+        <text x="815" y="98" text-anchor="middle" fill="#5b6688" font-size="9">deterministic code: validate · attribute · merge</text>
+
+        <!-- Merge arrow back -->
+        <path d="M 815 125 C 815 205, 280 215, 232 160" fill="none" stroke="#3ddc97" stroke-width="2" marker-end="url(#aGreen)"/>
+        <text x="540" y="205" text-anchor="middle" fill="#3ddc97" font-size="11">merged + attributed → contention recomputed</text>
+      </svg>
+      <div class="diagram-caption"><b>The loop.</b> Workers contribute knowledge; only the conductor mutates the graph.</div>
+    </div>
+
+    <div class="steps">
+      <div class="step reveal"><div class="s-num">STEP 1</div><h4>Board</h4>
+        <p>The conductor picks the most-contended open question and assembles a briefing capped at a fixed character budget.</p></div>
+      <div class="step reveal"><div class="s-num">STEP 2</div><h4>Contribute</h4>
+        <p>The worker returns claims, evidence, and edges — including <code>contradicts</code> edges. Disagreement is signal, not noise.</p></div>
+      <div class="step reveal"><div class="s-num">STEP 3</div><h4>Validate &amp; merge</h4>
+        <p>Schema-checked, attributed, merged by pure code. Malformed deltas are rejected — and the rejection itself feeds the track record.</p></div>
+      <div class="step reveal"><div class="s-num">STEP 4</div><h4>Disembark</h4>
+        <p>The worker is released. Nothing it "knew" is lost, because it never knew anything the graph didn't.</p></div>
+    </div>
+  </div>
+</section>
+
+<!-- ════════ ARCHITECTURE ════════ -->
+<section id="architecture">
+  <div class="wrap">
+    <div class="kicker">03 · Architecture</div>
+    <h2>The train and its <em>stations</em>.</h2>
+    <p class="section-lede">
+      Everything persistent rides the train: the graph, the deterministic conductor, the
+      retrieval index, and eventually the router. Models are stations the train passes
+      through — any LLM behind a uniform interface, including any MCP-compatible client
+      connecting to the Perdura station server.
+    </p>
+
+    <div class="diagram reveal">
+      <svg viewBox="0 0 960 360" role="img" aria-label="Architecture: persistent train layer above ephemeral model stations">
+        <defs>
+          <marker id="aDown" markerWidth="9" markerHeight="9" refX="4" refY="7" orient="auto"><path d="M0,0 L8,0 L4,7 z" fill="#5b6688"/></marker>
+        </defs>
+        <!-- Train container -->
+        <rect x="20" y="20" width="920" height="180" rx="16" fill="rgba(45,217,255,0.04)" stroke="#2dd9ff" stroke-width="2"/>
+        <text x="48" y="52" fill="#2dd9ff" font-size="12" letter-spacing="3">THE TRAIN — PERSISTENT</text>
+
+        <rect x="48" y="72" width="270" height="100" rx="10" fill="#0e1430" stroke="#2dd9ff" stroke-width="1.5"/>
+        <text x="183" y="105" text-anchor="middle" fill="#f0f3fa" font-size="13" font-weight="600">Knowledge Graph</text>
+        <text x="183" y="126" text-anchor="middle" fill="#5b6688" font-size="9.5">typed nodes + edges · attribution</text>
+        <text x="183" y="142" text-anchor="middle" fill="#5b6688" font-size="9.5">superseded, never deleted</text>
+
+        <rect x="345" y="72" width="270" height="100" rx="10" fill="#0e1430" stroke="#ffb454" stroke-width="1.5"/>
+        <text x="480" y="105" text-anchor="middle" fill="#f0f3fa" font-size="13" font-weight="600">Conductor</text>
+        <text x="480" y="126" text-anchor="middle" fill="#5b6688" font-size="9.5">briefings · validation · merge</text>
+        <text x="480" y="142" text-anchor="middle" fill="#5b6688" font-size="9.5">deterministic — no LLM in the merge path</text>
+
+        <rect x="642" y="72" width="270" height="100" rx="10" fill="#0e1430" stroke="#5b6688" stroke-width="1.5" stroke-dasharray="6 4"/>
+        <text x="777" y="100" text-anchor="middle" fill="#f0f3fa" font-size="13" font-weight="600">Retrieval + Router</text>
+        <text x="777" y="121" text-anchor="middle" fill="#5b6688" font-size="9.5">ChromaDB hybrid retrieval · Phase 1.5</text>
+        <text x="777" y="137" text-anchor="middle" fill="#5b6688" font-size="9.5">epistemic router · Phase 3</text>
+        <text x="777" y="158" text-anchor="middle" fill="#ffb454" font-size="9">contention = ½·edges + ½·memoric scatter</text>
+
+        <line x1="318" y1="122" x2="345" y2="122" stroke="#2dd9ff" stroke-width="1.5"/>
+        <line x1="615" y1="122" x2="642" y2="122" stroke="#5b6688" stroke-width="1.5"/>
+
+        <!-- transit line -->
+        <line x1="60" y1="268" x2="900" y2="268" stroke="#2dd9ff" stroke-width="4" stroke-linecap="round" opacity="0.85"/>
+
+        <!-- board arrows -->
+        <g stroke="#5b6688" stroke-width="1.5">
+          <line x1="180" y1="202" x2="180" y2="252" marker-end="url(#aDown)"/>
+          <line x1="400" y1="202" x2="400" y2="252" marker-end="url(#aDown)"/>
+          <line x1="620" y1="202" x2="620" y2="252" marker-end="url(#aDown)"/>
+          <line x1="830" y1="202" x2="830" y2="252" marker-end="url(#aDown)"/>
+        </g>
+        <text x="480" y="232" text-anchor="middle" fill="#5b6688" font-size="10">board ↑ · disembark ↓</text>
+
+        <!-- stations -->
+        <g>
+          <circle cx="180" cy="268" r="11" fill="#0a0e1f" stroke="#2dd9ff" stroke-width="3"/>
+          <text x="180" y="302" text-anchor="middle" fill="#f0f3fa" font-size="12" font-weight="600">Qwen · local</text>
+          <text x="180" y="320" text-anchor="middle" fill="#3ddc97" font-size="9.5">default labor · ~free</text>
+
+          <circle cx="400" cy="268" r="11" fill="#0a0e1f" stroke="#2dd9ff" stroke-width="3"/>
+          <text x="400" y="302" text-anchor="middle" fill="#f0f3fa" font-size="12" font-weight="600">Claude</text>
+          <text x="400" y="320" text-anchor="middle" fill="#ffb454" font-size="9.5">summoned on contention</text>
+
+          <circle cx="620" cy="268" r="11" fill="#0a0e1f" stroke="#2dd9ff" stroke-width="3"/>
+          <text x="620" y="302" text-anchor="middle" fill="#f0f3fa" font-size="12" font-weight="600">Gemini</text>
+          <text x="620" y="320" text-anchor="middle" fill="#ffb454" font-size="9.5">summoned on contention</text>
+
+          <circle cx="830" cy="268" r="11" fill="#0a0e1f" stroke="#ff5d8f" stroke-width="3"/>
+          <text x="830" y="302" text-anchor="middle" fill="#f0f3fa" font-size="12" font-weight="600">Any MCP client</text>
+          <text x="830" y="320" text-anchor="middle" fill="#5b6688" font-size="9.5">via the Perdura station server</text>
+        </g>
+
+        <text x="480" y="350" text-anchor="middle" fill="#5b6688" font-size="10" letter-spacing="2">STATIONS — EPHEMERAL</text>
+      </svg>
+      <div class="diagram-caption"><b>State rides the train, not the worker.</b> Swap any station; the line keeps running.</div>
+    </div>
+
+    <div class="schema-cols">
+      <div class="reveal">
+        <h4>Node types</h4>
+        <div class="chips">
+          <span class="chip">question <span>drives work</span></span>
+          <span class="chip">claim <span>confidence 0–1</span></span>
+          <span class="chip">evidence <span>sourced</span></span>
+          <span class="chip">decision <span>resolved choice</span></span>
+          <span class="chip">rejected <span>with reason</span></span>
+        </div>
+      </div>
+      <div class="reveal">
+        <h4>Edge types</h4>
+        <div class="chips">
+          <span class="chip cool">supports</span>
+          <span class="chip hot">contradicts <span>→ contention</span></span>
+          <span class="chip">refines</span>
+          <span class="chip">answers</span>
+          <span class="chip">depends_on</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="invariants reveal">
+      <div class="inv-row"><b>Deterministic merge</b><p>Validation, ID assignment, attribution, and merging are pure code. An LLM never mutates the graph directly.</p></div>
+      <div class="inv-row"><b>Supersede, never delete</b><p>Stale nodes are marked, not removed. The temporal record of how the mind changed is preserved forever.</p></div>
+      <div class="inv-row"><b>Bounded briefings</b><p>Workers see the 2-hop neighborhood of the most-contended question, capped at a fixed budget — cost stays flat no matter how many models have ever boarded.</p></div>
+      <div class="inv-row"><b>Hidden attribution</b><p>Workers see content and confidence, never authorship. This counters anchoring — a claim earns deference by surviving contention, not by its author's name.</p></div>
+    </div>
+  </div>
+</section>
+
+<!-- ════════ RESEARCH / MEMORIC ════════ -->
+<section id="research">
+  <div class="wrap">
+    <div class="kicker">04 · Research</div>
+    <h2>Memoric binary <span class="phase-pill">PHASE 0 · VALIDATING</span></h2>
+    <p class="section-lede">
+      A 96-bit epistemic encoding for every node — not what the text <em>says</em>, but the
+      <strong>context of its assertion</strong>: type, confidence, domain, temporal position,
+      supersession lineage, and a semantic sketch. Scatter in this space is a disagreement
+      signal that can fire <em>before</em> an explicit <code>contradicts</code> edge exists.
+    </p>
+
+    <div class="diagram reveal">
+      <svg viewBox="0 0 960 150" role="img" aria-label="Memoric binary 96-bit field layout">
+        <g font-size="11">
+          <rect x="20"  y="35" width="460" height="56" rx="8" fill="rgba(45,217,255,0.10)" stroke="#2dd9ff" stroke-width="1.5"/>
+          <text x="250" y="60" text-anchor="middle" fill="#f0f3fa" font-weight="600">semantic sketch</text>
+          <text x="250" y="78" text-anchor="middle" fill="#5b6688" font-size="9.5">text similarity in Hamming space</text>
+          <text x="250" y="112" text-anchor="middle" fill="#2dd9ff" font-size="10">48 bits</text>
+
+          <rect x="488" y="35" width="60" height="56" rx="8" fill="rgba(61,220,151,0.10)" stroke="#3ddc97" stroke-width="1.5"/>
+          <text x="518" y="66" text-anchor="middle" fill="#f0f3fa">type</text>
+          <text x="518" y="112" text-anchor="middle" fill="#3ddc97" font-size="10">4</text>
+
+          <rect x="556" y="35" width="76" height="56" rx="8" fill="rgba(255,180,84,0.10)" stroke="#ffb454" stroke-width="1.5"/>
+          <text x="594" y="66" text-anchor="middle" fill="#f0f3fa">confidence</text>
+          <text x="594" y="112" text-anchor="middle" fill="#ffb454" font-size="10">5</text>
+
+          <rect x="640" y="35" width="84" height="56" rx="8" fill="rgba(255,93,143,0.10)" stroke="#ff5d8f" stroke-width="1.5"/>
+          <text x="682" y="66" text-anchor="middle" fill="#f0f3fa">domain</text>
+          <text x="682" y="112" text-anchor="middle" fill="#ff5d8f" font-size="10">6</text>
+
+          <rect x="732" y="35" width="208" height="56" rx="8" fill="rgba(151,163,196,0.08)" stroke="#97a3c4" stroke-width="1.5"/>
+          <text x="836" y="60" text-anchor="middle" fill="#f0f3fa" font-weight="600">provenance</text>
+          <text x="836" y="78" text-anchor="middle" fill="#5b6688" font-size="9.5">time · supersession lineage</text>
+          <text x="836" y="112" text-anchor="middle" fill="#97a3c4" font-size="10">33 bits</text>
+        </g>
+        <text x="480" y="140" text-anchor="middle" fill="#5b6688" font-size="10">96 bits · 12 bytes per node · derived on demand, never persisted</text>
+      </svg>
+      <div class="diagram-caption"><b>Every bit carries provenance.</b> Generic embeddings can't tell a 0.3-confidence claim from a 0.8 one. This can.</div>
+    </div>
+
+    <div class="steps" style="grid-template-columns: repeat(3, 1fr);">
+      <div class="step reveal"><div class="s-num">EXPERIMENT 1</div><h4>Hidden disagreement</h4>
+        <p>Does embedding scatter predict <code>contradicts</code> edges? Pass bar: AUC &gt; 0.7.</p></div>
+      <div class="step reveal"><div class="s-num">EXPERIMENT 2</div><h4>Track records in vector space</h4>
+        <p>Do models whose claims sit near future decisions prove more reliable? Pass bar: |r| &gt; 0.6.</p></div>
+      <div class="step reveal"><div class="s-num">EXPERIMENT 3</div><h4>Compression without loss</h4>
+        <p>Can 12 bytes per node route as well as full edge analysis? Pass bar: &gt;90% routing agreement.</p></div>
+    </div>
+  </div>
+</section>
+
+<!-- ════════ ROADMAP ════════ -->
+<section id="roadmap">
+  <div class="wrap">
+    <div class="kicker">05 · Roadmap</div>
+    <h2>Each phase proves the <em>next claim</em>.</h2>
+
+    <div class="timeline">
+      <div class="t-item done reveal">
+        <h4>Phase 1 — Graph + workers <span class="t-tag">SHIPPED</span></h4>
+        <p>Persistent graph, deterministic conductor, round-robin boarding for Claude, Gemini,
+           and local Qwen. CLI plus an MCP station so any model can board as a worker.
+           Proves the inverted-persistence loop end to end.</p>
+      </div>
+      <div class="t-item now reveal">
+        <h4>Phase 0 — Memoric binary <span class="t-tag">VALIDATING NOW</span></h4>
+        <p>The 96-bit epistemic encoding and its three validation experiments. Contention
+           already blends edge signal with memoric scatter by default; the spec locks when
+           the experiments pass.</p>
+      </div>
+      <div class="t-item next reveal">
+        <h4>Phase 1.5 — Memoric retrieval <span class="t-tag">NEXT</span></h4>
+        <p>ChromaDB hybrid retrieval (BM25 + dense + graph expansion) replaces tag matching
+           for briefing assembly. Force-directed mind-map visualization of the living graph.</p>
+      </div>
+      <div class="t-item next reveal">
+        <h4>Phase 2 — Track records <span class="t-tag">PLANNED</span></h4>
+        <p>Per-model, per-domain reliability computed from outcomes: whose claims end up
+           supported, contradicted, superseded, or promoted to decisions. Proves claim 02.</p>
+      </div>
+      <div class="t-item later reveal">
+        <h4>Phase 3 — The epistemic router <span class="t-tag">THE THESIS</span></h4>
+        <p>Model registry, cost budgets, contention-driven escalation, specialist summoning.
+           The graph starts hiring and firing for real. Proves claim 03.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<footer>
+  <div class="wrap">
+    <div class="foot-inner">
+      <div>
+        <a class="wordmark" href="#">perdura<span class="dot">.</span></a>
+        <p class="foot-tag">From <em>perdurantism</em> — the philosophy that a thing persists
+        as a series of temporal parts. Also literally "it endures."</p>
+      </div>
+      <div class="foot-links">
+        <a href="https://github.com/Rbm3267/perdura">GitHub</a>
+        <a href="https://github.com/Rbm3267/perdura/blob/main/docs/design.md">Design doc</a>
+        <a href="https://github.com/Rbm3267/perdura/blob/main/docs/memoric-binary.md">Memoric RFC</a>
+        <a href="https://github.com/Rbm3267/perdura/blob/main/ROADMAP.md">Roadmap</a>
+      </div>
+    </div>
+    <div class="foot-fine">© 2026 Perdura · perdura.network · open research — APIs, schema, and ideas will change</div>
+  </div>
+</footer>
+
+<script>
+  const io = new IntersectionObserver((entries) => {
+    for (const e of entries) if (e.isIntersecting) { e.target.classList.add("in"); io.unobserve(e.target); }
+  }, { threshold: 0.12 });
+  document.querySelectorAll(".reveal").forEach((el) => io.observe(el));
+</script>
+</body>
+</html>
