@@ -25,6 +25,7 @@ Graph persists to perdura_graph.json (override with --graph PATH).
 import argparse
 import json
 import os
+import re
 import sys
 import time
 import uuid
@@ -217,15 +218,41 @@ def build_briefing(graph: Graph, question: Node):
 
 
 def parse_delta(raw: str):
-    """Tolerant JSON extraction: strip fences / surrounding prose."""
-    s = raw.strip()
-    if s.startswith("```"):
-        s = s.split("```")[1]
-        s = s[4:] if s.startswith("json") else s
-    start, end = s.find("{"), s.rfind("}")
-    if start == -1 or end == -1:
-        raise ValueError("no JSON object found")
-    return json.loads(s[start:end + 1])
+    """Tolerant JSON *extraction* (schema validation stays in merge_delta).
+
+    Handles the failure modes small local models actually produce:
+    reasoning blocks (qwen3 emits <think>...</think> before the JSON),
+    markdown fences, surrounding prose, and trailing commas.
+    """
+    s = re.sub(r"<think>.*?(</think>|$)", "", raw, flags=re.DOTALL)
+    s = re.sub(r"```(?:json)?", "", s).strip()
+
+    # Try each '{' as a candidate start; raw_decode stops at the matching
+    # close brace, so prose before/after and braces inside strings are fine.
+    decoder = json.JSONDecoder()
+    last_err = None
+    for m in re.finditer(r"\{", s):
+        candidate = s[m.start():]
+        for attempt in (candidate,
+                        re.sub(r",\s*([}\]])", r"\1", candidate)):
+            try:
+                obj, _ = decoder.raw_decode(attempt)
+            except json.JSONDecodeError as e:
+                last_err = e
+                continue
+            if isinstance(obj, dict):
+                return obj
+    raise ValueError(f"no JSON object found ({last_err or 'no braces'})")
+
+
+REPAIR_PROMPT = """\
+Your previous reply could not be parsed as a delta ({error}).
+Reply again with ONLY the JSON object — no <think> block, no markdown
+fences, no prose — matching exactly the schema you were given.
+
+Previous reply:
+{raw}
+"""
 
 
 def merge_delta(graph: Graph, delta: dict, worker: str):
@@ -369,7 +396,16 @@ def run_turns(graph: Graph, workers: list, turns: int):
               f"{q.text[:60]}...")
         briefing = build_briefing(graph, q)
         try:
-            delta = parse_delta(worker.generate(briefing))
+            raw = worker.generate(briefing)
+            try:
+                delta = parse_delta(raw)
+            except ValueError as e:
+                # One repair round; schema validation in merge_delta is
+                # unchanged — we only re-ask for parseable output.
+                print(f"  unparseable delta ({e}); retrying with repair prompt")
+                delta = parse_delta(worker.generate(
+                    briefing + "\n\n" + REPAIR_PROMPT.format(
+                        error=e, raw=raw[:2000])))
             acc, rej = merge_delta(graph, delta, worker.name)
             print(f"  merged: {acc} accepted, {rej} rejected | "
                   f"global contention: {graph.contention()}")
