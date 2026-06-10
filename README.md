@@ -34,7 +34,7 @@ mid-task with zero loss. The mind survives every model that ever powered it.
 pip install -r requirements.txt
 export ANTHROPIC_API_KEY=...
 export GEMINI_API_KEY=...
-ollama pull qwen3:14b          # or any local model; LM Studio works too
+# local labor: LM Studio serving qwen3-14b on :1234 (default), Ollama also works
 
 # Try the loop offline first (no API keys needed)
 python perdura.py demo
@@ -50,7 +50,7 @@ python perdura.py show
 ```
 
 All-local labor: `python perdura.py run --turns 10 --workers qwen`
-LM Studio instead of Ollama: `--qwen-url http://localhost:1234/v1`
+Ollama instead of LM Studio: `--qwen-url http://localhost:11434/v1 --qwen-model qwen3:14b`
 
 ## How it works
 

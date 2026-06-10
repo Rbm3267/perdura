@@ -10,7 +10,8 @@ merges, and tracks contention.
 Setup:
     pip install anthropic google-genai openai
     export ANTHROPIC_API_KEY=...  GEMINI_API_KEY=...
-    ollama pull qwen3:14b
+    # local labor: LM Studio serving qwen3-14b (default), or Ollama via
+    # --qwen-url http://localhost:11434/v1 --qwen-model qwen3:14b
 
 Usage:
     python perdura.py new "How should multi-agent memory be architected?"
@@ -73,26 +74,32 @@ class Graph:
 
     # -- persistence --------------------------------------------------------
     def _load(self):
-        data = json.load(open(self.path))
+        with open(self.path, encoding="utf-8") as f:
+            data = json.load(f)
         self.nodes = {n["id"]: Node(**n) for n in data["nodes"]}
         self.edges = {e["id"]: Edge(**e) for e in data["edges"]}
         self.log = data.get("log", [])
 
     def save(self):
-        json.dump(
-            {"nodes": [asdict(n) for n in self.nodes.values()],
-             "edges": [asdict(e) for e in self.edges.values()],
-             "log": self.log},
-            open(self.path, "w"), indent=2)
+        with open(self.path, "w", encoding="utf-8") as f:
+            json.dump(
+                {"nodes": [asdict(n) for n in self.nodes.values()],
+                 "edges": [asdict(e) for e in self.edges.values()],
+                 "log": self.log},
+                f, indent=2)
 
     # -- mutation (conductor-only) ------------------------------------------
     def add_node(self, type, text, created_by, confidence=0.5,
                  domain_tags=None, status="open"):
         nid = f"n_{uuid.uuid4().hex[:8]}"
+        try:
+            confidence = float(confidence)
+        except (TypeError, ValueError):  # models emit "high", null, etc.
+            confidence = 0.5
         self.nodes[nid] = Node(
             id=nid, type=type, text=text.strip(),
             domain_tags=domain_tags or [], created_by=created_by,
-            confidence=max(0.0, min(1.0, float(confidence))),
+            confidence=max(0.0, min(1.0, confidence)),
             created_at=time.time(), status=status)
         return nid
 
@@ -202,7 +209,8 @@ def build_briefing(graph: Graph, question: Node):
 
     lines, used = [], 0
     for n in nodes:
-        line = f"{n.id} | {n.type} | {n.confidence:.2f} | {n.text}"
+        text = " ".join(n.text.split())  # keep the one-line briefing format
+        line = f"{n.id} | {n.type} | {n.confidence:.2f} | {text}"
         if used + len(line) > BRIEFING_CHAR_BUDGET:
             break
         lines.append(line)
@@ -233,6 +241,10 @@ def parse_delta(raw: str):
     last_err = None
     for m in re.finditer(r"\{", s):
         candidate = s[m.start():]
+        # Trailing-comma repair is a last resort: the regex can't see string
+        # boundaries, so text like "yes, }" inside a value could be altered.
+        # It only runs after a strict parse failed, and a wrong repair still
+        # has to survive merge_delta's schema validation.
         for attempt in (candidate,
                         re.sub(r",\s*([}\]])", r"\1", candidate)):
             try:
@@ -260,35 +272,50 @@ def merge_delta(graph: Graph, delta: dict, worker: str):
     accepted, rejected = 0, 0
     ref_map = {}
 
-    for n in delta.get("new_nodes", []):
-        if n.get("type") not in NODE_TYPES or not n.get("text"):
+    def items(key):
+        """Field may be null, missing, or a non-list; elements non-dicts."""
+        val = delta.get(key)
+        return val if isinstance(val, list) else []
+
+    for n in items("new_nodes"):
+        if (not isinstance(n, dict) or n.get("type") not in NODE_TYPES
+                or not isinstance(n.get("text"), str) or not n["text"].strip()):
             rejected += 1
             continue
         nid = graph.add_node(
             type=n["type"], text=n["text"], created_by=worker,
             confidence=n.get("confidence", 0.5),
             domain_tags=n.get("domain_tags", []))
-        ref_map[n.get("ref", nid)] = nid
+        ref = n.get("ref")
+        ref_map[ref if isinstance(ref, str) else nid] = nid
         accepted += 1
 
     def resolve(ref):
+        if not isinstance(ref, str):
+            return None
         return ref_map.get(ref, ref if ref in graph.nodes else None)
 
-    for e in delta.get("new_edges", []):
-        src, dst = resolve(e.get("src", "")), resolve(e.get("dst", ""))
+    for e in items("new_edges"):
+        if not isinstance(e, dict):
+            rejected += 1
+            continue
+        src, dst = resolve(e.get("src")), resolve(e.get("dst"))
         if e.get("type") in EDGE_TYPES and src and dst and src != dst:
             graph.add_edge(e["type"], src, dst, worker)
             accepted += 1
         else:
             rejected += 1
 
-    for s in delta.get("supersedes", []):
-        old, new = s.get("old"), resolve(s.get("new", ""))
-        if old in graph.nodes and new:
+    for s in items("supersedes"):
+        if not isinstance(s, dict):
+            continue
+        old, new = s.get("old"), resolve(s.get("new"))
+        if isinstance(old, str) and old in graph.nodes and new:
             graph.supersede(old, new)
 
-    for qid in delta.get("resolve_questions", []):
-        if qid in graph.nodes and graph.nodes[qid].type == "question":
+    for qid in items("resolve_questions"):
+        if (isinstance(qid, str) and qid in graph.nodes
+                and graph.nodes[qid].type == "question"):
             graph.nodes[qid].status = "resolved"
 
     graph.log.append({"ts": time.time(), "worker": worker,
@@ -327,9 +354,14 @@ class GeminiWorker:
 
 
 class QwenWorker:
+    """Local model via any OpenAI-compatible server.
+
+    Defaults target LM Studio (http://localhost:1234/v1, model "qwen3-14b").
+    For Ollama: --qwen-url http://localhost:11434/v1 --qwen-model qwen3:14b
+    """
     name = "qwen"
 
-    def __init__(self, model="qwen3:14b", base_url="http://localhost:11434/v1"):
+    def __init__(self, model="qwen3-14b", base_url="http://localhost:1234/v1"):
         from openai import OpenAI
         self.client = OpenAI(base_url=base_url, api_key="local")
         self.model = model
@@ -455,8 +487,12 @@ def main():
                    help="comma list: qwen,claude,gemini,mock")
     p.add_argument("--claude-model", default="claude-sonnet-4-5")
     p.add_argument("--gemini-model", default="gemini-2.5-flash")
-    p.add_argument("--qwen-model", default="qwen3:14b")
-    p.add_argument("--qwen-url", default="http://localhost:11434/v1")
+    p.add_argument("--qwen-model", default="qwen3-14b",
+                   help="local model id as served (LM Studio: qwen3-14b; "
+                        "Ollama: qwen3:14b)")
+    p.add_argument("--qwen-url", default="http://localhost:1234/v1",
+                   help="OpenAI-compatible base URL (LM Studio default; "
+                        "Ollama: http://localhost:11434/v1)")
     args = p.parse_args()
 
     graph = Graph(args.graph)
