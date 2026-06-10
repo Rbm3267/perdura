@@ -3,377 +3,903 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Perdura — Overview, Architecture &amp; Requirements</title>
+<title>Perdura — The Mind That Outlives Its Models</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Playfair+Display:wght@600;700&display=swap" rel="stylesheet">
 <style>
-  :root{
-    --bg:#07090D;
-    --surface:#0C1016;
-    --surface-2:#10151D;
-    --ink:#E8ECF2;
-    --muted:#8A94A6;
-    --cyan:#00E5FF;
-    --fuchsia:#FF2EC4;
-    --hairline:rgba(0,229,255,.14);
-    --hairline-soft:rgba(138,148,166,.18);
-    --maxw:880px;
+  * {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
   }
-  *{box-sizing:border-box;margin:0;padding:0}
-  html{scroll-behavior:smooth}
-  body{
-    background:var(--bg);
-    color:var(--ink);
-    font-family:'IBM Plex Sans',sans-serif;
-    font-size:16px;
-    line-height:1.65;
-    -webkit-font-smoothing:antialiased;
-  }
-  ::selection{background:var(--cyan);color:var(--bg)}
 
-  .wrap{max-width:var(--maxw);margin:0 auto;padding:0 28px}
+  :root {
+    --bg-primary: #0a0e27;
+    --bg-secondary: #0f1535;
+    --bg-tertiary: #151d3a;
+    --surface: rgba(255, 255, 255, 0.03);
+    --surface-hover: rgba(255, 255, 255, 0.06);
+    --text-primary: #f5f7fa;
+    --text-secondary: #a8b2c7;
+    --text-tertiary: #7a8399;
+    --accent-blue: #0080ff;
+    --accent-pink: #ff0080;
+    --accent-cyan: #00d9ff;
+    --success: #10b981;
+    --border: rgba(255, 255, 255, 0.08);
+    --border-light: rgba(255, 255, 255, 0.04);
+  }
 
-  /* ---------- eyebrow / section labels ---------- */
-  .eyebrow{
-    font-family:'IBM Plex Mono',monospace;
-    font-size:11.5px;
-    letter-spacing:.22em;
-    text-transform:uppercase;
-    color:var(--cyan);
-    display:flex;align-items:center;gap:14px;
-    margin-bottom:22px;
+  html {
+    scroll-behavior: smooth;
   }
-  .eyebrow::after{content:"";flex:1;height:1px;background:var(--hairline)}
 
-  /* ---------- hero ---------- */
-  header{padding:96px 0 64px;border-bottom:1px solid var(--hairline)}
-  .doc-meta{
-    font-family:'IBM Plex Mono',monospace;
-    font-size:12px;color:var(--muted);
-    display:flex;gap:28px;flex-wrap:wrap;margin-bottom:40px;
+  body {
+    background: linear-gradient(135deg, var(--bg-primary) 0%, var(--bg-secondary) 50%, var(--bg-tertiary) 100%);
+    color: var(--text-primary);
+    font-family: "Inter", -apple-system, BlinkMacSystemFont, sans-serif;
+    font-size: 16px;
+    line-height: 1.6;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    min-height: 100vh;
+    position: relative;
+    overflow-x: hidden;
   }
-  .doc-meta b{color:var(--cyan);font-weight:500}
-  h1{
-    font-family:'Space Grotesk',sans-serif;
-    font-size:clamp(40px,7vw,72px);
-    font-weight:700;line-height:1.02;
-    letter-spacing:-.02em;
-    margin-bottom:28px;
+
+  body::before {
+    content: "";
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: 
+      radial-gradient(600px at 20% 40%, rgba(0, 128, 255, 0.08) 0%, transparent 80%),
+      radial-gradient(800px at 80% 60%, rgba(255, 0, 128, 0.06) 0%, transparent 80%);
+    pointer-events: none;
+    z-index: -1;
   }
-  h1 .ghost{color:var(--muted);font-weight:400}
-  .thesis{
-    font-family:'Space Grotesk',sans-serif;
-    font-size:clamp(18px,2.6vw,23px);
-    font-weight:400;line-height:1.5;
-    color:var(--ink);
-    max-width:680px;
-    border-left:2px solid var(--cyan);
-    padding-left:22px;
+
+  ::selection {
+    background: var(--accent-blue);
+    color: var(--bg-primary);
   }
-  .thesis em{color:var(--fuchsia);font-style:normal}
+
+  .container {
+    max-width: 1020px;
+    margin: 0 auto;
+    padding: 0 32px;
+  }
+
+  /* ---------- typography ---------- */
+  h1 {
+    font-family: "Playfair Display", serif;
+    font-size: clamp(48px, 8vw, 72px);
+    font-weight: 700;
+    line-height: 1.08;
+    letter-spacing: -0.02em;
+    background: linear-gradient(135deg, var(--text-primary) 0%, var(--accent-cyan) 50%, var(--accent-blue) 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+
+  h2 {
+    font-family: "Playfair Display", serif;
+    font-size: clamp(32px, 5vw, 48px);
+    font-weight: 700;
+    line-height: 1.15;
+    letter-spacing: -0.015em;
+    color: var(--text-primary);
+  }
+
+  h3 {
+    font-family: "Inter", sans-serif;
+    font-size: 20px;
+    font-weight: 600;
+    letter-spacing: -0.005em;
+    color: var(--text-primary);
+    margin: 48px 0 24px 0;
+  }
+
+  p {
+    color: var(--text-secondary);
+    max-width: 760px;
+    margin-bottom: 16px;
+    line-height: 1.75;
+  }
+
+  p.subtitle {
+    font-size: 18px;
+    line-height: 1.8;
+    color: var(--text-secondary);
+  }
+
+  .muted {
+    color: var(--text-tertiary);
+    font-size: 14px;
+  }
+
+  a {
+    color: var(--accent-cyan);
+    text-decoration: none;
+    transition: color 0.3s ease;
+    position: relative;
+  }
+
+  a::after {
+    content: "";
+    position: absolute;
+    bottom: -2px;
+    left: 0;
+    right: 0;
+    height: 1px;
+    background: var(--accent-cyan);
+    transform: scaleX(0);
+    transform-origin: right;
+    transition: transform 0.3s ease;
+  }
+
+  a:hover {
+    color: var(--accent-blue);
+  }
+
+  a:hover::after {
+    transform: scaleX(1);
+    transform-origin: left;
+  }
+
+  code {
+    font-family: "Inter", monospace;
+    font-size: 13px;
+    background: rgba(0, 128, 255, 0.1);
+    padding: 3px 8px;
+    border-radius: 4px;
+    color: var(--accent-cyan);
+    border: 1px solid rgba(0, 217, 255, 0.2);
+  }
+
+  /* ---------- header / hero ---------- */
+  header {
+    padding: 120px 0 80px;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .header-glow {
+    position: absolute;
+    top: -200px;
+    right: -200px;
+    width: 600px;
+    height: 600px;
+    background: radial-gradient(circle, rgba(0, 128, 255, 0.15) 0%, transparent 70%);
+    border-radius: 50%;
+    filter: blur(60px);
+    pointer-events: none;
+  }
+
+  .header-content {
+    position: relative;
+    z-index: 1;
+  }
+
+  .doc-meta {
+    display: flex;
+    gap: 32px;
+    flex-wrap: wrap;
+    margin-bottom: 48px;
+    font-family: "Inter", monospace;
+    font-size: 11px;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    color: var(--text-tertiary);
+  }
+
+  .doc-meta span {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .doc-meta span::before {
+    content: "";
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: var(--accent-blue);
+    opacity: 0.6;
+  }
+
+  .doc-meta span:first-child::before {
+    opacity: 1;
+  }
+
+  .thesis {
+    font-size: clamp(20px, 2.8vw, 28px);
+    line-height: 1.7;
+    color: var(--text-secondary);
+    max-width: 820px;
+    margin-top: 32px;
+    padding-left: 32px;
+    border-left: 3px solid;
+    border-image: linear-gradient(180deg, var(--accent-blue) 0%, var(--accent-pink) 100%) 1;
+    font-weight: 500;
+  }
+
+  .thesis strong {
+    color: var(--accent-cyan);
+    font-weight: 600;
+  }
 
   /* ---------- sections ---------- */
-  section{padding:72px 0;border-bottom:1px solid var(--hairline-soft)}
-  section:last-of-type{border-bottom:none}
-  h2{
-    font-family:'Space Grotesk',sans-serif;
-    font-size:clamp(26px,4vw,36px);
-    font-weight:700;letter-spacing:-.01em;
-    margin-bottom:20px;
+  section {
+    padding: 100px 0;
+    position: relative;
+    border-bottom: 1px solid var(--border-light);
   }
-  h3{
-    font-family:'Space Grotesk',sans-serif;
-    font-size:19px;font-weight:500;
-    margin:36px 0 12px;
+
+  section:last-of-type {
+    border-bottom: none;
+    padding-bottom: 120px;
   }
-  p{color:var(--ink);max-width:680px;margin-bottom:16px}
-  p.lede{font-size:18px}
-  .muted{color:var(--muted)}
-  code{
-    font-family:'IBM Plex Mono',monospace;
-    font-size:.88em;
-    background:var(--surface-2);
-    border:1px solid var(--hairline-soft);
-    border-radius:4px;
-    padding:1px 6px;
-    color:var(--cyan);
+
+  section::before {
+    content: "";
+    position: absolute;
+    top: 0;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 2px;
+    height: 1px;
+    background: linear-gradient(180deg, transparent, var(--accent-blue), transparent);
+    pointer-events: none;
   }
 
   /* ---------- claim cards ---------- */
-  .claims{display:grid;grid-template-columns:repeat(3,1fr);gap:1px;background:var(--hairline-soft);border:1px solid var(--hairline-soft);margin-top:36px}
-  .claim{background:var(--surface);padding:26px 22px}
-  .claim .tag{
-    font-family:'IBM Plex Mono',monospace;font-size:11px;
-    letter-spacing:.18em;text-transform:uppercase;color:var(--cyan);
-    display:block;margin-bottom:12px;
-  }
-  .claim h4{font-family:'Space Grotesk',sans-serif;font-size:16.5px;font-weight:500;margin-bottom:10px}
-  .claim p{font-size:14px;color:var(--muted);margin:0}
-  .claim:nth-child(3) .tag{color:var(--fuchsia)}
-
-  /* ---------- transit map ---------- */
-  .map-frame{
-    margin-top:44px;
-    background:var(--surface);
-    border:1px solid var(--hairline);
-    padding:36px 20px 20px;
-    overflow-x:auto;
-  }
-  .map-frame svg{display:block;min-width:720px;width:100%;height:auto}
-  .map-caption{
-    font-family:'IBM Plex Mono',monospace;
-    font-size:12px;color:var(--muted);
-    padding:16px 6px 0;line-height:1.7;
-  }
-  .map-caption b{color:var(--cyan);font-weight:500}
-  .map-caption i{color:var(--fuchsia);font-style:normal}
-
-  @keyframes pulse-ride{
-    from{offset-distance:0%}
-    to{offset-distance:100%}
-  }
-  .pulse{
-    offset-path:path("M 60 150 H 1040");
-    animation:pulse-ride 9s linear infinite;
-  }
-  @media (prefers-reduced-motion: reduce){
-    .pulse{animation:none;offset-distance:50%}
+  .claims-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+    gap: 28px;
+    margin-top: 60px;
   }
 
-  /* ---------- component list ---------- */
-  .components{margin-top:40px;border-top:1px solid var(--hairline-soft)}
-  .component{
-    display:grid;grid-template-columns:200px 1fr;gap:24px;
-    padding:22px 0;border-bottom:1px solid var(--hairline-soft);
+  .claim-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 36px;
+    transition: all 0.4s cubic-bezier(0.23, 1, 0.320, 1);
+    position: relative;
+    overflow: hidden;
+    backdrop-filter: blur(10px);
   }
-  .component .name{
-    font-family:'IBM Plex Mono',monospace;font-size:13.5px;color:var(--cyan);
-    padding-top:2px;
-  }
-  .component p{font-size:15px;margin:0;max-width:none}
 
-  /* ---------- schema tables ---------- */
-  table{
-    width:100%;border-collapse:collapse;margin:18px 0 8px;
-    font-size:14.5px;
+  .claim-card::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(135deg, rgba(0, 217, 255, 0.05) 0%, rgba(255, 0, 128, 0.05) 100%);
+    opacity: 0;
+    transition: opacity 0.4s ease;
   }
-  th{
-    font-family:'IBM Plex Mono',monospace;font-size:11px;
-    letter-spacing:.16em;text-transform:uppercase;
-    color:var(--muted);text-align:left;font-weight:500;
-    padding:10px 14px;border-bottom:1px solid var(--hairline);
+
+  .claim-card::after {
+    content: "";
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 3px;
+    background: linear-gradient(90deg, var(--accent-blue) 0%, var(--accent-cyan) 100%);
+    transform: scaleX(0);
+    transform-origin: left;
+    transition: transform 0.4s cubic-bezier(0.23, 1, 0.320, 1);
   }
-  td{
-    padding:10px 14px;border-bottom:1px solid var(--hairline-soft);
-    vertical-align:top;
+
+  .claim-card:hover {
+    border-color: var(--border);
+    transform: translateY(-4px);
+    box-shadow: 0 24px 48px rgba(0, 128, 255, 0.12);
   }
-  td:first-child{
-    font-family:'IBM Plex Mono',monospace;font-size:13.5px;color:var(--cyan);
-    white-space:nowrap;
+
+  .claim-card:hover::before {
+    opacity: 1;
   }
-  tr.contra td:first-child{color:var(--fuchsia)}
+
+  .claim-card:hover::after {
+    transform: scaleX(1);
+  }
+
+  .claim-card > * {
+    position: relative;
+    z-index: 2;
+  }
+
+  .claim-tag {
+    font-family: "Inter", monospace;
+    font-size: 10px;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: var(--accent-cyan);
+    display: block;
+    margin-bottom: 20px;
+    font-weight: 700;
+  }
+
+  .claim-card h4 {
+    font-family: "Playfair Display", serif;
+    font-size: 24px;
+    font-weight: 700;
+    margin-bottom: 16px;
+    line-height: 1.3;
+    color: var(--text-primary);
+  }
+
+  .claim-card p {
+    font-size: 15px;
+    color: var(--text-secondary);
+    margin: 0;
+    line-height: 1.8;
+  }
+
+  /* ---------- map section ---------- */
+  .map-container {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 48px;
+    margin-top: 60px;
+    backdrop-filter: blur(10px);
+    overflow: hidden;
+    position: relative;
+  }
+
+  .map-container::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(135deg, rgba(0, 128, 255, 0.03) 0%, rgba(255, 0, 128, 0.03) 100%);
+    pointer-events: none;
+  }
+
+  .map-frame {
+    position: relative;
+    z-index: 1;
+    overflow-x: auto;
+  }
+
+  .map-frame svg {
+    display: block;
+    min-width: 720px;
+    width: 100%;
+    height: auto;
+    filter: drop-shadow(0 8px 24px rgba(0, 128, 255, 0.1));
+  }
+
+  .map-info {
+    margin-top: 28px;
+    padding-top: 28px;
+    border-top: 1px solid var(--border-light);
+    font-family: "Inter", monospace;
+    font-size: 13px;
+    color: var(--text-secondary);
+    line-height: 1.8;
+  }
+
+  .map-info strong {
+    color: var(--accent-cyan);
+    font-weight: 600;
+  }
+
+  .map-info em {
+    color: var(--accent-pink);
+    font-style: normal;
+    font-weight: 600;
+  }
+
+  @keyframes pulse-travel {
+    0% { offset-distance: 0%; }
+    100% { offset-distance: 100%; }
+  }
+
+  .pulse-dot {
+    animation: pulse-travel 10s linear infinite;
+    offset-path: path("M 60 150 H 1040");
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .pulse-dot {
+      animation: none;
+      offset-distance: 50%;
+    }
+  }
+
+  /* ---------- component grid ---------- */
+  .components-grid {
+    display: grid;
+    gap: 36px;
+    margin-top: 56px;
+  }
+
+  .component-item {
+    padding: 32px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    transition: all 0.4s ease;
+    backdrop-filter: blur(10px);
+    position: relative;
+    overflow: hidden;
+  }
+
+  .component-item::before {
+    content: "";
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: linear-gradient(135deg, rgba(0, 217, 255, 0.03) 0%, transparent 100%);
+    opacity: 0;
+    transition: opacity 0.4s ease;
+  }
+
+  .component-item:hover {
+    border-color: var(--border);
+    transform: translateX(4px);
+    box-shadow: 0 12px 32px rgba(0, 128, 255, 0.08);
+  }
+
+  .component-item:hover::before {
+    opacity: 1;
+  }
+
+  .component-item > * {
+    position: relative;
+    z-index: 1;
+  }
+
+  .component-name {
+    font-family: "Inter", monospace;
+    font-size: 11px;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    color: var(--accent-cyan);
+    font-weight: 700;
+    display: block;
+    margin-bottom: 16px;
+  }
+
+  .component-item p {
+    font-size: 15px;
+    margin: 0;
+    line-height: 1.75;
+  }
+
+  /* ---------- tables ---------- */
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 32px 0 16px;
+    font-size: 14px;
+  }
+
+  th {
+    font-family: "Inter", monospace;
+    font-size: 11px;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--text-tertiary);
+    text-align: left;
+    font-weight: 700;
+    padding: 16px 0 12px 0;
+    border-bottom: 2px solid var(--border);
+  }
+
+  td {
+    padding: 14px 0;
+    border-bottom: 1px solid var(--border-light);
+    vertical-align: top;
+  }
+
+  td:first-child {
+    font-family: "Inter", monospace;
+    font-size: 13px;
+    color: var(--accent-cyan);
+    font-weight: 600;
+    white-space: nowrap;
+    padding-right: 24px;
+  }
+
+  td:last-child {
+    color: var(--text-secondary);
+  }
 
   /* ---------- lifecycle ---------- */
-  .lifecycle{display:grid;grid-template-columns:repeat(4,1fr);gap:1px;background:var(--hairline-soft);border:1px solid var(--hairline-soft);margin-top:30px}
-  .stop{background:var(--surface);padding:22px 18px}
-  .stop .marker{
-    font-family:'IBM Plex Mono',monospace;font-size:11px;color:var(--cyan);
-    letter-spacing:.16em;text-transform:uppercase;
-    display:flex;align-items:center;gap:8px;margin-bottom:12px;
+  .lifecycle-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+    gap: 24px;
+    margin-top: 56px;
   }
-  .stop .marker::before{
-    content:"";width:9px;height:9px;border-radius:50%;
-    border:2px solid var(--cyan);background:var(--bg);flex-shrink:0;
+
+  .lifecycle-stop {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 32px;
+    position: relative;
+    overflow: hidden;
+    backdrop-filter: blur(10px);
+    transition: all 0.4s ease;
   }
-  .stop h4{font-family:'Space Grotesk',sans-serif;font-size:15.5px;font-weight:500;margin-bottom:8px}
-  .stop p{font-size:13.5px;color:var(--muted);margin:0}
+
+  .lifecycle-stop::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(135deg, rgba(0, 128, 255, 0.05) 0%, transparent 100%);
+    opacity: 0;
+    transition: opacity 0.4s ease;
+  }
+
+  .lifecycle-stop:hover {
+    border-color: var(--border);
+    transform: translateY(-2px);
+    box-shadow: 0 16px 32px rgba(0, 128, 255, 0.1);
+  }
+
+  .lifecycle-stop:hover::before {
+    opacity: 1;
+  }
+
+  .lifecycle-stop > * {
+    position: relative;
+    z-index: 1;
+  }
+
+  .stop-marker {
+    font-family: "Inter", monospace;
+    font-size: 11px;
+    color: var(--accent-cyan);
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 16px;
+    font-weight: 700;
+  }
+
+  .stop-marker::before {
+    content: "";
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, var(--accent-blue), var(--accent-cyan));
+    flex-shrink: 0;
+    box-shadow: 0 0 12px rgba(0, 128, 255, 0.4);
+  }
+
+  .lifecycle-stop h4 {
+    font-family: "Playfair Display", serif;
+    font-size: 20px;
+    font-weight: 700;
+    margin-bottom: 12px;
+    color: var(--text-primary);
+  }
+
+  .lifecycle-stop p {
+    font-size: 14px;
+    color: var(--text-secondary);
+    margin: 0;
+    line-height: 1.7;
+  }
 
   /* ---------- requirements ---------- */
-  .req{
-    display:grid;grid-template-columns:88px 1fr;gap:20px;
-    padding:16px 0;border-bottom:1px solid var(--hairline-soft);
+  .requirement {
+    display: grid;
+    grid-template-columns: 120px 1fr;
+    gap: 28px;
+    padding: 24px 0;
+    border-bottom: 1px solid var(--border-light);
+    transition: all 0.3s ease;
   }
-  .req .id{
-    font-family:'IBM Plex Mono',monospace;font-size:13px;color:var(--cyan);
-    padding-top:2px;
+
+  .requirement:last-child {
+    border-bottom: none;
   }
-  .req.nfr .id{color:var(--fuchsia)}
-  .req .body{font-size:15px}
-  .req .body b{font-weight:600}
-  .req .phase{
-    font-family:'IBM Plex Mono',monospace;font-size:11px;color:var(--muted);
-    margin-left:10px;letter-spacing:.08em;
+
+  .requirement:hover {
+    padding-left: 16px;
+    padding-right: 16px;
+    margin-left: -16px;
+    margin-right: -16px;
+    background: var(--surface);
+    border-radius: 8px;
+  }
+
+  .req-id {
+    font-family: "Inter", monospace;
+    font-size: 12px;
+    color: var(--accent-cyan);
+    font-weight: 700;
+    letter-spacing: 0.1em;
+    padding-top: 2px;
+  }
+
+  .requirement.nfr .req-id {
+    color: var(--accent-pink);
+  }
+
+  .req-body {
+    font-size: 15px;
+    line-height: 1.7;
+  }
+
+  .req-body strong {
+    color: var(--text-primary);
+    font-weight: 600;
+  }
+
+  .req-phase {
+    font-family: "Inter", monospace;
+    font-size: 11px;
+    color: var(--text-tertiary);
+    margin-left: 12px;
+    letter-spacing: 0.1em;
   }
 
   /* ---------- phases ---------- */
-  .phases{margin-top:30px}
-  .phase-row{
-    display:grid;grid-template-columns:120px 1fr;gap:24px;
-    padding:18px 0;border-bottom:1px solid var(--hairline-soft);
-  }
-  .phase-row .pnum{
-    font-family:'IBM Plex Mono',monospace;font-size:13px;color:var(--cyan);
-  }
-  .phase-row p{font-size:15px;margin:0;max-width:none}
-  .phase-row.active .pnum::after{
-    content:"● NOW";color:var(--fuchsia);font-size:10px;
-    margin-left:10px;letter-spacing:.12em;
+  .phases-grid {
+    margin-top: 40px;
+    display: grid;
+    gap: 1px;
+    background: var(--border-light);
+    border-radius: 12px;
+    overflow: hidden;
   }
 
-  footer{
-    padding:56px 0 72px;
-    font-family:'IBM Plex Mono',monospace;
-    font-size:12px;color:var(--muted);line-height:1.8;
+  .phase-item {
+    display: grid;
+    grid-template-columns: 140px 1fr;
+    gap: 32px;
+    padding: 28px 32px;
+    background: var(--bg-secondary);
+    transition: all 0.3s ease;
   }
-  footer b{color:var(--cyan);font-weight:500}
 
-  @media(max-width:680px){
-    .claims{grid-template-columns:1fr}
-    .lifecycle{grid-template-columns:1fr 1fr}
-    .component{grid-template-columns:1fr;gap:6px}
-    .req{grid-template-columns:64px 1fr}
-    header{padding:64px 0 48px}
-    section{padding:56px 0}
+  .phase-item:hover {
+    background: var(--surface);
+    padding-left: 48px;
+  }
+
+  .phase-num {
+    font-family: "Inter", monospace;
+    font-size: 12px;
+    color: var(--accent-cyan);
+    font-weight: 700;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    padding-top: 2px;
+  }
+
+  .phase-item.completed .phase-num {
+    color: var(--success);
+  }
+
+  .phase-num::after {
+    content: "● ACTIVE";
+    color: var(--text-tertiary);
+    font-size: 10px;
+    margin-left: 12px;
+    letter-spacing: 0.08em;
+  }
+
+  .phase-item.completed .phase-num::after {
+    content: "✓ DONE";
+    color: var(--success);
+  }
+
+  .phase-text {
+    font-size: 15px;
+    line-height: 1.7;
+  }
+
+  .phase-text strong {
+    color: var(--text-primary);
+    font-weight: 600;
+  }
+
+  /* ---------- footer ---------- */
+  footer {
+    padding: 80px 0 60px;
+    font-family: "Inter", monospace;
+    font-size: 13px;
+    color: var(--text-tertiary);
+    line-height: 1.8;
+    border-top: 1px solid var(--border-light);
+  }
+
+  footer strong {
+    color: var(--accent-cyan);
+    font-weight: 600;
+  }
+
+  /* ---------- responsive ---------- */
+  @media (max-width: 768px) {
+    .container {
+      padding: 0 20px;
+    }
+
+    .claims-grid {
+      grid-template-columns: 1fr;
+    }
+
+    .requirement {
+      grid-template-columns: 90px 1fr;
+      gap: 16px;
+    }
+
+    .phase-item {
+      grid-template-columns: 1fr;
+      gap: 12px;
+    }
+
+    header {
+      padding: 80px 0 60px;
+    }
+
+    section {
+      padding: 70px 0;
+    }
+
+    .map-container {
+      padding: 32px 20px;
+    }
   }
 </style>
 </head>
 <body>
 
 <header>
-  <div class="wrap">
-    <div class="doc-meta">
-      <span><b>PERDURA</b> / DESIGN BRIEF v0.1</span>
-      <span>2026-06-09</span>
-      <span>STATUS: PHASE 1 RUNNING</span>
+  <div class="header-glow"></div>
+  <div class="container">
+    <div class="header-content">
+      <div class="doc-meta">
+        <span>PERDURA</span>
+        <span>The Mind That Outlives Its Models</span>
+        <span>Phase 0 · 2026-06-10</span>
+      </div>
+      <h1>Perdura</h1>
+      <p class="subtitle">A persistent knowledge graph that hires and fires LLMs based on what it has learned about them — spending money only <strong>where it disagrees with itself.</strong></p>
     </div>
-    <h1>Perdura<br><span class="ghost">The mind that outlives its models.</span></h1>
-    <p class="thesis">A persistent knowledge graph that hires and fires LLMs based on what it has learned about them — spending money only <em>where it disagrees with itself</em>.</p>
   </div>
 </header>
 
 <section id="overview">
-  <div class="wrap">
-    <div class="eyebrow">Overview</div>
-    <h2>The inversion</h2>
-    <p class="lede">Conventional multi-agent systems treat agents as persistent and memory as incidental. Perdura inverts this: the memory is the system, and LLMs are interchangeable workers that board, contribute, and disembark.</p>
+  <div class="container">
+    <h2>The Inversion</h2>
+    <p>Conventional multi-agent systems treat agents as persistent and memory as incidental. Perdura inverts this: the memory is the system, and LLMs are interchangeable workers that board, contribute, and disembark.</p>
     <p>The "mind" is a living knowledge graph — claims, evidence, open questions, decisions, and rejected paths, all typed, attributed, and confidence-scored. Because no working state ever lives inside a model, any model can be swapped mid-task with zero loss. The mind survives every model that ever powered it.</p>
-    <p class="muted">There is no limit to how many models can serve the graph over its lifetime. The briefing each worker receives is bounded regardless of how many came before it.</p>
 
-    <div class="claims">
-      <div class="claim">
-        <span class="tag">Claim 01</span>
-        <h4>Inverted persistence</h4>
+    <div class="thesis">
+      The graph is the system of record. Workers are <strong>stateless, commodity labor</strong> — swappable at any station because the <strong>state rides the train</strong>, not the worker.
+    </div>
+
+    <div class="claims-grid">
+      <div class="claim-card">
+        <span class="claim-tag">Claim 01</span>
+        <h4>Inverted Persistence</h4>
         <p>The graph is the system of record. Models are stateless, commodity labor — swappable at any station because the state rides the train, not the worker.</p>
       </div>
-      <div class="claim">
-        <span class="tag">Claim 02</span>
-        <h4>Epistemic track records</h4>
+      <div class="claim-card">
+        <span class="claim-tag">Claim 02</span>
+        <h4>Epistemic Track Records</h4>
         <p>Every node is attributed. Over time the graph learns which models are reliable in which domains. The memory evaluates its workers.</p>
       </div>
-      <div class="claim">
-        <span class="tag">Claim 03</span>
-        <h4>Contention-driven economics</h4>
-        <p>Cheap local models are the default labor force. Frontier and specialist models are summoned only where contradiction density rises.</p>
+      <div class="claim-card">
+        <span class="claim-tag">Claim 03</span>
+        <h4>Contention-Driven Economics</h4>
+        <p>Cheap local models are the default labor force. Frontier and specialist models are summoned only when contradiction density rises.</p>
       </div>
     </div>
   </div>
 </section>
 
 <section id="architecture">
-  <div class="wrap">
-    <div class="eyebrow">Architecture</div>
-    <h2>The line and its stations</h2>
-    <p class="lede">The memory is the line — continuous, persistent, always moving forward. Models are stations: the train stops, a worker boards with a bounded briefing, contributes a graph delta, and the train moves on without it.</p>
+  <div class="container">
+    <h2>Architecture</h2>
+    <p>The memory is the line — continuous, persistent, always moving forward. Models are stations: the train stops, a worker boards with a bounded briefing, contributes a graph delta, and the train moves on without it.</p>
 
-    <div class="map-frame">
-      <svg viewBox="0 0 1100 300" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Transit map: the persistent memory line passes through model stations (Qwen, Claude, Gemini, Specialist); the conductor and router operate the line; the retrieval index runs parallel.">
-        <!-- retrieval line (parallel, phase 1.5) -->
-        <line x1="60" y1="218" x2="1040" y2="218" stroke="#8A94A6" stroke-width="2" stroke-dasharray="3 7" opacity=".5"/>
-        <text x="60" y="248" font-family="IBM Plex Mono" font-size="11" fill="#8A94A6" letter-spacing="2">RETRIEVAL INDEX · CHROMADB · HYBRID BM25+DENSE · PHASE 1.5</text>
+    <div class="map-container">
+      <div class="map-frame">
+        <svg viewBox="0 0 1100 300" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Perdura transit map showing the persistent memory line, worker stations, conductor control, and retrieval index.">
+          <!-- retrieval index line (parallel) -->
+          <line x1="60" y1="218" x2="1040" y2="218" stroke="#7a8399" stroke-width="2" stroke-dasharray="4 6" opacity="0.4"/>
+          <text x="60" y="245" font-family="Inter, sans-serif" font-size="11" fill="#a8b2c7" letter-spacing="1.5">RETRIEVAL INDEX · CHROMADB · HYBRID BM25 + DENSE · PHASE 1.5</text>
 
-        <!-- memory line -->
-        <line x1="60" y1="150" x2="1040" y2="150" stroke="#00E5FF" stroke-width="3"/>
-        <text x="60" y="120" font-family="IBM Plex Mono" font-size="11" fill="#00E5FF" letter-spacing="2">MEMORY LINE · KNOWLEDGE GRAPH · PERSISTENT</text>
+          <!-- main memory line -->
+          <line x1="60" y1="150" x2="1040" y2="150" stroke="#0080ff" stroke-width="4"/>
+          <text x="60" y="125" font-family="Inter, sans-serif" font-size="11" fill="#00d9ff" letter-spacing="1.5" font-weight="600">MEMORY LINE · KNOWLEDGE GRAPH · PERSISTENT</text>
 
-        <!-- connectors memory→retrieval -->
-        <line x1="300" y1="150" x2="300" y2="218" stroke="#8A94A6" stroke-width="1.5" stroke-dasharray="2 5" opacity=".55"/>
-        <line x1="700" y1="150" x2="700" y2="218" stroke="#8A94A6" stroke-width="1.5" stroke-dasharray="2 5" opacity=".55"/>
+          <!-- connections -->
+          <line x1="300" y1="150" x2="300" y2="218" stroke="#7a8399" stroke-width="1.5" stroke-dasharray="2 5" opacity="0.3"/>
+          <line x1="700" y1="150" x2="700" y2="218" stroke="#7a8399" stroke-width="1.5" stroke-dasharray="2 5" opacity="0.3"/>
 
-        <!-- stations -->
-        <g font-family="IBM Plex Mono" font-size="12">
-          <!-- Qwen -->
-          <circle cx="220" cy="150" r="11" fill="#07090D" stroke="#00E5FF" stroke-width="3"/>
-          <text x="220" y="184" fill="#E8ECF2" text-anchor="middle">QWEN · LOCAL</text>
-          <text x="220" y="202" fill="#8A94A6" text-anchor="middle" font-size="10.5">default labor · ~$0</text>
+          <!-- stations -->
+          <g font-family="Inter, sans-serif" font-size="12">
+            <!-- Qwen -->
+            <circle cx="220" cy="150" r="13" fill="#0f1535" stroke="#0080ff" stroke-width="2.5"/>
+            <text x="220" y="188" fill="#f5f7fa" text-anchor="middle" font-weight="600">QWEN</text>
+            <text x="220" y="207" fill="#7a8399" text-anchor="middle" font-size="10">default labor</text>
 
-          <!-- Claude -->
-          <circle cx="460" cy="150" r="11" fill="#07090D" stroke="#00E5FF" stroke-width="3"/>
-          <text x="460" y="184" fill="#E8ECF2" text-anchor="middle">CLAUDE</text>
-          <text x="460" y="202" fill="#8A94A6" text-anchor="middle" font-size="10.5">escalation</text>
+            <!-- Claude -->
+            <circle cx="460" cy="150" r="13" fill="#0f1535" stroke="#0080ff" stroke-width="2.5"/>
+            <text x="460" y="188" fill="#f5f7fa" text-anchor="middle" font-weight="600">CLAUDE</text>
+            <text x="460" y="207" fill="#7a8399" text-anchor="middle" font-size="10">escalation</text>
 
-          <!-- Gemini -->
-          <circle cx="640" cy="150" r="11" fill="#07090D" stroke="#00E5FF" stroke-width="3"/>
-          <text x="640" y="184" fill="#E8ECF2" text-anchor="middle">GEMINI</text>
-          <text x="640" y="202" fill="#8A94A6" text-anchor="middle" font-size="10.5">escalation</text>
+            <!-- Gemini -->
+            <circle cx="640" cy="150" r="13" fill="#0f1535" stroke="#0080ff" stroke-width="2.5"/>
+            <text x="640" y="188" fill="#f5f7fa" text-anchor="middle" font-weight="600">GEMINI</text>
+            <text x="640" y="207" fill="#7a8399" text-anchor="middle" font-size="10">escalation</text>
 
-          <!-- Specialist (contention) -->
-          <circle cx="880" cy="150" r="11" fill="#07090D" stroke="#FF2EC4" stroke-width="3"/>
-          <text x="880" y="184" fill="#E8ECF2" text-anchor="middle">SPECIALIST · N</text>
-          <text x="880" y="202" fill="#FF2EC4" text-anchor="middle" font-size="10.5">summoned on contention</text>
-        </g>
+            <!-- Specialist -->
+            <circle cx="880" cy="150" r="13" fill="#0f1535" stroke="#ff0080" stroke-width="2.5"/>
+            <text x="880" y="188" fill="#f5f7fa" text-anchor="middle" font-weight="600">SPECIALIST</text>
+            <text x="880" y="207" fill="#ff0080" text-anchor="middle" font-size="10" font-weight="600">contention</text>
+          </g>
 
-        <!-- conductor band -->
-        <rect x="60" y="40" width="980" height="36" fill="#10151D" stroke="rgba(0,229,255,.14)"/>
-        <text x="550" y="63" font-family="IBM Plex Mono" font-size="11.5" fill="#E8ECF2" text-anchor="middle" letter-spacing="2">CONDUCTOR · DETERMINISTIC CODE · BRIEF / VALIDATE / MERGE / ATTRIBUTE — ROUTER · PHASE 3</text>
-        <!-- conductor drops to each station -->
-        <g stroke="rgba(0,229,255,.25)" stroke-width="1.5">
-          <line x1="220" y1="76" x2="220" y2="139"/>
-          <line x1="460" y1="76" x2="460" y2="139"/>
-          <line x1="640" y1="76" x2="640" y2="139"/>
-        </g>
-        <line x1="880" y1="76" x2="880" y2="139" stroke="rgba(255,46,196,.4)" stroke-width="1.5"/>
+          <!-- conductor band -->
+          <rect x="60" y="35" width="980" height="40" fill="rgba(0, 128, 255, 0.06)" stroke="rgba(0, 128, 255, 0.15)" stroke-width="1.5" rx="6"/>
+          <text x="550" y="65" font-family="Inter, sans-serif" font-size="12" fill="#f5f7fa" text-anchor="middle" letter-spacing="1.5" font-weight="600">CONDUCTOR · DETERMINISTIC CODE · ROUTER</text>
 
-        <!-- terminus labels -->
-        <text x="60" y="158" font-family="IBM Plex Mono" font-size="20" fill="#00E5FF" text-anchor="middle">▸</text>
-        <text x="1040" y="158" font-family="IBM Plex Mono" font-size="20" fill="#00E5FF" text-anchor="middle">▸</text>
+          <!-- conductor drops -->
+          <g stroke="rgba(0, 128, 255, 0.15)" stroke-width="1.5">
+            <line x1="220" y1="75" x2="220" y2="137"/>
+            <line x1="460" y1="75" x2="460" y2="137"/>
+            <line x1="640" y1="75" x2="640" y2="137"/>
+          </g>
+          <line x1="880" y1="75" x2="880" y2="137" stroke="rgba(255, 0, 128, 0.2)" stroke-width="1.5"/>
 
-        <!-- traveling pulse -->
-        <circle class="pulse" r="5" fill="#FF2EC4"/>
-      </svg>
-      <div class="map-caption">
-        The <b>memory line</b> never stops; workers do. Solid stations run today (Phase 1, round-robin).
-        The <i>specialist station</i> opens when the router ships (Phase 3) — its boarding trigger is the contention metric, cost budgets, or a domain-tag match.
+          <!-- pulse -->
+          <circle class="pulse-dot" r="6" fill="#ff0080" opacity="0.9" filter="drop-shadow(0 0 8px rgba(255, 0, 128, 0.6))"/>
+        </svg>
+      </div>
+      <div class="map-info">
+        The <strong>memory line</strong> never stops; workers do. Solid stations run today (Phase 1). The <em>specialist station</em> opens when the router ships (Phase 3) — its boarding trigger is contention, cost budgets, or domain-tag match.
       </div>
     </div>
 
-    <div class="components">
-      <div class="component">
-        <div class="name">knowledge graph</div>
+    <div class="components-grid">
+      <div class="component-item">
+        <span class="component-name">Knowledge Graph</span>
         <p>Typed nodes and edges; append-mostly. Nodes are superseded, never deleted, preserving the temporal record of how the mind changed. This is the living mind map.</p>
       </div>
-      <div class="component">
-        <div class="name">conductor</div>
-        <p>Deterministic code. Assembles bounded briefings (2-hop neighborhood of the most-contended open question), schema-validates incoming deltas, stamps attribution, merges, and recomputes contention. No LLM judgment in the merge path.</p>
+      <div class="component-item">
+        <span class="component-name">Conductor</span>
+        <p>Deterministic code. Assembles bounded briefings, schema-validates incoming deltas, stamps attribution, merges, and recomputes contention. No LLM judgment in the merge path.</p>
       </div>
-      <div class="component">
-        <div class="name">workers</div>
-        <p>Any LLM behind a uniform interface. A worker sees a briefing — never a transcript, never authorship of prior nodes — and returns a strict-JSON delta. It holds zero state worth preserving.</p>
+      <div class="component-item">
+        <span class="component-name">Workers</span>
+        <p>Any LLM behind a uniform interface. A worker sees a briefing and returns a strict JSON delta. It holds zero state worth preserving.</p>
       </div>
-      <div class="component">
-        <div class="name">router</div>
-        <p>Phase 3. A model registry (domain tags, cost, latency, accumulated track record) that matches open questions to workers and escalates when a subgraph disagrees with itself.</p>
+      <div class="component-item">
+        <span class="component-name">Router</span>
+        <p>Phase 3. A model registry with domain tags, cost, latency, and accumulated track records that matches open questions to workers and escalates when a subgraph disagrees with itself.</p>
       </div>
-      <div class="component">
-        <div class="name">retrieval index</div>
-        <p>Phase 1.5. Nodes embedded into ChromaDB; briefings assembled by hybrid BM25 + dense search expanded through graph traversal — the forge-rag pattern applied to the mind itself.</p>
+      <div class="component-item">
+        <span class="component-name">Retrieval Index</span>
+        <p>Phase 1.5. Nodes embedded via ChromaDB; briefings assembled by hybrid BM25 + dense search expanded through graph traversal.</p>
       </div>
     </div>
 
-    <h3>Graph schema</h3>
+    <h3>Graph Schema</h3>
     <table>
-      <thead><tr><th>Node type</th><th>Meaning</th></tr></thead>
+      <thead><tr><th>Node Type</th><th>Meaning</th></tr></thead>
       <tbody>
-        <tr><td>question</td><td>An open question driving work. <code>status: open / resolved</code></td></tr>
+        <tr><td>question</td><td>An open question driving work. Status: open / resolved</td></tr>
         <tr><td>claim</td><td>A position or assertion, confidence-scored 0–1</td></tr>
         <tr><td>evidence</td><td>Supporting material, source-attributed</td></tr>
         <tr><td>decision</td><td>A resolved choice, linked to the claims that won</td></tr>
@@ -381,102 +907,155 @@
       </tbody>
     </table>
     <table>
-      <thead><tr><th>Edge type</th><th>Meaning</th></tr></thead>
+      <thead><tr><th>Edge Type</th><th>Meaning</th></tr></thead>
       <tbody>
         <tr><td>supports</td><td>claim / evidence → claim</td></tr>
-        <tr class="contra"><td>contradicts</td><td>claim ↔ claim — drives the contention metric, and therefore the spend</td></tr>
+        <tr><td>contradicts</td><td>claim ↔ claim — drives the contention metric</td></tr>
         <tr><td>refines</td><td>claim → claim (a sharper version)</td></tr>
         <tr><td>answers</td><td>claim → question</td></tr>
         <tr><td>depends_on</td><td>claim / decision → claim / decision</td></tr>
       </tbody>
     </table>
-    <p class="muted" style="font-size:14px">Contention for a subgraph S = confidence-weighted <code>contradicts</code> edges ÷ claim nodes in S. Rising contention is the signal to summon stronger or specialist workers.</p>
 
-    <h3>Worker lifecycle</h3>
-    <div class="lifecycle">
-      <div class="stop">
-        <div class="marker">Board</div>
-        <h4>Briefing issued</h4>
-        <p>Conductor selects the most-contended open question and assembles a token-capped subgraph briefing.</p>
+    <h3>Worker Lifecycle</h3>
+    <div class="lifecycle-grid">
+      <div class="lifecycle-stop">
+        <div class="stop-marker">Board</div>
+        <h4>Briefing</h4>
+        <p>Conductor selects the most-contended open question and assembles a bounded briefing.</p>
       </div>
-      <div class="stop">
-        <div class="marker">Contribute</div>
-        <h4>Delta returned</h4>
-        <p>Strict JSON only: new nodes, new edges, supersedes, resolved questions. No prose.</p>
+      <div class="lifecycle-stop">
+        <div class="stop-marker">Contribute</div>
+        <h4>Delta</h4>
+        <p>Strict JSON: new nodes, edges, supersedes, resolved questions. No prose.</p>
       </div>
-      <div class="stop">
-        <div class="marker">Merge</div>
-        <h4>Conductor validates</h4>
-        <p>Schema check, ID assignment, attribution stamp, contention recompute. Malformed deltas are rejected and logged.</p>
+      <div class="lifecycle-stop">
+        <div class="stop-marker">Merge</div>
+        <h4>Validate</h4>
+        <p>Schema check, ID assignment, attribution, contention recompute. Bad deltas rejected.</p>
       </div>
-      <div class="stop">
-        <div class="marker">Disembark</div>
-        <h4>Worker released</h4>
-        <p>Nothing is lost — the worker never knew anything the graph didn't.</p>
+      <div class="lifecycle-stop">
+        <div class="stop-marker">Disembark</div>
+        <h4>Release</h4>
+        <p>Worker released. Nothing is lost — the graph survives without it.</p>
       </div>
     </div>
   </div>
 </section>
 
 <section id="requirements">
-  <div class="wrap">
-    <div class="eyebrow">Requirements</div>
-    <h2>What the system must do</h2>
+  <div class="container">
+    <h2>Requirements</h2>
+    <p>What the system must do, organized by phase and type.</p>
 
     <h3>Functional</h3>
-    <div class="req"><div class="id">FR-01</div><div class="body"><b>Persistent typed graph.</b> Store typed nodes and edges with attribution, confidence, domain tags, and timestamps; persist across sessions independent of any model.<span class="phase">P1 ✓</span></div></div>
-    <div class="req"><div class="id">FR-02</div><div class="body"><b>Supersede, never delete.</b> Stale nodes are marked superseded with a pointer to their replacement, preserving the full temporal record.<span class="phase">P1 ✓</span></div></div>
-    <div class="req"><div class="id">FR-03</div><div class="body"><b>Bounded briefings.</b> Worker context is assembled from the open question's 2-hop neighborhood under a fixed token/char budget, regardless of total graph size or worker count.<span class="phase">P1 ✓</span></div></div>
-    <div class="req"><div class="id">FR-04</div><div class="body"><b>Strict delta contract.</b> Workers return JSON-only deltas (nodes, edges, supersedes, question resolutions). The conductor schema-validates and rejects non-conforming output, logging the failure.<span class="phase">P1 ✓</span></div></div>
-    <div class="req"><div class="id">FR-05</div><div class="body"><b>Deterministic merge.</b> Validation, ID assignment, attribution, and contention recompute are pure code — no LLM judgment in the merge path.<span class="phase">P1 ✓</span></div></div>
-    <div class="req"><div class="id">FR-06</div><div class="body"><b>Contention metric.</b> Compute confidence-weighted contradiction density per subgraph; use it to prioritize which open question is worked next.<span class="phase">P1 ✓</span></div></div>
-    <div class="req"><div class="id">FR-07</div><div class="body"><b>Anonymous briefings.</b> Workers see node content and confidence but never authorship, countering anchoring and sycophancy toward frontier-model output.<span class="phase">P1 ✓</span></div></div>
-    <div class="req"><div class="id">FR-08</div><div class="body"><b>Uniform worker interface.</b> Any model — hosted or local, via OpenAI-compatible or native SDK — participates through the same briefing-in / delta-out contract.<span class="phase">P1 ✓</span></div></div>
-    <div class="req"><div class="id">FR-09</div><div class="body"><b>Merge ledger.</b> Log per-worker accepted/rejected/error counts from turn one — the raw material for track records.<span class="phase">P1 ✓</span></div></div>
-    <div class="req"><div class="id">FR-10</div><div class="body"><b>Hybrid retrieval.</b> Embed nodes; assemble briefings via BM25 + dense search expanded through graph traversal.<span class="phase">P1.5</span></div></div>
-    <div class="req"><div class="id">FR-11</div><div class="body"><b>Track-record analytics.</b> Per-model, per-domain reliability computed from how a model's claims fare: supported, contradicted, superseded, or promoted to decisions.<span class="phase">P2</span></div></div>
-    <div class="req"><div class="id">FR-12</div><div class="body"><b>Epistemic router.</b> Registry of models (tags, cost, latency, track record); contention-, budget-, and domain-triggered boarding and escalation.<span class="phase">P3</span></div></div>
+    <div class="requirement">
+      <div class="req-id">FR-01</div>
+      <div class="req-body"><strong>Persistent typed graph.</strong> Store nodes and edges with attribution, confidence, and timestamps; persist across sessions. <span class="req-phase">P1 ✓</span></div>
+    </div>
+    <div class="requirement">
+      <div class="req-id">FR-02</div>
+      <div class="req-body"><strong>Supersede, never delete.</strong> Stale nodes are marked superseded with a pointer to their replacement. <span class="req-phase">P1 ✓</span></div>
+    </div>
+    <div class="requirement">
+      <div class="req-id">FR-03</div>
+      <div class="req-body"><strong>Bounded briefings.</strong> Worker context from the question's 2-hop neighborhood under a fixed token budget. <span class="req-phase">P1 ✓</span></div>
+    </div>
+    <div class="requirement">
+      <div class="req-id">FR-04</div>
+      <div class="req-body"><strong>Strict delta contract.</strong> Workers return JSON-only deltas. The conductor schema-validates and rejects non-conforming output. <span class="req-phase">P1 ✓</span></div>
+    </div>
+    <div class="requirement">
+      <div class="req-id">FR-05</div>
+      <div class="req-body"><strong>Deterministic merge.</strong> No LLM judgment in the merge path — validation and contention recompute are pure code. <span class="req-phase">P1 ✓</span></div>
+    </div>
+    <div class="requirement">
+      <div class="req-id">FR-06</div>
+      <div class="req-body"><strong>Contention metric.</strong> Compute contradiction density per subgraph; prioritize which question is worked next. <span class="req-phase">P1 ✓</span></div>
+    </div>
+    <div class="requirement">
+      <div class="req-id">FR-07</div>
+      <div class="req-body"><strong>Anonymous briefings.</strong> Workers see content and confidence but never authorship — countering anchoring. <span class="req-phase">P1 ✓</span></div>
+    </div>
+    <div class="requirement">
+      <div class="req-id">FR-08</div>
+      <div class="req-body"><strong>Uniform worker interface.</strong> Any model participates through the same briefing-in / delta-out contract. <span class="req-phase">P1 ✓</span></div>
+    </div>
+    <div class="requirement">
+      <div class="req-id">FR-10</div>
+      <div class="req-body"><strong>Memoric binary.</strong> 96-bit epistemic encoding for hidden disagreement detection and track records. <span class="req-phase">P0</span></div>
+    </div>
+    <div class="requirement">
+      <div class="req-id">FR-11</div>
+      <div class="req-body"><strong>Track-record analytics.</strong> Per-model, per-domain reliability from node outcomes. <span class="req-phase">P2</span></div>
+    </div>
+    <div class="requirement">
+      <div class="req-id">FR-12</div>
+      <div class="req-body"><strong>Epistemic router.</strong> Contention- and budget-driven escalation; specialist summoning. <span class="req-phase">P3</span></div>
+    </div>
 
-    <h3>Non-functional</h3>
-    <div class="req nfr"><div class="id">NFR-01</div><div class="body"><b>Unbounded worker count.</b> Cost and context per turn stay flat no matter how many models have ever served the graph.</div></div>
-    <div class="req nfr"><div class="id">NFR-02</div><div class="body"><b>Local-first.</b> The full loop runs on a single M4 Mac Mini with a local model and no cloud dependency; hosted models are an enhancement, not a requirement.</div></div>
-    <div class="req nfr"><div class="id">NFR-03</div><div class="body"><b>Model-agnostic.</b> No worker-specific logic outside its thin adapter; swapping a model requires zero changes to graph, conductor, or schema.</div></div>
-    <div class="req nfr"><div class="id">NFR-04</div><div class="body"><b>Auditable.</b> Every node answers who said this, when, with what confidence, and what replaced it. The mind's history is inspectable end to end.</div></div>
-    <div class="req nfr"><div class="id">NFR-05</div><div class="body"><b>Resilient to bad workers.</b> A malformed or low-quality delta can be rejected without corrupting state; rejection itself becomes track-record signal.</div></div>
-    <div class="req nfr"><div class="id">NFR-06</div><div class="body"><b>Cost-proportional to disagreement.</b> Steady-state spend trends toward local-model cost; frontier spend concentrates where contention is high.</div></div>
+    <h3>Non-Functional</h3>
+    <div class="requirement nfr">
+      <div class="req-id">NFR-01</div>
+      <div class="req-body"><strong>Unbounded worker count.</strong> Cost and context per turn stay flat no matter how many models have served the graph.</div>
+    </div>
+    <div class="requirement nfr">
+      <div class="req-id">NFR-02</div>
+      <div class="req-body"><strong>Local-first.</strong> The full loop runs on a single machine with a local model and no cloud dependency.</div>
+    </div>
+    <div class="requirement nfr">
+      <div class="req-id">NFR-03</div>
+      <div class="req-body"><strong>Model-agnostic.</strong> Swapping a model requires zero changes to graph, conductor, or schema.</div>
+    </div>
+    <div class="requirement nfr">
+      <div class="req-id">NFR-04</div>
+      <div class="req-body"><strong>Auditable.</strong> Every node answers who said this, when, with what confidence, and what replaced it.</div>
+    </div>
+    <div class="requirement nfr">
+      <div class="req-id">NFR-05</div>
+      <div class="req-body"><strong>Resilient to bad workers.</strong> Malformed deltas are rejected without corrupting state; rejection becomes track-record signal.</div>
+    </div>
+    <div class="requirement nfr">
+      <div class="req-id">NFR-06</div>
+      <div class="req-body"><strong>Cost-proportional to disagreement.</strong> Steady-state spend trends toward local-model cost; frontier spend concentrates where contention is high.</div>
+    </div>
   </div>
 </section>
 
 <section id="phases">
-  <div class="wrap">
-    <div class="eyebrow">Roadmap</div>
-    <h2>Phases</h2>
-    <div class="phases">
-      <div class="phase-row active">
-        <div class="pnum">PHASE 1</div>
-        <p>Graph memory + delta extraction with Claude, Gemini, and local Qwen. JSON persistence, round-robin boarding, CLI. Proves the inverted-persistence loop end to end. <span class="muted">Built and verified.</span></p>
+  <div class="container">
+    <h2>Roadmap</h2>
+    <p>How Perdura comes together in phases.</p>
+    <div class="phases-grid">
+      <div class="phase-item">
+        <div class="phase-num">PHASE 0</div>
+        <div class="phase-text"><strong>Memoric Binary.</strong> 96-bit epistemic encoding with three validation experiments. Foundational research now.</div>
       </div>
-      <div class="phase-row">
-        <div class="pnum">PHASE 1.5</div>
-        <p>Retrieval layer (ChromaDB, hybrid search + graph expansion) and the living mind-map visualization — force-directed graph, this visual language.</p>
+      <div class="phase-item completed">
+        <div class="phase-num">PHASE 1</div>
+        <div class="phase-text"><strong>Graph + Workers.</strong> Knowledge graph, conductor, delta extraction, round-robin boarding, JSON persistence. Built and verified.</div>
       </div>
-      <div class="phase-row">
-        <div class="pnum">PHASE 2</div>
-        <p>Attribution analytics: per-model, per-domain track records computed from node outcomes. The memory starts judging its workers.</p>
+      <div class="phase-item">
+        <div class="phase-num">PHASE 1.5</div>
+        <div class="phase-text"><strong>Retrieval + Memoric.</strong> ChromaDB hybrid search, mind-map visualization, memoric binary integration into briefings.</div>
       </div>
-      <div class="phase-row">
-        <div class="pnum">PHASE 3</div>
-        <p>The epistemic router: registry, contention-driven escalation, cost budgets, specialist summoning. Claims 02 and 03 proven with accumulated data.</p>
+      <div class="phase-item">
+        <div class="phase-num">PHASE 2</div>
+        <div class="phase-text"><strong>Track Records.</strong> Per-model, per-domain reliability from node outcomes. The memory learns which workers are trustworthy where.</div>
+      </div>
+      <div class="phase-item">
+        <div class="phase-num">PHASE 3</div>
+        <div class="phase-text"><strong>Epistemic Router.</strong> Contention-driven escalation, cost budgets, specialist summoning. The mind's hiring and firing mechanism.</div>
       </div>
     </div>
   </div>
 </section>
 
 <footer>
-  <div class="wrap">
-    <b>PERDURA</b> · design brief v0.1 · 2026-06-09<br>
-    From <b>perdurantism</b>: a thing persists as a series of temporal parts, not one enduring object. Literally "it endures."<br>
-    Companion artifacts: perdura-design.md (full design doc) · perdura.py (Phase 1 implementation)
+  <div class="container">
+    <strong>PERDURA</strong> · The mind that outlives its models · 2026-06-10<br>
+    From <strong>perdurantism</strong>: things persist as temporal parts. Literally "it endures."<br><br>
+    Artifacts: <a href="https://github.com/Rbm3267/perdura">github.com/Rbm3267/perdura</a> · memoric-binary.md · perdura.py · perdura_server.py
   </div>
 </footer>
 
