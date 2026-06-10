@@ -69,9 +69,10 @@ class Graph:
         self.nodes: dict[str, Node] = {}
         self.edges: dict[str, Edge] = {}
         self.log: list = []  # merge log: (ts, worker, accepted, rejected)
-        # Phase 0 opt-in: 0.0 = the design.md §5 edge-only metric, exactly.
-        # Raise only per-call/per-session until Phase 0 validation passes.
-        self.memoric_weight: float = 0.0
+        # Default contention = 0.5*edges + 0.5*memoric scatter (flipped
+        # 2026-06-10, Bennett's call). 0.0 reproduces the original
+        # edge-only metric exactly — use it as the experiment baseline.
+        self.memoric_weight: float = 0.5
         if os.path.exists(path):
             self._load()
 
@@ -146,10 +147,10 @@ class Graph:
     def contention(self, node_ids=None, memoric_weight=None):
         """contradicts-edges per claim, confidence-weighted. The routing signal.
 
-        memoric_weight (or self.memoric_weight) optionally blends in
+        memoric_weight (or self.memoric_weight, default 0.5) blends in
         embedding scatter from memoric binary, computed on demand:
-        (1-w)*edge_signal + w*scatter. The default 0.0 preserves the
-        design.md §5 metric bit-for-bit; the encoding is derived state and
+        (1-w)*edge_signal + w*scatter. Pass 0 to reproduce the original
+        edge-only metric bit-for-bit; the encoding is derived state and
         is never persisted (docs/memoric-binary.md §6.1).
         """
         w = self.memoric_weight if memoric_weight is None else memoric_weight
@@ -515,10 +516,10 @@ def main():
     p.add_argument("--qwen-url", default="http://localhost:1234/v1",
                    help="OpenAI-compatible base URL (LM Studio default; "
                         "Ollama: http://localhost:11434/v1)")
-    p.add_argument("--memoric-weight", type=float, default=0.0,
-                   help="blend memoric-binary scatter into contention: "
-                        "(1-w)*edges + w*scatter. Phase 0 experiment only; "
-                        "0.0 (default) = the design.md metric unchanged")
+    p.add_argument("--memoric-weight", type=float, default=0.5,
+                   help="contention blend (1-w)*edges + w*memoric scatter. "
+                        "Default 0.5; pass 0 for the original edge-only "
+                        "metric (experiment baseline)")
     args = p.parse_args()
 
     graph = Graph(args.graph)

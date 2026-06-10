@@ -58,9 +58,10 @@ Graph memory + delta extraction with Claude, Gemini, and local Qwen.
   persisted (decision: docs/memoric-binary.md §6.1; persistence only ever
   as a versioned cache if ChromaDB integration needs it)
 - Assemble briefings with memoric binary included
-- Contention blend `(1-w)*edge_signal + w*embedding_scatter` — implemented
-  as opt-in (`--memoric-weight`, default 0.0 = design.md metric unchanged);
-  raise the default only after Phase 0 validation
+- Contention blend `(1-w)*edge_signal + w*embedding_scatter` — implemented;
+  **default flipped to w=0.5 on 2026-06-10** (ahead of Phase 0 validation,
+  by decision). `--memoric-weight 0` remains the edge-only baseline for
+  experiments; if validation fails, flipping back is the same one-liner
 - Visualize graph as a force-directed mind map (connectivity + contention)
 - ChromaDB hybrid retrieval (BM25 + dense embeddings + graph expansion)
 

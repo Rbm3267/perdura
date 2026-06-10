@@ -64,9 +64,11 @@ Ollama instead of LM Studio: `--qwen-url http://localhost:11434/v1 --qwen-model 
   strict-JSON delta.
 - **Conductor** — deterministic code. Validates deltas, stamps attribution,
   merges, and recomputes contention. No LLM judgment in the merge path.
-- **Contention** — confidence-weighted `contradicts` edges per claim. It
-  prioritizes which question gets worked next, and (Phase 3) decides when to
-  escalate from local to frontier or specialist models.
+- **Contention** — a 0.5/0.5 blend of confidence-weighted `contradicts`
+  edges per claim and memoric-binary embedding scatter (`--memoric-weight 0`
+  for the edge-only baseline). It prioritizes which question gets worked
+  next, and (Phase 3) decides when to escalate from local to frontier or
+  specialist models.
 
 Full design rationale: [docs/design.md](docs/design.md) ·
 Visual overview: [docs/overview.html](docs/overview.html)

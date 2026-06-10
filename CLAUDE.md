@@ -46,5 +46,6 @@ Full detail in ROADMAP.md; docs/memoric-binary.md is the Phase 0 RFC.
 - Schema validation is strict; fix malformed deltas in parse_delta, not schema
 - Memoric binary is derived state — computed on demand (encode_node), never
   persisted into the graph file (no migrations, no staleness, spec stays free)
-- contention() defaults to the edge-only design.md metric; memoric blending
-  is opt-in (--memoric-weight / memoric_weight) until Phase 0 validation passes
+- contention() defaults to the 0.5/0.5 edge+memoric blend (flipped
+  2026-06-10); --memoric-weight 0 reproduces the original edge-only metric
+  and is the required baseline arm in Phase 0 experiments

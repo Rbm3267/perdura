@@ -110,9 +110,18 @@ same stack as forge-rag).
 | `depends_on` | claim/decision → claim/decision |
 
 ### Contention metric (the routing signal)
-For any subgraph S: `contention(S) = contradicts_edges(S) / claim_nodes(S)`,
-weighted by node confidence. Rising contention → escalate to a stronger or
-domain-specialist model.
+For any subgraph S:
+
+```
+edge_signal(S) = contradicts_edges(S) / claim_nodes(S), confidence-weighted
+contention(S)  = (1 - w) * edge_signal(S) + w * embedding_scatter(S)
+```
+
+where `embedding_scatter` is the mean pairwise epistemic distance of S's
+claims in memoric binary (docs/memoric-binary.md §4.3) and `w = 0.5` by
+default (adopted 2026-06-10; `--memoric-weight 0` reproduces the original
+edge-only metric for baselines). Rising contention → escalate to a stronger
+or domain-specialist model.
 
 ## 6. Worker lifecycle ("stations")
 

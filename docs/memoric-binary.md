@@ -221,7 +221,7 @@ source-of-truth fields remain authoritative either way.
 Briefings may include the memoric binary per node. Workers don't *use* it
 (they see the text); it's there for the conductor to reason about.
 
-### 6.3 Contention recompute — DECIDED: opt-in blend, default unchanged
+### 6.3 Contention recompute — DECIDED: blended by default
 
 Implemented in `Graph.contention(node_ids, memoric_weight=...)`:
 
@@ -229,12 +229,13 @@ Implemented in `Graph.contention(node_ids, memoric_weight=...)`:
 contention = (1 - w) * edge_signal + w * embedding_scatter(claim_mbs)
 ```
 
-`w` defaults to **0.0**, which preserves the docs/design.md §5 edge-only
-metric bit-for-bit — every existing caller (CLI loop, MCP station,
-experiments) is unaffected. Opt in per session with
-`perdura.py run --memoric-weight 0.5` or per call. The default may only be
-raised after Phase 0 validation passes; the Phase 3 router then owns the
-weight.
+`w` defaults to **0.5** (flipped 2026-06-10 by Bennett, ahead of Phase 0
+validation — the blend is now the live default for CLI and MCP station).
+`--memoric-weight 0` (or `memoric_weight=0` per call) reproduces the
+original edge-only docs/design.md §5 metric bit-for-bit; experiments 1 and
+3 should keep using `w=0` as the baseline arm so validation still measures
+the blend against the metric it replaced. The Phase 3 router eventually
+owns the weight.
 
 ## 7. Validation Experiments
 
