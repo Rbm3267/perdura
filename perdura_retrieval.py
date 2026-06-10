@@ -176,7 +176,8 @@ class ChromaIndex:
         import chromadb
         self._col = chromadb.PersistentClient(path=path).get_or_create_collection(
             collection, metadata={"hnsw:space": "cosine"})
-        self._synced: set = set()
+        # Seed from the persistent store so restarts don't re-upsert everything
+        self._synced: set = set(self._col.get(include=[])["ids"])
 
     def sync(self, graph):
         fresh = [n for n in graph.live_nodes() if n.id not in self._synced]

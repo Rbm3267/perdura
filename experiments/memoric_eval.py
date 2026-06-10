@@ -321,9 +321,9 @@ if __name__ == "__main__":
                    help="48-bit semantic hash (RFC open question 6)")
     args = p.parse_args()
 
+    # Module scope: this rebinds the global SEMANTIC_FN used by _encode_node
     SEMANTIC_FN = {"blake2b": pm.blake2b_48bits,
                    "simhash": pm.simhash_48bits}[args.semantic]
-    globals()["SEMANTIC_FN"] = SEMANTIC_FN
     print(f"semantic hash: {args.semantic}")
 
     if not Path(args.graph).exists():

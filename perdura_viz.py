@@ -129,7 +129,7 @@ def render(graph) -> str:
     """Render a Graph into a standalone HTML mind map."""
     data = {
         "nodes": [{"id": n.id, "type": n.type, "text": n.text,
-                   "confidence": n.confidence, "tags": n.domain_tags,
+                   "confidence": n.confidence, "tags": n.domain_tags or [],
                    "superseded": n.superseded_by is not None}
                   for n in graph.nodes.values()],
         "edges": [{"src": e.src, "dst": e.dst, "type": e.type}

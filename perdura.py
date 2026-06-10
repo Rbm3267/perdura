@@ -244,9 +244,11 @@ def build_briefing(graph: Graph, question: Node, retriever=None):
     shown = {l.split(" | ")[0] for l in lines}
     # Edge section is bounded too (a third of the node budget) — retrieval
     # can surface nodes from across the graph, and the boundedness invariant
-    # covers the whole briefing, not just node lines.
+    # covers the whole briefing, not just node lines. contradicts edges are
+    # the contention signal, so they survive truncation first.
     edge_lines, eused = [], 0
-    for e in graph.edges.values():
+    for e in sorted(graph.edges.values(),
+                    key=lambda e: e.type != "contradicts"):
         if e.src in shown and e.dst in shown:
             line = f"{e.src} -[{e.type}]-> {e.dst}"
             if eused + len(line) > BRIEFING_CHAR_BUDGET // 3:
