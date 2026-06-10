@@ -33,7 +33,9 @@ docs/overview.html     Transit-map architecture visual
 experiments/debate.py  Precursor multi-model debate loop
 
 ## Phase roadmap
-- Phase 1   ✅ Graph + delta loop, Claude/Gemini/Qwen, round-robin, CLI
+Full detail in ROADMAP.md; docs/memoric-binary.md is the Phase 0 RFC.
+- Phase 0   Memoric binary (96-bit epistemic encoding) — validation in progress
+- Phase 1   ✅ Graph + delta loop, Claude/Gemini/Qwen, round-robin, CLI + MCP station
 - Phase 1.5 ChromaDB hybrid retrieval (BM25 + dense + graph expansion)
 - Phase 2   Per-model track records from node outcomes
 - Phase 3   Epistemic router (contention-driven escalation, cost budgets)
