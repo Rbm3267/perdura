@@ -1,0 +1,28 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "perdura"
+version = "0.1.0"
+description = "The mind that outlives its models — a persistent knowledge graph with ephemeral LLM workers"
+readme = "README.md"
+requires-python = ">=3.11"
+license = { text = "All rights reserved" }
+dependencies = [
+    "anthropic>=0.40",
+    "google-genai>=1.0",
+    "openai>=1.50",
+]
+
+[project.optional-dependencies]
+server = ["fastmcp>=2.0"]
+
+[project.scripts]
+perdura = "perdura:main"
+
+[project.urls]
+Repository = "https://github.com/Rbm3267/perdura"
+
+[tool.setuptools]
+py-modules = ["perdura", "perdura_memoric"]

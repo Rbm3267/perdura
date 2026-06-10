@@ -1,0 +1,25 @@
+# Graph state (the mind's data stays local unless you choose to commit it)
+perdura_graph.json
+perdura_demo_graph.json
+*.graph.json
+*.json.lock
+*.json.tmp
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+
+# Packaging build output
+*.egg-info/
+dist/
+build/
+
+# Env / secrets
+.env
+
+# OS / editor
+.DS_Store
+.idea/
+.vscode/
