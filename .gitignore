@@ -2,6 +2,8 @@
 perdura_graph.json
 perdura_demo_graph.json
 *.graph.json
+*.json.lock
+*.json.tmp
 
 # Python
 __pycache__/

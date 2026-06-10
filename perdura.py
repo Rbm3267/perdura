@@ -81,12 +81,16 @@ class Graph:
         self.log = data.get("log", [])
 
     def save(self):
-        with open(self.path, "w", encoding="utf-8") as f:
+        # Write-then-rename so concurrent readers (e.g. MCP workers boarding
+        # mid-merge) never see a truncated file.
+        tmp = self.path + ".tmp"
+        with open(tmp, "w", encoding="utf-8") as f:
             json.dump(
                 {"nodes": [asdict(n) for n in self.nodes.values()],
                  "edges": [asdict(e) for e in self.edges.values()],
                  "log": self.log},
                 f, indent=2)
+        os.replace(tmp, self.path)
 
     # -- mutation (conductor-only) ------------------------------------------
     def add_node(self, type, text, created_by, confidence=0.5,

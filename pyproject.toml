@@ -15,6 +15,9 @@ dependencies = [
     "openai>=1.50",
 ]
 
+[project.optional-dependencies]
+server = ["fastmcp>=2.0"]
+
 [project.scripts]
 perdura = "perdura:main"
 
