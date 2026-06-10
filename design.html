@@ -233,10 +233,11 @@ same stack as forge-rag).</p>
 contention(S)  = (1 - w) * edge_signal(S) + w * embedding_scatter(S)
 </code></pre>
 <p>where <code>embedding_scatter</code> is the mean pairwise epistemic distance of S's
-claims in memoric binary (docs/memoric-binary.md §4.3) and <code>w = 0.5</code> by
-default (adopted 2026-06-10; <code>--memoric-weight 0</code> reproduces the original
-edge-only metric for baselines). Rising contention → escalate to a stronger
-or domain-specialist model.</p>
+claims in memoric binary (docs/memoric-binary.md §4.3). <strong>The default <code>w</code>
+tracks Phase 0 status:</strong> <code>w = 0</code> (edge-only) until experiments 1 and 3 pass
+(docs/phase0-validation.md), then 0.5. Opt in early with
+<code>--memoric-weight 0.5</code>. Rising contention → escalate to a stronger or
+domain-specialist model.</p>
 <h2>6. Worker lifecycle ("stations")</h2>
 <ol>
 <li><strong>Board</strong> — conductor selects open questions (Phase 1: round-robin;

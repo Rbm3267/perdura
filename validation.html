@@ -63,12 +63,12 @@
   <div class="links"><a href="design.html">Design</a> <a href="memoric-binary.html">Memoric</a> <a href="roadmap.html">Roadmap</a> <a href="validation.html">Phase</a> <a href="index.html#access">Request access</a></div>
 </div></nav>
 <main><div class="doc-kicker">Documentation</div>
-<h1>Phase 0 Validation — Synthetic Arm Results</h1>
-<p><strong>Date:</strong> 2026-06-10 · <strong>Arm:</strong> synthetic ground truth (necessary condition)
-<strong>Graph:</strong> <code>experiments/synthetic_session.py</code> (68 live nodes, 89 edges,
-16 contradicts, 3 workers with planted reliability, seed 7)
-<strong>Status: PARTIAL — do not lock the spec yet.</strong> The real-session arm must
-run before Phase 0 closes (see "Running the real-session arm" below).</p>
+<h1>Phase 0 Validation Results</h1>
+<p><strong>Date:</strong> 2026-06-10 · <strong>Arms:</strong> synthetic ground truth + real session
+<strong>Status: PARTIAL — spec stays unlocked.</strong> The synthetic arm validates the
+mechanism; the first real-session arm revealed a <em>protocol</em> gap that must
+be fixed before the experiments can score real data (see "Real-session
+arm" below).</p>
 <h2>Why a synthetic arm</h2>
 <p>This environment has no model API access, so these runs use controlled
 graphs with <em>planted</em> ground truth: contended questions (two lexically
@@ -178,6 +178,64 @@ python experiments/memoric_eval.py --graph perdura_graph.json --semantic simhash
 # baseline routing arm for comparison
 python perdura.py show --memoric-weight 0
 </code></pre>
+<h2>Real-session arm (2026-06-10): the consensus-collapse finding</h2>
+<p><strong>Session:</strong> 6 seed questions, 18 turns, <code>claude-sonnet-4-6</code> +
+<code>gemini-2.5-flash</code> round-robin. 47 nodes, 79 edges, <strong>120 accepted /
+0 rejected deltas</strong> — the parse/validate pipeline held perfectly against
+two real frontier models (two Gemini turns failed on provider 503s; the
+conductor logged them and continued, losing nothing).</p>
+<p><strong>All three experiments returned <code>insufficient_data</code> — and that is the
+finding.</strong> The metrics didn't fail; the session produced almost none of
+the signal they measure:</p>
+<table>
+<thead>
+<tr>
+<th>Signal the experiments need</th>
+<th>What the session produced</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>contradicts edges</td>
+<td><strong>1</strong> (vs 27 claims, 79 edges)</td>
+</tr>
+<tr>
+<td>decision / supersede outcomes</td>
+<td><strong>0</strong> of either</td>
+</tr>
+<tr>
+<td>confidence spread</td>
+<td>every claim between <strong>0.72–0.95</strong> — the "low" bucket is empty</td>
+</tr>
+<tr>
+<td>≥2 claims per question</td>
+<td>workers spawned 14 <em>new</em> questions; most have 0–1 answering claims</td>
+</tr>
+</tbody>
+</table>
+<p>Two strong frontier models, prompted that "disagreement is valuable
+signal," <strong>converged anyway</strong> — they refined, supported, and extended each
+other (49 refines/supports/depends_on edges) and contradicted essentially
+never. Self-reported confidence is uniformly high and therefore carries no
+information (anchoring probe: 1/27 high-confidence claims ever challenged;
+no low-confidence bucket exists to compare against — issue #6's concern is
+real but in an unexpected direction: <em>confidence as workers report it is
+nearly constant</em>).</p>
+<p><strong>Interpretation.</strong> This is a protocol gap, not an encoding failure — and
+it is, ironically, evidence <em>for</em> the design's own thesis: contention-driven
+economics requires heterogeneous labor. Homogeneous frontier workers
+produce consensus, not contention. Protocol changes for the next session:</p>
+<ol>
+<li><strong>Heterogeneous workers</strong> — add local Qwen (the design's default labor);
+   small models disagreeing with frontier models is research question #3.</li>
+<li><strong>Adversarial boarding</strong> — a deterministic devil's-advocate prompt
+   variant for every Nth turn ("find the weakest live claim and attack it").</li>
+<li><strong>Contested seeds</strong> — seed opposing claims alongside questions, or pick
+   questions with genuinely opposing schools of thought.</li>
+<li><strong>Bound question spawning</strong> — 6 seeds became 20 questions in 18 turns;
+   claim depth per question must outpace frontier growth for any
+   per-question metric to bind.</li>
+</ol>
 <h2>Verdict</h2>
 <table>
 <thead>
@@ -188,24 +246,36 @@ python perdura.py show --memoric-weight 0
 </thead>
 <tbody>
 <tr>
-<td>Mechanism (exp 1)</td>
+<td>Mechanism (exp 1, synthetic)</td>
 <td><strong>Validated</strong> — scatter predicts contradiction before edges exist</td>
 </tr>
 <tr>
+<td>Delta pipeline (real models)</td>
+<td><strong>Validated</strong> — 120/120 deltas parsed and merged, 0 rejected</td>
+</tr>
+<tr>
+<td>Experiments on real data</td>
+<td><strong>Blocked on protocol</strong> — consensus collapse starves all three metrics</td>
+</tr>
+<tr>
 <td>Track records (exp 2)</td>
-<td><strong>Not yet testable</strong> — needs real workers and outcomes</td>
+<td>Not yet testable — zero outcome nodes produced</td>
 </tr>
 <tr>
 <td>Routing equivalence (exp 3)</td>
-<td><strong>Close</strong> — 0.87; re-test on real sessions before tuning</td>
+<td>Synthetic near-miss (0.87); real arm had no contention to rank</td>
 </tr>
 <tr>
 <td>Spec lock</td>
-<td><strong>No</strong> — blocked on the real-session arm</td>
+<td><strong>No</strong> — re-run the real arm with the protocol fixes above</td>
 </tr>
 <tr>
-<td>Phase 1.5 start</td>
-<td><strong>Unblocked</strong> — exp 1 is the signal Phase 1.5 consumes, and it holds</td>
+<td>memoric_weight default</td>
+<td>stays <strong>0</strong> (issue #11 gate not cleared)</td>
+</tr>
+<tr>
+<td>Phase 1.5</td>
+<td>Proceeding — exp 1 is the signal Phase 1.5 consumes, and it holds</td>
 </tr>
 </tbody>
 </table>

@@ -25,15 +25,19 @@ def probe(path: str) -> dict:
         data = json.load(f)
     nodes = {n["id"]: n for n in data["nodes"]}
 
-    challenged = set()  # claims that received a contradicts edge later
+    # The challenged claim is the EARLIER endpoint: the later claim is the
+    # challenger drawing the contradicts edge against settled material.
+    challenged = set()
     for e in data["edges"]:
         if e["type"] != "contradicts":
             continue
-        for end in (e["src"], e["dst"]):
-            n = nodes.get(end)
-            if n and n["type"] == "claim" and \
-                    e.get("created_at", 0) > n.get("created_at", 0):
-                challenged.add(end)
+        u, v = nodes.get(e["src"]), nodes.get(e["dst"])
+        if not (u and v and u["type"] == "claim" and v["type"] == "claim"):
+            continue
+        if u.get("created_at", 0) < v.get("created_at", 0):
+            challenged.add(u["id"])
+        elif v.get("created_at", 0) < u.get("created_at", 0):
+            challenged.add(v["id"])
 
     buckets = {"high": [0, 0], "low": [0, 0]}  # [challenged, total]
     for n in nodes.values():

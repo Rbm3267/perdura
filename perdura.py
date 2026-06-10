@@ -264,7 +264,7 @@ def build_briefing(graph: Graph, question: Node, retriever=None,
     if retriever is None:
         from perdura_retrieval import GraphRetriever
         retriever = GraphRetriever()
-    ids = retriever.retrieve(graph, question)
+    ids = set(retriever.retrieve(graph, question))
     # Global guardrails (issue #2): live decisions are always in scope —
     # a fresh, structurally isolated question still inherits settled policy.
     ids |= {n.id for n in graph.live_nodes() if n.type == "decision"}
@@ -519,10 +519,6 @@ WORKER_FACTORIES = {
 def run_turns(graph: Graph, workers: list, turns: int, retriever=None,
               mask_confidence=False):
     """Round-robin boarding (Phase 3 replaces this with the router)."""
-    def _answer_count(q):
-        return sum(1 for e in graph.edges.values()
-                   if e.type == "answers" and e.dst == q.id)
-
     for t in range(turns):
         questions = graph.open_questions()
         if not questions:
@@ -533,7 +529,12 @@ def run_turns(graph: Graph, workers: list, turns: int, retriever=None,
             # Exploration turn (issue #9): pure most-contended-first starves
             # fresh questions (no claims -> contention 0 -> never boarded).
             # Bandit placeholder until the Phase 3 router owns selection.
-            questions.sort(key=lambda q: (_answer_count(q), q.created_at))
+            answer_counts = {}
+            for e in graph.edges.values():
+                if e.type == "answers":
+                    answer_counts[e.dst] = answer_counts.get(e.dst, 0) + 1
+            questions.sort(
+                key=lambda q: (answer_counts.get(q.id, 0), q.created_at))
         else:
             questions.sort(
                 key=lambda q: -graph.contention(graph.neighborhood(q.id)))
@@ -574,7 +575,8 @@ def run_turns(graph: Graph, workers: list, turns: int, retriever=None,
                                   "accepted": 0, "rejected": 0,
                                   "error": str(e)[:200]})
                 fresh.save()
-            graph.log = fresh.log
+            graph.nodes, graph.edges, graph.log = (
+                fresh.nodes, fresh.edges, fresh.log)
             print(f"  delta rejected entirely ({e})")
 
 

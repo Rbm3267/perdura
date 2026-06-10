@@ -1,10 +1,10 @@
-# Phase 0 Validation — Synthetic Arm Results
+# Phase 0 Validation Results
 
-**Date:** 2026-06-10 · **Arm:** synthetic ground truth (necessary condition)
-**Graph:** `experiments/synthetic_session.py` (68 live nodes, 89 edges,
-16 contradicts, 3 workers with planted reliability, seed 7)
-**Status: PARTIAL — do not lock the spec yet.** The real-session arm must
-run before Phase 0 closes (see "Running the real-session arm" below).
+**Date:** 2026-06-10 · **Arms:** synthetic ground truth + real session
+**Status: PARTIAL — spec stays unlocked.** The synthetic arm validates the
+mechanism; the first real-session arm revealed a *protocol* gap that must
+be fixed before the experiments can score real data (see "Real-session
+arm" below).
 
 ## Why a synthetic arm
 
@@ -102,12 +102,58 @@ python experiments/memoric_eval.py --graph perdura_graph.json --semantic simhash
 python perdura.py show --memoric-weight 0
 ```
 
+## Real-session arm (2026-06-10): the consensus-collapse finding
+
+**Session:** 6 seed questions, 18 turns, `claude-sonnet-4-6` +
+`gemini-2.5-flash` round-robin. 47 nodes, 79 edges, **120 accepted /
+0 rejected deltas** — the parse/validate pipeline held perfectly against
+two real frontier models (two Gemini turns failed on provider 503s; the
+conductor logged them and continued, losing nothing).
+
+**All three experiments returned `insufficient_data` — and that is the
+finding.** The metrics didn't fail; the session produced almost none of
+the signal they measure:
+
+| Signal the experiments need | What the session produced |
+|---|---|
+| contradicts edges | **1** (vs 27 claims, 79 edges) |
+| decision / supersede outcomes | **0** of either |
+| confidence spread | every claim between **0.72–0.95** — the "low" bucket is empty |
+| ≥2 claims per question | workers spawned 14 *new* questions; most have 0–1 answering claims |
+
+Two strong frontier models, prompted that "disagreement is valuable
+signal," **converged anyway** — they refined, supported, and extended each
+other (49 refines/supports/depends_on edges) and contradicted essentially
+never. Self-reported confidence is uniformly high and therefore carries no
+information (anchoring probe: 1/27 high-confidence claims ever challenged;
+no low-confidence bucket exists to compare against — issue #6's concern is
+real but in an unexpected direction: *confidence as workers report it is
+nearly constant*).
+
+**Interpretation.** This is a protocol gap, not an encoding failure — and
+it is, ironically, evidence *for* the design's own thesis: contention-driven
+economics requires heterogeneous labor. Homogeneous frontier workers
+produce consensus, not contention. Protocol changes for the next session:
+
+1. **Heterogeneous workers** — add local Qwen (the design's default labor);
+   small models disagreeing with frontier models is research question #3.
+2. **Adversarial boarding** — a deterministic devil's-advocate prompt
+   variant for every Nth turn ("find the weakest live claim and attack it").
+3. **Contested seeds** — seed opposing claims alongside questions, or pick
+   questions with genuinely opposing schools of thought.
+4. **Bound question spawning** — 6 seeds became 20 questions in 18 turns;
+   claim depth per question must outpace frontier growth for any
+   per-question metric to bind.
+
 ## Verdict
 
 | | |
 |---|---|
-| Mechanism (exp 1) | **Validated** — scatter predicts contradiction before edges exist |
-| Track records (exp 2) | **Not yet testable** — needs real workers and outcomes |
-| Routing equivalence (exp 3) | **Close** — 0.87; re-test on real sessions before tuning |
-| Spec lock | **No** — blocked on the real-session arm |
-| Phase 1.5 start | **Unblocked** — exp 1 is the signal Phase 1.5 consumes, and it holds |
+| Mechanism (exp 1, synthetic) | **Validated** — scatter predicts contradiction before edges exist |
+| Delta pipeline (real models) | **Validated** — 120/120 deltas parsed and merged, 0 rejected |
+| Experiments on real data | **Blocked on protocol** — consensus collapse starves all three metrics |
+| Track records (exp 2) | Not yet testable — zero outcome nodes produced |
+| Routing equivalence (exp 3) | Synthetic near-miss (0.87); real arm had no contention to rank |
+| Spec lock | **No** — re-run the real arm with the protocol fixes above |
+| memoric_weight default | stays **0** (issue #11 gate not cleared) |
+| Phase 1.5 | Proceeding — exp 1 is the signal Phase 1.5 consumes, and it holds |
