@@ -30,7 +30,29 @@ import re
 import sys
 import time
 import uuid
+from contextlib import contextmanager
 from dataclasses import dataclass, asdict, field
+
+try:
+    import fcntl
+except ImportError:          # Windows: no advisory locks; single writer only
+    fcntl = None
+
+
+@contextmanager
+def graph_write_lock(path):
+    """Advisory write lock shared with the MCP station (same lockfile).
+    Writers must reload-merge-save inside it so concurrent conductors and
+    station workers never lose updates (issue #10)."""
+    if fcntl is None:
+        yield
+        return
+    with open(path + ".lock", "w") as lf:
+        fcntl.flock(lf, fcntl.LOCK_EX)
+        try:
+            yield
+        finally:
+            fcntl.flock(lf, fcntl.LOCK_UN)
 
 # ---------------------------------------------------------------------------
 # Graph
@@ -38,6 +60,18 @@ from dataclasses import dataclass, asdict, field
 
 NODE_TYPES = {"question", "claim", "evidence", "decision", "rejected"}
 EDGE_TYPES = {"supports", "contradicts", "refines", "answers", "depends_on"}
+
+# Default worker models — pinned here and nowhere else (issue #8).
+# gemini-2.5-flash verified still current against the live model list
+# 2026-06-10; bump claude alongside provider releases.
+DEFAULT_CLAUDE_MODEL = "claude-sonnet-4-6"
+DEFAULT_GEMINI_MODEL = "gemini-2.5-flash"
+DEFAULT_QWEN_MODEL = "qwen3-14b"
+DEFAULT_QWEN_URL = "http://localhost:1234/v1"
+
+# Conductor tuning
+NEAR_DUP_HAMMING = 8   # simhash distance at/below which claims are linked (#2)
+EXPLORE_EVERY = 3      # every Nth turn boards the least-worked question (#9)
 
 
 @dataclass
@@ -69,10 +103,11 @@ class Graph:
         self.nodes: dict[str, Node] = {}
         self.edges: dict[str, Edge] = {}
         self.log: list = []  # merge log: (ts, worker, accepted, rejected)
-        # Default contention = 0.5*edges + 0.5*memoric scatter (flipped
-        # 2026-06-10, Bennett's call). 0.0 reproduces the original
-        # edge-only metric exactly — use it as the experiment baseline.
-        self.memoric_weight: float = 0.5
+        # Default tracks Phase 0 status (issue #11): the memoric blend is
+        # the thing under test, so it stays out of the default routing
+        # signal until experiments 1 and 3 clear their bars
+        # (docs/phase0-validation.md). Opt in with --memoric-weight 0.5.
+        self.memoric_weight: float = 0.0
         if os.path.exists(path):
             self._load()
 
@@ -147,7 +182,7 @@ class Graph:
     def contention(self, node_ids=None, memoric_weight=None):
         """contradicts-edges per claim, confidence-weighted. The routing signal.
 
-        memoric_weight (or self.memoric_weight, default 0.5) blends in
+        memoric_weight (or self.memoric_weight, default 0.0) blends in
         embedding scatter from memoric binary, computed on demand:
         (1-w)*edge_signal + w*scatter. Pass 0 to reproduce the original
         edge-only metric bit-for-bit; the encoding is derived state and
@@ -222,13 +257,17 @@ Existing edges among them:
 """
 
 
-def build_briefing(graph: Graph, question: Node, retriever=None):
+def build_briefing(graph: Graph, question: Node, retriever=None,
+                   mask_confidence=False):
     # Phase 1.5: candidate selection is pluggable. Default reproduces the
     # Phase 1 behavior exactly (2-hop neighborhood + open questions).
     if retriever is None:
         from perdura_retrieval import GraphRetriever
         retriever = GraphRetriever()
     ids = retriever.retrieve(graph, question)
+    # Global guardrails (issue #2): live decisions are always in scope —
+    # a fresh, structurally isolated question still inherits settled policy.
+    ids |= {n.id for n in graph.live_nodes() if n.type == "decision"}
     nodes = [graph.nodes[i] for i in ids
              if graph.nodes[i].superseded_by is None]
     nodes.sort(key=lambda n: -n.confidence)
@@ -236,7 +275,10 @@ def build_briefing(graph: Graph, question: Node, retriever=None):
     lines, used = [], 0
     for n in nodes:
         text = " ".join(n.text.split())  # keep the one-line briefing format
-        line = f"{n.id} | {n.type} | {n.confidence:.2f} | {text}"
+        # Masked variant for the anchoring experiment (issue #6): workers
+        # see content but neither authorship nor confidence.
+        conf = "--" if mask_confidence else f"{n.confidence:.2f}"
+        line = f"{n.id} | {n.type} | {conf} | {text}"
         if used + len(line) > BRIEFING_CHAR_BUDGET:
             break
         lines.append(line)
@@ -354,6 +396,30 @@ def merge_delta(graph: Graph, delta: dict, worker: str):
                 and graph.nodes[qid].type == "question"):
             graph.nodes[qid].status = "resolved"
 
+    # Near-duplicate consolidation (issue #2): deterministic, conductor-
+    # authored. A new claim within NEAR_DUP_HAMMING simhash bits of an
+    # existing live claim still merges (nothing is suppressed), but gains a
+    # refines edge to its nearest neighbor so paraphrases form one
+    # structure instead of parallel tracks.
+    new_claims = {nid for nid in ref_map.values()
+                  if graph.nodes[nid].type == "claim"}
+    if new_claims:
+        from perdura_memoric import simhash_48bits
+        hashes = {n.id: simhash_48bits(n.text)
+                  for n in graph.live_nodes() if n.type == "claim"}
+        linked = {(e.src, e.dst) for e in graph.edges.values()}
+        for nid in new_claims:
+            h = hashes.get(nid)
+            best, best_d = None, NEAR_DUP_HAMMING + 1
+            for oid, oh in hashes.items():
+                if oid == nid or oid in new_claims:
+                    continue
+                d = (h ^ oh).bit_count()
+                if d < best_d:
+                    best, best_d = oid, d
+            if best and best_d <= NEAR_DUP_HAMMING and (nid, best) not in linked:
+                graph.add_edge("refines", nid, best, "conductor")
+
     graph.log.append({"ts": time.time(), "worker": worker,
                       "accepted": accepted, "rejected": rejected})
     return accepted, rejected
@@ -366,7 +432,7 @@ def merge_delta(graph: Graph, delta: dict, worker: str):
 class ClaudeWorker:
     name = "claude"
 
-    def __init__(self, model="claude-sonnet-4-5"):
+    def __init__(self, model=DEFAULT_CLAUDE_MODEL):
         import anthropic
         self.client, self.model = anthropic.Anthropic(), model
 
@@ -380,9 +446,12 @@ class ClaudeWorker:
 class GeminiWorker:
     name = "gemini"
 
-    def __init__(self, model="gemini-2.5-flash"):
+    def __init__(self, model=DEFAULT_GEMINI_MODEL):
         from google import genai
-        self.client, self.model = genai.Client(), model
+        # Explicit key: the client's env auto-detection can construct a
+        # closed transport when other Google creds are half-present.
+        self.client = genai.Client(api_key=os.environ.get("GEMINI_API_KEY"))
+        self.model = model
 
     def generate(self, prompt):
         return self.client.models.generate_content(
@@ -397,7 +466,7 @@ class QwenWorker:
     """
     name = "qwen"
 
-    def __init__(self, model="qwen3-14b", base_url="http://localhost:1234/v1"):
+    def __init__(self, model=DEFAULT_QWEN_MODEL, base_url=DEFAULT_QWEN_URL):
         from openai import OpenAI
         self.client = OpenAI(base_url=base_url, api_key="local")
         self.model = model
@@ -447,22 +516,34 @@ WORKER_FACTORIES = {
 # Conductor loop + CLI
 # ---------------------------------------------------------------------------
 
-def run_turns(graph: Graph, workers: list, turns: int, retriever=None):
+def run_turns(graph: Graph, workers: list, turns: int, retriever=None,
+              mask_confidence=False):
     """Round-robin boarding (Phase 3 replaces this with the router)."""
+    def _answer_count(q):
+        return sum(1 for e in graph.edges.values()
+                   if e.type == "answers" and e.dst == q.id)
+
     for t in range(turns):
         questions = graph.open_questions()
         if not questions:
             print("No open questions — the train is at rest.")
             break
-        # Most-contended open question first
-        questions.sort(
-            key=lambda q: -graph.contention(graph.neighborhood(q.id)))
+        explore = (t + 1) % EXPLORE_EVERY == 0 and len(questions) > 1
+        if explore:
+            # Exploration turn (issue #9): pure most-contended-first starves
+            # fresh questions (no claims -> contention 0 -> never boarded).
+            # Bandit placeholder until the Phase 3 router owns selection.
+            questions.sort(key=lambda q: (_answer_count(q), q.created_at))
+        else:
+            questions.sort(
+                key=lambda q: -graph.contention(graph.neighborhood(q.id)))
         q = questions[0]
         worker = workers[t % len(workers)]
 
-        print(f"\n[turn {t+1}] {worker.name} boards for {q.id}: "
-              f"{q.text[:60]}...")
-        briefing = build_briefing(graph, q, retriever)
+        print(f"\n[turn {t+1}] {worker.name} boards for {q.id}"
+              f"{' (explore)' if explore else ''}: {q.text[:60]}...")
+        briefing = build_briefing(graph, q, retriever,
+                                  mask_confidence=mask_confidence)
         try:
             raw = worker.generate(briefing)
             try:
@@ -474,15 +555,27 @@ def run_turns(graph: Graph, workers: list, turns: int, retriever=None):
                 delta = parse_delta(worker.generate(
                     briefing + "\n\n" + REPAIR_PROMPT.format(
                         error=e, raw=raw[:2000])))
-            acc, rej = merge_delta(graph, delta, worker.name)
+            # Generation ran outside the lock; the merge reloads under it so
+            # a concurrent conductor or MCP station never loses our delta,
+            # nor we theirs (issue #10).
+            with graph_write_lock(graph.path):
+                fresh = Graph(graph.path)
+                fresh.memoric_weight = graph.memoric_weight
+                acc, rej = merge_delta(fresh, delta, worker.name)
+                fresh.save()
+            graph.nodes, graph.edges, graph.log = (
+                fresh.nodes, fresh.edges, fresh.log)
             print(f"  merged: {acc} accepted, {rej} rejected | "
                   f"global contention: {graph.contention()}")
         except Exception as e:
-            graph.log.append({"ts": time.time(), "worker": worker.name,
-                              "accepted": 0, "rejected": 0,
-                              "error": str(e)[:200]})
+            with graph_write_lock(graph.path):
+                fresh = Graph(graph.path)
+                fresh.log.append({"ts": time.time(), "worker": worker.name,
+                                  "accepted": 0, "rejected": 0,
+                                  "error": str(e)[:200]})
+                fresh.save()
+            graph.log = fresh.log
             print(f"  delta rejected entirely ({e})")
-        graph.save()
 
 
 def show(graph: Graph):
@@ -512,6 +605,35 @@ def show(graph: Graph):
             print(f"  {w}: {s['accepted']} accepted, "
                   f"{s['rejected']} rejected, {s['errors']} failed turns")
 
+    # Per-claim outcome lineage (issue #7) — the substrate Phase 2 track
+    # records compute from: what HAPPENED to each worker's claims after
+    # merge, not just whether they merged.
+    contradicted, promoted = set(), set()
+    decision_ids = {n.id for n in graph.nodes.values() if n.type == "decision"}
+    for e in graph.edges.values():
+        if e.type == "contradicts":
+            contradicted.update((e.src, e.dst))
+        if e.src in decision_ids:
+            promoted.add(e.dst)
+        if e.dst in decision_ids:
+            promoted.add(e.src)
+    lineage = {}
+    for n in graph.nodes.values():
+        if n.type != "claim" or not n.created_by:
+            continue
+        L = lineage.setdefault(n.created_by, {"claims": 0, "superseded": 0,
+                                              "contradicted": 0, "promoted": 0})
+        L["claims"] += 1
+        L["superseded"] += n.superseded_by is not None
+        L["contradicted"] += n.id in contradicted
+        L["promoted"] += n.id in promoted
+    if lineage:
+        print("\nClaim outcome lineage (Phase 2 substrate):")
+        for w, L in sorted(lineage.items()):
+            print(f"  {w}: {L['claims']} claims — {L['promoted']} promoted, "
+                  f"{L['contradicted']} contradicted, "
+                  f"{L['superseded']} superseded")
+
 
 def main():
     p = argparse.ArgumentParser(description="Perdura Phase 1")
@@ -523,18 +645,21 @@ def main():
     p.add_argument("--turns", type=int, default=6)
     p.add_argument("--workers", default="qwen,claude,gemini",
                    help="comma list: qwen,claude,gemini,mock")
-    p.add_argument("--claude-model", default="claude-sonnet-4-5")
-    p.add_argument("--gemini-model", default="gemini-2.5-flash")
-    p.add_argument("--qwen-model", default="qwen3-14b",
+    p.add_argument("--claude-model", default=DEFAULT_CLAUDE_MODEL)
+    p.add_argument("--gemini-model", default=DEFAULT_GEMINI_MODEL)
+    p.add_argument("--qwen-model", default=DEFAULT_QWEN_MODEL,
                    help="local model id as served (LM Studio: qwen3-14b; "
                         "Ollama: qwen3:14b)")
-    p.add_argument("--qwen-url", default="http://localhost:1234/v1",
+    p.add_argument("--qwen-url", default=DEFAULT_QWEN_URL,
                    help="OpenAI-compatible base URL (LM Studio default; "
                         "Ollama: http://localhost:11434/v1)")
-    p.add_argument("--memoric-weight", type=float, default=0.5,
+    p.add_argument("--memoric-weight", type=float, default=0.0,
                    help="contention blend (1-w)*edges + w*memoric scatter. "
-                        "Default 0.5; pass 0 for the original edge-only "
-                        "metric (experiment baseline)")
+                        "Default 0.0 (edge-only) until Phase 0 validation "
+                        "passes — see docs/phase0-validation.md")
+    p.add_argument("--mask-confidence", action="store_true",
+                   help="hide confidence scores from worker briefings "
+                        "(anchoring experiment, issue #6)")
     p.add_argument("--retriever", choices=["graph", "hybrid", "chroma"],
                    default="graph",
                    help="briefing candidate selection (Phase 1.5): graph = "
@@ -559,7 +684,8 @@ def main():
         workers = [WORKER_FACTORIES[n](args) for n in names]
         from perdura_retrieval import RETRIEVERS
         run_turns(graph, workers, args.turns,
-                  retriever=RETRIEVERS[args.retriever]())
+                  retriever=RETRIEVERS[args.retriever](),
+                  mask_confidence=args.mask_confidence)
         show(graph)
 
     elif args.command == "show":

@@ -136,10 +136,11 @@ contention(S)  = (1 - w) * edge_signal(S) + w * embedding_scatter(S)
 ```
 
 where `embedding_scatter` is the mean pairwise epistemic distance of S's
-claims in memoric binary (docs/memoric-binary.md §4.3) and `w = 0.5` by
-default (adopted 2026-06-10; `--memoric-weight 0` reproduces the original
-edge-only metric for baselines). Rising contention → escalate to a stronger
-or domain-specialist model.
+claims in memoric binary (docs/memoric-binary.md §4.3). **The default `w`
+tracks Phase 0 status:** `w = 0` (edge-only) until experiments 1 and 3 pass
+(docs/phase0-validation.md), then 0.5. Opt in early with
+`--memoric-weight 0.5`. Rising contention → escalate to a stronger or
+domain-specialist model.
 
 ## 6. Worker lifecycle ("stations")
 
