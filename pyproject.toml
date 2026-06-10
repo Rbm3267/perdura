@@ -5,24 +5,21 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "perdura"
 version = "0.1.0"
-description = "Persistent knowledge graph with ephemeral LLM workers — the mind that outlives its models."
+description = "The mind that outlives its models — a persistent knowledge graph with ephemeral LLM workers"
 readme = "README.md"
-requires-python = ">=3.10"
-license = { text = "MIT" }
-authors = [{ name = "Bennett", email = "rbm3267@gmail.com" }]
-keywords = ["knowledge-graph", "llm", "multi-agent", "memory"]
-
+requires-python = ">=3.11"
+license = { text = "All rights reserved" }
 dependencies = [
     "anthropic>=0.40",
     "google-genai>=1.0",
     "openai>=1.50",
 ]
 
-[project.urls]
-Homepage = "https://github.com/Rbm3267/perdura"
-
 [project.scripts]
 perdura = "perdura:main"
+
+[project.urls]
+Repository = "https://github.com/Rbm3267/perdura"
 
 [tool.setuptools]
 py-modules = ["perdura"]
