@@ -26,4 +26,5 @@ perdura = "perdura:main"
 Repository = "https://github.com/Rbm3267/perdura"
 
 [tool.setuptools]
-py-modules = ["perdura", "perdura_memoric", "perdura_retrieval", "perdura_viz"]
+py-modules = ["perdura", "perdura_memoric", "perdura_retrieval", "perdura_viz",
+              "perdura_track"]

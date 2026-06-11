@@ -53,6 +53,7 @@ All-local labor: `python perdura.py run --turns 10 --workers qwen`
 Ollama instead of LM Studio: `--qwen-url http://localhost:11434/v1 --qwen-model qwen3:14b`
 Manufacture contention (devil's-advocate every 3rd turn): `--adversarial-every 3`
 Visualize the graph: `python perdura.py viz` → `perdura_mindmap.html`
+Per-model reliability scorecard: `python perdura.py track`
 
 ## How it works
 
@@ -82,7 +83,7 @@ Visual overview: [docs/overview.html](docs/overview.html)
 | 1 | Graph memory + delta extraction (Claude, Gemini, local Qwen), JSON persistence, round-robin boarding, CLI + MCP station | ✅ built |
 | 0 | Memoric binary: 96-bit epistemic encoding + validation experiments | 🔬 validating |
 | 1.5 | Pluggable retrieval (`--retriever graph\|hybrid\|chroma`, BM25 + dense + graph expansion) and force-directed mind-map viz (`perdura.py viz`) | 🛠️ in progress |
-| 2 | Attribution analytics: per-model, per-domain track records from node outcomes | planned |
+| 2 | Attribution analytics: per-model, per-domain track records from claim outcomes (`perdura.py track`) | 🛠️ engine shipped — accumulating real outcome data |
 | 3 | The epistemic router: registry, contention-driven escalation, cost budgets, specialist summoning | planned |
 
 ## Repository layout
@@ -94,6 +95,7 @@ docs/overview.html    Visual overview — architecture as a transit map
 docs/phase0-validation.md  Phase 0 validation results (synthetic + real arms)
 perdura_memoric.py    Memoric binary encoder/decoder (Phase 0)
 perdura_retrieval.py  Pluggable retrieval layer (Phase 1.5)
+perdura_track.py      Per-model/per-domain track records (Phase 2)
 perdura_viz.py        Force-directed mind-map renderer (Phase 1.5)
 perdura_server.py     MCP station — any MCP client can board as a worker
 experiments/          Validation experiments, synthetic session, probes

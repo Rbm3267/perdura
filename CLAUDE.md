@@ -42,7 +42,10 @@ Full detail in ROADMAP.md; docs/memoric-binary.md is the Phase 0 RFC.
 - Phase 1.5 STARTED — pluggable retrieval (perdura_retrieval.py;
   --retriever graph|hybrid|chroma, graph = required baseline arm) and
   mind-map viz (perdura.py viz)
-- Phase 2   Per-model track records from node outcomes
+- Phase 2   STARTED — track-record engine (perdura_track.py, perdura.py
+  track, operator-only MCP tool); reliability = Laplace-smoothed claim
+  outcomes (promoted/corroborated vs challenged/superseded), derived
+  on demand like memoric binary
 - Phase 3   Epistemic router (contention-driven escalation, cost budgets)
 
 ## Key decisions already made — do not re-litigate

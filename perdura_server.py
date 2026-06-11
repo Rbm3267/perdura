@@ -314,6 +314,22 @@ def perdura_node(node_id: str) -> str:
 
 
 @mcp.tool(
+    description="Per-model, per-domain track records computed from claim "
+                "outcomes (promoted / corroborated / challenged / "
+                "superseded). Operator mode only — workers never see "
+                "attribution, so this returns an error unless the station "
+                "runs with --operator."
+)
+def perdura_track_records() -> str:
+    if not _OPERATOR:
+        return json.dumps({"error": "Track records expose attribution and "
+                                    "are operator-only. Restart the station "
+                                    "with --operator."})
+    from perdura_track import track_records
+    return json.dumps({"track_records": track_records(get_graph())}, indent=2)
+
+
+@mcp.tool(
     description="Get contention breakdown: global score and per-question "
                 "scores. High contention means the graph disagrees with itself "
                 "there — that is where expensive models should focus."

@@ -668,7 +668,8 @@ def show(graph: Graph):
 
 def main():
     p = argparse.ArgumentParser(description="Perdura Phase 1")
-    p.add_argument("command", choices=["new", "run", "show", "demo", "viz"])
+    p.add_argument("command", choices=["new", "run", "show", "demo", "viz",
+                                       "track"])
     p.add_argument("text", nargs="?", help="question text (for `new`)")
     p.add_argument("--graph", default="perdura_graph.json")
     p.add_argument("--out", default="perdura_mindmap.html",
@@ -731,6 +732,10 @@ def main():
     elif args.command == "viz":
         from perdura_viz import write
         print(f"Mind map written to {write(graph, args.out)}")
+
+    elif args.command == "track":
+        from perdura_track import scorecard
+        print(scorecard(graph))
 
     elif args.command == "demo":
         demo_path = "perdura_demo_graph.json"

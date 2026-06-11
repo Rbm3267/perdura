@@ -92,7 +92,15 @@ sessions (research question #1).
 
 -----
 
-## Phase 2: Track Records
+## Phase 2: Track Records (STARTED)
+
+**Status (2026-06-11):** engine shipped (`perdura_track.py`): per-model and
+per-domain reliability as a Laplace-smoothed Beta mean over claim outcomes
+(promoted +1, corroborated-by-another-worker +0.5, challenged -0.5,
+superseded -1), derived on demand and never persisted. Surfaced via
+`perdura.py track` and an operator-only MCP tool (workers never see
+attribution). Validated against planted synthetic ground truth. Remaining:
+accumulate real outcome data and calibrate the rubric weights.
 
 **Goal:** Compute per-model, per-domain reliability from accumulated node outcomes.
 
