@@ -135,15 +135,35 @@ it is, ironically, evidence *for* the design's own thesis: contention-driven
 economics requires heterogeneous labor. Homogeneous frontier workers
 produce consensus, not contention. Protocol changes for the next session:
 
-1. **Heterogeneous workers** — add local Qwen (the design's default labor);
+1. **Adversarial boarding** — ✅ shipped (`--adversarial-every N`). A
+   deterministic devil's-advocate preamble makes the worker attack the
+   strongest live claim instead of extending it. **Validated against real
+   models:** 4 adversarial turns (Claude + Gemini) on the consensus graph
+   produced 4 new contradicts edges (1 → 5) and lifted global contention
+   from ~0 to 0.13 — the signal the experiments need, manufactured on
+   demand.
+2. **Heterogeneous workers** — add local Qwen (the design's default labor);
    small models disagreeing with frontier models is research question #3.
-2. **Adversarial boarding** — a deterministic devil's-advocate prompt
-   variant for every Nth turn ("find the weakest live claim and attack it").
 3. **Contested seeds** — seed opposing claims alongside questions, or pick
    questions with genuinely opposing schools of thought.
 4. **Bound question spawning** — 6 seeds became 20 questions in 18 turns;
    claim depth per question must outpace frontier growth for any
    per-question metric to bind.
+
+### Next real-session arm (the spec-locking run)
+
+```bash
+# heterogeneous labor + adversarial boarding + contested seeds
+python perdura.py run --turns 30 --workers qwen,claude,gemini \
+    --adversarial-every 3
+python experiments/memoric_eval.py --graph perdura_graph.json --semantic blake2b
+python experiments/memoric_eval.py --graph perdura_graph.json --semantic simhash
+```
+
+With contention now reachable, this run is what settles open question 6,
+clears experiments 1+3 on real data, and gives experiment 2 its first real
+outcome nodes — i.e. locks the spec and (per issue #11) earns the
+memoric_weight flip to 0.5.
 
 ## Verdict
 

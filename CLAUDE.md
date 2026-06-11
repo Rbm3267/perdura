@@ -34,8 +34,10 @@ experiments/debate.py  Precursor multi-model debate loop
 
 ## Phase roadmap
 Full detail in ROADMAP.md; docs/memoric-binary.md is the Phase 0 RFC.
-- Phase 0   Memoric binary — synthetic arm done (docs/phase0-validation.md);
-  real-session arm pending; spec NOT locked
+- Phase 0   Memoric binary — synthetic arm passes exp 1; real-session arm
+  hit consensus collapse (homogeneous workers don't contend), countered by
+  --adversarial-every (devil's-advocate boarding); spec NOT locked
+  (docs/phase0-validation.md)
 - Phase 1   ✅ Graph + delta loop, Claude/Gemini/Qwen, round-robin, CLI + MCP station
 - Phase 1.5 STARTED — pluggable retrieval (perdura_retrieval.py;
   --retriever graph|hybrid|chroma, graph = required baseline arm) and

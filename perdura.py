@@ -215,6 +215,28 @@ class Graph:
 
 BRIEFING_CHAR_BUDGET = 6000  # bounded regardless of graph size
 
+# Adversarial boarding (devil's-advocate critic). Homogeneous frontier
+# workers converge — the real session produced 1 contradicts edge in 18
+# turns (docs/phase0-validation.md). This prompt block deterministically
+# manufactures contention: the worker must attack the strongest live claim
+# rather than extend it. Injected on every Nth turn via --adversarial-every.
+ADVERSARIAL_PREAMBLE = """\
+You are boarding as a CRITIC this turn. Consensus is a failure mode here —
+your job is to stress-test, not to agree.
+
+- Find the single strongest or highest-confidence claim in the briefing that
+  you can legitimately challenge. Add a claim stating the counter-position
+  AND a "contradicts" edge from your claim to it. Do not manufacture a
+  disagreement you don't believe — but if the claim overreaches, is
+  underspecified, or ignores a real failure case, say so explicitly.
+- If a claim is sound but oversold, contribute a lower-confidence refinement
+  that names its limits (a "refines" edge), rather than rubber-stamping it.
+- Do NOT add new supporting claims or new questions this turn. Pressure the
+  existing graph.
+
+"""
+
+
 DELTA_PROMPT = """\
 You are an ephemeral worker contributing to a persistent knowledge graph.
 You will see a briefing (open question + related nodes), NOT a transcript.
@@ -244,7 +266,7 @@ Rules:
 - Add a new "question" node if your contribution surfaces one.
 - Do NOT restate existing nodes as new nodes.
 
-BRIEFING
+{adversarial}BRIEFING
 ========
 Open question under consideration:
 {question}
@@ -258,7 +280,7 @@ Existing edges among them:
 
 
 def build_briefing(graph: Graph, question: Node, retriever=None,
-                   mask_confidence=False):
+                   mask_confidence=False, adversarial=False):
     # Phase 1.5: candidate selection is pluggable. Default reproduces the
     # Phase 1 behavior exactly (2-hop neighborhood + open questions).
     if retriever is None:
@@ -298,6 +320,7 @@ def build_briefing(graph: Graph, question: Node, retriever=None,
             edge_lines.append(line)
             eused += len(line)
     return DELTA_PROMPT.format(
+        adversarial=ADVERSARIAL_PREAMBLE if adversarial else "",
         question=f"{question.id}: {question.text}",
         nodes="\n".join(lines) or "(none yet)",
         edges="\n".join(edge_lines) or "(none yet)")
@@ -517,7 +540,7 @@ WORKER_FACTORIES = {
 # ---------------------------------------------------------------------------
 
 def run_turns(graph: Graph, workers: list, turns: int, retriever=None,
-              mask_confidence=False):
+              mask_confidence=False, adversarial_every=0):
     """Round-robin boarding (Phase 3 replaces this with the router)."""
     for t in range(turns):
         questions = graph.open_questions()
@@ -540,11 +563,17 @@ def run_turns(graph: Graph, workers: list, turns: int, retriever=None,
                 key=lambda q: -graph.contention(graph.neighborhood(q.id)))
         q = questions[0]
         worker = workers[t % len(workers)]
+        # Adversarial turn: board as a critic to manufacture contention that
+        # homogeneous workers won't produce on their own.
+        adversarial = adversarial_every > 0 and (t + 1) % adversarial_every == 0
 
-        print(f"\n[turn {t+1}] {worker.name} boards for {q.id}"
-              f"{' (explore)' if explore else ''}: {q.text[:60]}...")
+        flags = (" (explore)" if explore else "") + \
+                (" (adversarial)" if adversarial else "")
+        print(f"\n[turn {t+1}] {worker.name} boards for {q.id}{flags}: "
+              f"{q.text[:60]}...")
         briefing = build_briefing(graph, q, retriever,
-                                  mask_confidence=mask_confidence)
+                                  mask_confidence=mask_confidence,
+                                  adversarial=adversarial)
         try:
             raw = worker.generate(briefing)
             try:
@@ -662,6 +691,11 @@ def main():
     p.add_argument("--mask-confidence", action="store_true",
                    help="hide confidence scores from worker briefings "
                         "(anchoring experiment, issue #6)")
+    p.add_argument("--adversarial-every", type=int, default=0, metavar="N",
+                   help="every Nth turn, board as a devil's-advocate critic "
+                        "to manufacture contention (0 = off). Counters the "
+                        "consensus collapse seen with homogeneous workers — "
+                        "see docs/phase0-validation.md")
     p.add_argument("--retriever", choices=["graph", "hybrid", "chroma"],
                    default="graph",
                    help="briefing candidate selection (Phase 1.5): graph = "
@@ -687,7 +721,8 @@ def main():
         from perdura_retrieval import RETRIEVERS
         run_turns(graph, workers, args.turns,
                   retriever=RETRIEVERS[args.retriever](),
-                  mask_confidence=args.mask_confidence)
+                  mask_confidence=args.mask_confidence,
+                  adversarial_every=args.adversarial_every)
         show(graph)
 
     elif args.command == "show":

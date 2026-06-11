@@ -68,10 +68,13 @@
 <p>Perdura is a persistent knowledge graph where LLMs are ephemeral workers. The roadmap now includes Phase 0 — foundational research on <strong>memoric binary</strong>, a native epistemic encoding that enables early contention detection and per-model track records in vector space.</p>
 <hr />
 <h2>Phase 0: Memoric Binary (NOW)</h2>
-<p><strong>Validation status (2026-06-10):</strong> synthetic arm complete — experiment 1
-(hidden disagreement, temporal replay) passes; experiment 3 near-miss
-(0.87 vs 0.9); experiment 2 needs the real-session arm. Spec not locked.
-Full results and the local run instructions: docs/phase0-validation.md.</p>
+<p><strong>Validation status (2026-06-10):</strong> synthetic arm — experiment 1 (hidden
+disagreement, temporal replay) passes; exp 3 near-miss (0.87); exp 2 needs
+real data. First real-session arm hit <em>consensus collapse</em> (two frontier
+models agree, 1 contradicts edge in 18 turns); fixed by adversarial
+boarding (<code>--adversarial-every N</code>), validated to lift contention 0→0.13 on
+real models. The spec-locking run is heterogeneous workers + adversarial
+boarding. Spec not locked. Full results: docs/phase0-validation.md.</p>
 <p><strong>Goal:</strong> Design, implement, and validate a 96-bit epistemic encoding that captures semantic content, node type, confidence, domain tags, temporal context, and supersession lineage.</p>
 <p><strong>Deliverables:</strong></p>
 <ul>
@@ -121,9 +124,9 @@ sessions (research question #1).</p>
   as a versioned cache if ChromaDB integration needs it)</li>
 <li>Assemble briefings with memoric binary included</li>
 <li>Contention blend <code>(1-w)*edge_signal + w*embedding_scatter</code> — implemented;
-  <strong>default flipped to w=0.5 on 2026-06-10</strong> (ahead of Phase 0 validation,
-  by decision). <code>--memoric-weight 0</code> remains the edge-only baseline for
-  experiments; if validation fails, flipping back is the same one-liner</li>
+  <strong>default w=0 (edge-only) until Phase 0 experiments 1+3 pass</strong> (issue #11;
+  the brief 2026-06-10 flip to 0.5 was reverted). Opt in with
+  <code>--memoric-weight 0.5</code>; the flip to default-on is earned by validation</li>
 <li>Visualize graph as a force-directed mind map (connectivity + contention)</li>
 <li>ChromaDB hybrid retrieval (BM25 + dense embeddings + graph expansion)</li>
 </ul>

@@ -8,10 +8,13 @@ Perdura is a persistent knowledge graph where LLMs are ephemeral workers. The ro
 
 ## Phase 0: Memoric Binary (NOW)
 
-**Validation status (2026-06-10):** synthetic arm complete — experiment 1
-(hidden disagreement, temporal replay) passes; experiment 3 near-miss
-(0.87 vs 0.9); experiment 2 needs the real-session arm. Spec not locked.
-Full results and the local run instructions: docs/phase0-validation.md.
+**Validation status (2026-06-10):** synthetic arm — experiment 1 (hidden
+disagreement, temporal replay) passes; exp 3 near-miss (0.87); exp 2 needs
+real data. First real-session arm hit *consensus collapse* (two frontier
+models agree, 1 contradicts edge in 18 turns); fixed by adversarial
+boarding (`--adversarial-every N`), validated to lift contention 0→0.13 on
+real models. The spec-locking run is heterogeneous workers + adversarial
+boarding. Spec not locked. Full results: docs/phase0-validation.md.
 
 **Goal:** Design, implement, and validate a 96-bit epistemic encoding that captures semantic content, node type, confidence, domain tags, temporal context, and supersession lineage.
 
@@ -72,9 +75,9 @@ sessions (research question #1).
   as a versioned cache if ChromaDB integration needs it)
 - Assemble briefings with memoric binary included
 - Contention blend `(1-w)*edge_signal + w*embedding_scatter` — implemented;
-  **default flipped to w=0.5 on 2026-06-10** (ahead of Phase 0 validation,
-  by decision). `--memoric-weight 0` remains the edge-only baseline for
-  experiments; if validation fails, flipping back is the same one-liner
+  **default w=0 (edge-only) until Phase 0 experiments 1+3 pass** (issue #11;
+  the brief 2026-06-10 flip to 0.5 was reverted). Opt in with
+  `--memoric-weight 0.5`; the flip to default-on is earned by validation
 - Visualize graph as a force-directed mind map (connectivity + contention)
 - ChromaDB hybrid retrieval (BM25 + dense embeddings + graph expansion)
 
