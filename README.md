@@ -51,6 +51,8 @@ python perdura.py show
 
 All-local labor: `python perdura.py run --turns 10 --workers qwen`
 Ollama instead of LM Studio: `--qwen-url http://localhost:11434/v1 --qwen-model qwen3:14b`
+Manufacture contention (devil's-advocate every 3rd turn): `--adversarial-every 3`
+Visualize the graph: `python perdura.py viz` → `perdura_mindmap.html`
 
 ## How it works
 
@@ -77,8 +79,9 @@ Visual overview: [docs/overview.html](docs/overview.html)
 
 | Phase | Scope | Status |
 |---|---|---|
-| 1 | Graph memory + delta extraction (Claude, Gemini, local Qwen), JSON persistence, round-robin boarding, CLI | ✅ built |
-| 1.5 | Retrieval layer (ChromaDB, hybrid BM25 + dense + graph expansion); living mind-map visualization | planned |
+| 1 | Graph memory + delta extraction (Claude, Gemini, local Qwen), JSON persistence, round-robin boarding, CLI + MCP station | ✅ built |
+| 0 | Memoric binary: 96-bit epistemic encoding + validation experiments | 🔬 validating |
+| 1.5 | Pluggable retrieval (`--retriever graph\|hybrid\|chroma`, BM25 + dense + graph expansion) and force-directed mind-map viz (`perdura.py viz`) | 🛠️ in progress |
 | 2 | Attribution analytics: per-model, per-domain track records from node outcomes | planned |
 | 3 | The epistemic router: registry, contention-driven escalation, cost budgets, specialist summoning | planned |
 
@@ -88,7 +91,12 @@ Visual overview: [docs/overview.html](docs/overview.html)
 perdura.py            Phase 1 implementation (graph, conductor, workers, CLI)
 docs/design.md        Full design document (thesis, schema, requirements, risks)
 docs/overview.html    Visual overview — architecture as a transit map
-experiments/debate.py Precursor: the multi-model debate loop Perdura grew out of
+docs/phase0-validation.md  Phase 0 validation results (synthetic + real arms)
+perdura_memoric.py    Memoric binary encoder/decoder (Phase 0)
+perdura_retrieval.py  Pluggable retrieval layer (Phase 1.5)
+perdura_viz.py        Force-directed mind-map renderer (Phase 1.5)
+perdura_server.py     MCP station — any MCP client can board as a worker
+experiments/          Validation experiments, synthetic session, probes
 ```
 
 ## Status
