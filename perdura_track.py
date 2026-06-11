@@ -43,7 +43,8 @@ def claim_events(graph) -> dict:
             bump(e.src, good=1.0)
         # corroborated: supports from a different worker
         if (e.type == "supports" and dst.type == "claim"
-                and src.created_by not in ("", dst.created_by)):
+                and src.created_by and dst.created_by
+                and src.created_by != dst.created_by):
             bump(e.dst, good=0.5)
         # challenged: the EARLIER endpoint of a contradicts edge (the later
         # claim is the challenger — same convention as the anchoring probe)
@@ -51,6 +52,11 @@ def claim_events(graph) -> dict:
             if src.created_at < dst.created_at:
                 bump(e.src, bad=0.5)
             elif dst.created_at < src.created_at:
+                bump(e.dst, bad=0.5)
+            else:
+                # Tie (mock/test data with default timestamps): fall back to
+                # edge direction — workers draw contradicts FROM their new
+                # claim TO the challenged one, so dst is the challenged.
                 bump(e.dst, bad=0.5)
 
     for n in graph.nodes.values():
@@ -68,7 +74,8 @@ def track_records(graph) -> dict:
     events = claim_events(graph)
     records: dict = {}
     for n in graph.nodes.values():
-        if n.type != "claim" or n.created_by in ("", "user", "conductor"):
+        if (n.type != "claim" or not n.created_by
+                or n.created_by in ("user", "conductor")):
             continue
         good, bad = events.get(n.id, (0.0, 0.0))
         rec = records.setdefault(n.created_by, {

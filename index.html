@@ -277,6 +277,7 @@
       <a href="#how">How It Works</a>
       <a href="#architecture">Architecture</a>
       <a href="#research">Research</a>
+      <a href="#findings">Findings</a>
       <a href="#roadmap">Roadmap</a>
       <a href="design.html">Docs</a>
       <a class="gh" href="#access">Request access →</a>
@@ -605,10 +606,50 @@
   </div>
 </section>
 
+<!-- ════════ FINDINGS ════════ -->
+<section id="findings">
+  <div class="wrap">
+    <div class="kicker">05 · Findings</div>
+    <h2>What the experiments have <em>actually shown</em>.</h2>
+    <p class="section-lede">
+      The three claims are falsifiable, with numeric pass bars. Two live
+      multi-model sessions and a synthetic ground-truth arm in — here's the
+      honest ledger, including the results we didn't order.
+    </p>
+
+    <div class="invariants reveal">
+      <div class="inv-row"><b>Pipeline holds</b>
+        <p>248/248 strict-JSON deltas from Claude + Gemini parsed, validated, and
+           merged across two live sessions. Zero rejected; provider outages survived.</p></div>
+      <div class="inv-row"><b>Consensus collapse</b>
+        <p>Homogeneous frontier workers don't contend: 18 turns produced one
+           contradicts edge. Adversarial boarding now manufactures contention on
+           demand — verified 0 → 0.13 global contention in four critic turns.</p></div>
+      <div class="inv-row"><b>The exogeneity finding</b>
+        <p>Prompted contradictions are unpredictable by construction — no scatter
+           signal precedes a critic that attacks wherever it boards. Hidden-disagreement
+           detection must be validated on <em>organic</em> contention from
+           heterogeneous workers.</p></div>
+      <div class="inv-row"><b>First real track records</b>
+        <p>Outcome-based reliability separated live workers (0.667 vs 0.400) —
+           claim 02's machinery now runs on real data, with calibration as the open work.</p></div>
+      <div class="inv-row"><b>Anchoring is real</b>
+        <p>High-confidence claims get challenged less (0.227 vs 0.333) even with
+           authorship hidden. Confidence masking exists to test the fix.</p></div>
+    </div>
+
+    <p class="section-lede" style="margin-top: 36px;">
+      <strong>The decisive experiment ahead:</strong> does contention-triggered
+      escalation flip outcomes more often than random or periodic escalation at
+      equal cost? Yes proves the thesis. No falsifies it cheaply. Either is a result.
+    </p>
+  </div>
+</section>
+
 <!-- ════════ ROADMAP ════════ -->
 <section id="roadmap">
   <div class="wrap">
-    <div class="kicker">05 · Roadmap</div>
+    <div class="kicker">06 · Roadmap</div>
     <h2>Each phase proves the <em>next claim</em>.</h2>
 
     <div class="timeline">
@@ -654,7 +695,7 @@
 <!-- ════════ RESEARCH PREVIEW ════════ -->
 <section id="access">
   <div class="wrap">
-    <div class="kicker">06 · Research Preview</div>
+    <div class="kicker">07 · Research Preview</div>
     <h2>Board the <em>preview</em>.</h2>
     <p class="section-lede">
       Perdura is open research moving toward a hosted preview: managed graphs,
