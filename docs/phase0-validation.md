@@ -165,6 +165,52 @@ clears experiments 1+3 on real data, and gives experiment 2 its first real
 outcome nodes — i.e. locks the spec and (per issue #11) earns the
 memoric_weight flip to 0.5.
 
+## Spec-locking attempt (2026-06-11): the exogeneity finding
+
+**Session:** 6 *contested* seed questions, 24 turns, Claude + Gemini with
+`--adversarial-every 3`. The protocol fix worked exactly as designed:
+**12 contradicts edges** (vs 1), confidence spread widened (0.65–0.90),
+128/128 deltas accepted. The eval also gained a traversal fix — real
+workers build refinement chains (claim refines claim answers question),
+so per-question claims are now collected by neighborhood expansion rather
+than direct `answers` edges only (the flat-graph assumption was a
+synthetic-generator artifact).
+
+**Results on real data:** experiment 1 AUC 0.54 (blake2b) / 0.33
+(simhash) over 31 replay checkpoints — chance level. Experiment 3 order
+preservation 0.56. Experiment 2 still blocked (0 decision/supersede
+outcomes in 24 turns).
+
+**Why — and why this is a finding, not a failure:** adversarially
+manufactured contradictions are **exogenous**. The critic attacks the
+strongest claim wherever it boards, regardless of pre-existing divergence
+— so by construction there is no latent scatter signal preceding those
+edges. You cannot validate *hidden disagreement detection* against
+disagreement that was injected by prompt. Adversarial boarding solves the
+contention *supply* problem (and feeds Phase 2 real outcome signal — see
+below) but is the wrong substrate for experiments 1 and 3, which need
+**organic** contention: genuinely divergent priors between workers.
+
+**What the session DID validate:**
+
+- **Phase 2 track records produced their first real differentiation:**
+  gemini 0.667 vs claude 0.400 — with the honest caveat that in a
+  2-worker adversarial protocol, "challenged" partly measures who wrote
+  the earlier/more-attacked claims; rubric calibration is open work.
+- **The anchoring probe has real signal at last** (issue #6):
+  high-confidence claims are challenged at 0.227 vs 0.333 for
+  low-confidence — a +0.106 gap consistent with confidence-anchoring,
+  on small n (25 claims). A `--mask-confidence` comparison run is now a
+  meaningful experiment.
+- The pipeline remains perfect: 248 accepted / 0 rejected deltas across
+  both real sessions.
+
+**Path to lock, sharpened:** the spec-locking session requires *organic*
+contention — heterogeneous workers (local Qwen vs frontier models,
+research question #3) on contested seeds, with adversarial turns reserved
+for outcome generation, and experiment 1 scored only against
+contradictions arising on non-adversarial turns. `memoric_weight` stays 0.
+
 ## Verdict
 
 | | |
@@ -173,7 +219,9 @@ memoric_weight flip to 0.5.
 | Delta pipeline (real models) | **Validated** — 120/120 deltas parsed and merged, 0 rejected |
 | Experiments on real data | **Blocked on protocol** — consensus collapse starves all three metrics |
 | Track records (exp 2) | Not yet testable — zero outcome nodes produced |
-| Routing equivalence (exp 3) | Synthetic near-miss (0.87); real arm had no contention to rank |
+| Routing equivalence (exp 3) | Synthetic near-miss (0.87); real arm 0.56 — confounded by exogenous contention |
+| Exogeneity finding | **Adversarial contention can't validate hidden-disagreement detection** — organic contention (heterogeneous workers) required |
+| Track records (Phase 2) | **First real differentiation** — gemini 0.667 vs claude 0.400 (rubric calibration open) |
 | Spec lock | **No** — re-run the real arm with the protocol fixes above |
 | memoric_weight default | stays **0** (issue #11 gate not cleared) |
 | Phase 1.5 | Proceeding — exp 1 is the signal Phase 1.5 consumes, and it holds |
