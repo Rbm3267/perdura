@@ -565,7 +565,7 @@ def run_turns(graph: Graph, workers: list, turns: int, retriever=None,
         worker = workers[t % len(workers)]
         # Adversarial turn: board as a critic to manufacture contention that
         # homogeneous workers won't produce on their own.
-        adversarial = adversarial_every and (t + 1) % adversarial_every == 0
+        adversarial = adversarial_every > 0 and (t + 1) % adversarial_every == 0
 
         flags = (" (explore)" if explore else "") + \
                 (" (adversarial)" if adversarial else "")
