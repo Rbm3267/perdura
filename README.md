@@ -53,6 +53,7 @@ All-local labor: `python perdura.py run --turns 10 --workers qwen`
 Ollama instead of LM Studio: `--qwen-url http://localhost:11434/v1 --qwen-model qwen3:14b`
 Manufacture contention (devil's-advocate every 3rd turn): `--adversarial-every 3`
 Visualize the graph: `python perdura.py viz` → `perdura_mindmap.html`
+Per-model reliability scorecard: `python perdura.py track`
 
 ## How it works
 
@@ -73,7 +74,50 @@ Visualize the graph: `python perdura.py viz` → `perdura_mindmap.html`
   decides when to escalate from local to frontier or specialist models.
 
 Full design rationale: [docs/design.md](docs/design.md) ·
-Visual overview: [docs/overview.html](docs/overview.html)
+Visual overview: [docs/overview.html](docs/overview.html) ·
+Validation results: [docs/phase0-validation.md](docs/phase0-validation.md)
+
+## Findings so far
+
+The claims above are falsifiable, with numeric pass bars. What two live
+multi-model sessions and a synthetic ground-truth arm have actually shown:
+
+- **The delta pipeline holds against real models.** 248/248 strict-JSON
+  deltas from Claude + Gemini parsed, validated, and merged across two live
+  sessions — zero rejected, provider outages survived.
+- **Consensus collapse.** Homogeneous frontier workers don't contend: 18
+  turns of Claude + Gemini produced *one* contradicts edge. Countered with
+  adversarial boarding (`--adversarial-every`), which manufactures
+  contention on demand (verified: 0 → 0.13 global contention).
+- **The exogeneity finding.** Prompted contradictions are unpredictable by
+  construction — no scatter signal precedes a critic who attacks wherever
+  it boards. Hidden-disagreement detection (Phase 0, experiment 1) must be
+  validated on *organic* contention from heterogeneous workers.
+- **First real track records.** Outcome-based reliability separated live
+  workers (0.667 vs 0.400) — claim 2's machinery now runs on real data.
+- **Anchoring is real.** High-confidence claims get challenged less
+  (0.227 vs 0.333 challenge rate) even with authorship hidden;
+  `--mask-confidence` exists to test the fix.
+
+**The decisive experiment still ahead (Phase 3 kernel):** does
+contention-triggered escalation flip outcomes more often than random or
+periodic escalation at equal cost? Yes proves the thesis; no falsifies it
+cheaply — either is a result.
+
+## The MCP station
+
+Any MCP client — Claude Code, Claude Desktop, Cursor, a custom agent — can
+board as an ephemeral worker:
+
+```bash
+pip install -e ".[server]"
+python perdura_server.py --graph /abs/path/perdura_graph.json   # stdio
+python perdura_server.py --http --port 8000                     # remote
+```
+
+Workers receive bounded briefings and contribute strict-JSON deltas;
+attribution and track records stay hidden from them. Run a separate
+instance with `--operator` for the unredacted view.
 
 ## Roadmap
 
@@ -82,7 +126,7 @@ Visual overview: [docs/overview.html](docs/overview.html)
 | 1 | Graph memory + delta extraction (Claude, Gemini, local Qwen), JSON persistence, round-robin boarding, CLI + MCP station | ✅ built |
 | 0 | Memoric binary: 96-bit epistemic encoding + validation experiments | 🔬 validating |
 | 1.5 | Pluggable retrieval (`--retriever graph\|hybrid\|chroma`, BM25 + dense + graph expansion) and force-directed mind-map viz (`perdura.py viz`) | 🛠️ in progress |
-| 2 | Attribution analytics: per-model, per-domain track records from node outcomes | planned |
+| 2 | Attribution analytics: per-model, per-domain track records from claim outcomes (`perdura.py track`) | 🛠️ engine shipped — accumulating real outcome data |
 | 3 | The epistemic router: registry, contention-driven escalation, cost budgets, specialist summoning | planned |
 
 ## Repository layout
@@ -94,6 +138,7 @@ docs/overview.html    Visual overview — architecture as a transit map
 docs/phase0-validation.md  Phase 0 validation results (synthetic + real arms)
 perdura_memoric.py    Memoric binary encoder/decoder (Phase 0)
 perdura_retrieval.py  Pluggable retrieval layer (Phase 1.5)
+perdura_track.py      Per-model/per-domain track records (Phase 2)
 perdura_viz.py        Force-directed mind-map renderer (Phase 1.5)
 perdura_server.py     MCP station — any MCP client can board as a worker
 experiments/          Validation experiments, synthetic session, probes
@@ -101,4 +146,5 @@ experiments/          Validation experiments, synthetic session, probes
 
 ## Status
 
-Early-stage personal research. APIs, schema, and ideas will change.
+Early-stage personal research, MIT licensed. APIs, schema, and ideas will
+change. Live at [perdura.network](https://perdura.network).

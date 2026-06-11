@@ -14,7 +14,12 @@ real data. First real-session arm hit *consensus collapse* (two frontier
 models agree, 1 contradicts edge in 18 turns); fixed by adversarial
 boarding (`--adversarial-every N`), validated to lift contention 0→0.13 on
 real models. The spec-locking run is heterogeneous workers + adversarial
-boarding. Spec not locked. Full results: docs/phase0-validation.md.
+boarding. Second real arm (contested seeds + adversarial): contention
+supply solved (12 contradicts edges), but adversarial contradictions are
+*exogenous* — unpredictable by scatter by construction — so exps 1/3 score
+at chance on them. Lock requires organic contention from heterogeneous
+workers (local Qwen). Spec not locked. Full results:
+docs/phase0-validation.md.
 
 **Goal:** Design, implement, and validate a 96-bit epistemic encoding that captures semantic content, node type, confidence, domain tags, temporal context, and supersession lineage.
 
@@ -92,7 +97,15 @@ sessions (research question #1).
 
 -----
 
-## Phase 2: Track Records
+## Phase 2: Track Records (STARTED)
+
+**Status (2026-06-11):** engine shipped (`perdura_track.py`): per-model and
+per-domain reliability as a Laplace-smoothed Beta mean over claim outcomes
+(promoted +1, corroborated-by-another-worker +0.5, challenged -0.5,
+superseded -1), derived on demand and never persisted. Surfaced via
+`perdura.py track` and an operator-only MCP tool (workers never see
+attribution). Validated against planted synthetic ground truth. Remaining:
+accumulate real outcome data and calibrate the rubric weights.
 
 **Goal:** Compute per-model, per-domain reliability from accumulated node outcomes.
 

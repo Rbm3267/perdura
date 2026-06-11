@@ -34,6 +34,29 @@ def _encode_node(n: dict, graph_start: float):
     return pm.encode_node(n, graph_start, semantic_fn=SEMANTIC_FN)
 
 
+def _question_claims(qid: str, nodes: dict, edges: list, hops: int = 3) -> list:
+    """Claims belonging to a question's neighborhood, sorted by arrival.
+
+    Direct `answers` edges only catch flat graphs; real workers build
+    chains (claim refines claim answers question), so we expand the same
+    way the conductor's contention does — n-hop traversal — with one extra
+    hop for the refinement chains observed in real sessions.
+    """
+    seen, frontier = {qid}, {qid}
+    for _ in range(hops):
+        nxt = set()
+        for e in edges:
+            if e["src"] in frontier and e["dst"] not in seen:
+                nxt.add(e["dst"])
+            if e["dst"] in frontier and e["src"] not in seen:
+                nxt.add(e["src"])
+        seen |= nxt
+        frontier = nxt
+    return sorted((nodes[i] for i in seen
+                   if i in nodes and nodes[i]["type"] == "claim"),
+                  key=lambda n: n.get("created_at", 0))
+
+
 def _auc(scored: list) -> float:
     """AUC via the Mann-Whitney rank statistic: probability that a randomly
     chosen positive outscores a randomly chosen negative."""
@@ -75,11 +98,8 @@ def experiment_1_hidden_disagreement(graph_json_path: str, merge_log: list) -> d
     final = []    # (final scatter, contradiction present?) — reference only
     for question in [n for n in nodes.values() if n["type"] == "question"]:
         qid = question["id"]
-        related_ids = {qid} | {e["src"] for e in edges
-                               if e["type"] == "answers" and e["dst"] == qid}
-        claims = sorted((n for n in nodes.values()
-                         if n["id"] in related_ids and n["type"] == "claim"),
-                        key=lambda n: n.get("created_at", 0))
+        claims = _question_claims(qid, nodes, edges)
+        related_ids = {qid} | {n["id"] for n in claims}
         if len(claims) < 2:
             continue
 
@@ -262,10 +282,8 @@ def experiment_3_compression_routing(graph_json_path: str) -> dict:
     contention_baseline, contention_memoric = {}, {}
     for q in open_questions:
         qid = q["id"]
-        related_ids = {qid} | {e["src"] for e in edges
-                               if e["type"] == "answers" and e["dst"] == qid}
-        related_claims = [n for n in nodes.values()
-                          if n["id"] in related_ids and n["type"] == "claim"]
+        related_claims = _question_claims(qid, nodes, edges)
+        related_ids = {qid} | {n["id"] for n in related_claims}
 
         contradicts_count = sum(
             1 for e in edges
