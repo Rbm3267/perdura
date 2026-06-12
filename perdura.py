@@ -33,6 +33,8 @@ import uuid
 from contextlib import contextmanager
 from dataclasses import dataclass, asdict, field
 
+from perdura_store import store_for
+
 try:
     import fcntl
 except ImportError:          # Windows: no advisory locks; single writer only
@@ -100,6 +102,9 @@ class Edge:
 class Graph:
     def __init__(self, path):
         self.path = path
+        # Store chosen by extension: .db/.sqlite[3] = SQLite (WAL), else
+        # JSON file. Same lock, same reload-merge-save discipline either way.
+        self.store = store_for(path)
         self.nodes: dict[str, Node] = {}
         self.edges: dict[str, Edge] = {}
         self.log: list = []  # merge log: (ts, worker, accepted, rejected)
@@ -108,28 +113,23 @@ class Graph:
         # signal until experiments 1 and 3 clear their bars
         # (docs/phase0-validation.md). Opt in with --memoric-weight 0.5.
         self.memoric_weight: float = 0.0
-        if os.path.exists(path):
+        if self.store.exists():
             self._load()
 
     # -- persistence --------------------------------------------------------
     def _load(self):
-        with open(self.path, encoding="utf-8") as f:
-            data = json.load(f)
+        data = self.store.load()
         self.nodes = {n["id"]: Node(**n) for n in data["nodes"]}
         self.edges = {e["id"]: Edge(**e) for e in data["edges"]}
         self.log = data.get("log", [])
 
     def save(self):
-        # Write-then-rename so concurrent readers (e.g. MCP workers boarding
-        # mid-merge) never see a truncated file.
-        tmp = self.path + ".tmp"
-        with open(tmp, "w", encoding="utf-8") as f:
-            json.dump(
-                {"nodes": [asdict(n) for n in self.nodes.values()],
-                 "edges": [asdict(e) for e in self.edges.values()],
-                 "log": self.log},
-                f, indent=2)
-        os.replace(tmp, self.path)
+        # Saves are atomic per store (write-rename for JSON, one transaction
+        # for SQLite) so concurrent readers (e.g. MCP workers boarding
+        # mid-merge) never see a truncated graph.
+        self.store.save([asdict(n) for n in self.nodes.values()],
+                        [asdict(e) for e in self.edges.values()],
+                        self.log)
 
     # -- mutation (conductor-only) ------------------------------------------
     def add_node(self, type, text, created_by, confidence=0.5,
@@ -725,9 +725,12 @@ def show(graph: Graph):
 def main():
     p = argparse.ArgumentParser(description="Perdura Phase 1")
     p.add_argument("command", choices=["new", "run", "show", "demo", "viz",
-                                       "track", "ui"])
-    p.add_argument("text", nargs="?", help="question text (for `new`)")
-    p.add_argument("--graph", default="perdura_graph.json")
+                                       "track", "ui", "redact"])
+    p.add_argument("text", nargs="?",
+                   help="question text (for `new`) / node id (for `redact`)")
+    p.add_argument("--graph", default="perdura_graph.json",
+                   help="graph path; .db/.sqlite[3] extension selects the "
+                        "SQLite store (WAL) instead of the JSON file")
     p.add_argument("--out", default="perdura_mindmap.html",
                    help="output path (for `viz`)")
     p.add_argument("--port", type=int, default=8800,
@@ -803,6 +806,26 @@ def main():
     elif args.command == "ui":
         from perdura_station import serve
         serve(args.graph, port=args.port)
+
+    elif args.command == "redact":
+        # Operator-only compliance escape hatch (docs/enterprise.md): the
+        # node's text payload is destroyed; type, confidence, attribution,
+        # edges, and supersession lineage all survive, so the epistemic
+        # record stays intact. Memoric encodings are derived on demand, so
+        # no stale copy of the text outlives this.
+        if not args.text:
+            sys.exit("Provide the node id: perdura.py redact n_xxxxxxxx")
+        with graph_write_lock(args.graph):
+            g = Graph(args.graph)
+            node = g.nodes.get(args.text)
+            if node is None:
+                sys.exit(f"No such node: {args.text}")
+            node.text = "[redacted]"
+            g.log.append({"ts": time.time(), "worker": "operator",
+                          "accepted": 0, "rejected": 0, "redacted": node.id})
+            g.save()
+        print(f"Redacted {args.text}: text destroyed; structure, "
+              f"attribution, and lineage preserved.")
 
     elif args.command == "demo":
         demo_path = "perdura_demo_graph.json"

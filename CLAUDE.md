@@ -28,8 +28,10 @@ supports · contradicts · refines · answers · depends_on
 
 ## Repo layout
 perdura.py             Phase 1 implementation
+perdura_store.py       Pluggable persistence (JSON default / SQLite by extension)
 docs/design.md         Full design doc and rationale
 docs/overview.html     Transit-map architecture visual
+docs/enterprise.md     Enterprise deployment plan (track E0–E3)
 experiments/debate.py  Precursor multi-model debate loop
 
 ## Phase roadmap
@@ -49,6 +51,11 @@ Full detail in ROADMAP.md; docs/memoric-binary.md is the Phase 0 RFC.
   on demand like memoric binary
 - Phase 3   Epistemic router (contention-driven escalation, cost budgets)
 
+## Session conventions
+- Every major change updates README.md AND index.html in the same commit —
+  the operator should never have to ask. If a doc under docs/ changed,
+  re-run tools/build_doc_pages.py and commit the regenerated pages too.
+
 ## Key decisions already made — do not re-litigate
 - perdura_graph.json is gitignored; the mind's state stays local by default
 - Workers never see authorship of prior nodes (counters anchoring)
@@ -58,3 +65,9 @@ Full detail in ROADMAP.md; docs/memoric-binary.md is the Phase 0 RFC.
 - contention() defaults to edge-only (w=0) until Phase 0 experiments 1+3
   pass (issue #11); the 0.5 blend is opt-in via --memoric-weight and the
   edge-only run stays the required baseline arm
+- Storage is pluggable by file extension (perdura_store.py): JSON file is
+  the default and stays byte-identical; .db/.sqlite[3] selects SQLite WAL.
+  Same advisory lock + reload-merge-save discipline for every store
+- `redact` is the one sanctioned exception to supersede-never-delete:
+  operator-only, destroys node TEXT only (structure/attribution/lineage
+  survive), logged — the GDPR escape hatch (docs/enterprise.md §5)

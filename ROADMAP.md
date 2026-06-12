@@ -162,6 +162,30 @@ selected_model = next available within budget
 
 -----
 
+## Enterprise Track (parallel to the research phases)
+
+Full plan: `docs/enterprise.md`. The worker protocol is already a service
+boundary (delta plane / briefing plane / operator plane), so enterprise
+deployment is an application layer over the research engine — gated so it
+never displaces the research focus.
+
+- **E0 — storage tier** ✅ (2026-06-12): pluggable persistence
+  (`perdura_store.py`) selected by file extension — JSON file (default,
+  byte-identical Phase 1) or SQLite WAL (transactional saves, concurrent
+  readers, multi-process on one box; validated 60/60 merges under 4
+  concurrent conductors). Plus `perdura.py redact <node-id>`: the
+  operator-only GDPR escape hatch — text destroyed, structure/attribution/
+  lineage preserved.
+- **E1 — service API**: the three planes over HTTP with bearer auth;
+  read-only Conductor panel in the Station.
+- **E2 — multi-tenant control plane**: Postgres store, graph-per-tenant,
+  SSO, roles, per-domain budgets. **Gate: Phase 3 escalation A/B must show
+  contention-routing wins at equal cost.**
+- **E3 — ingestion adapters**: PR/ADR/incident/ticket streams proposing
+  deltas through the normal merge path.
+
+-----
+
 ## Phase 4: Multi-Model Collaborative Routing (Optional)
 
 **Goal:** Enable workers to request specific collaborators for sub-questions.

@@ -56,6 +56,7 @@ Visualize the graph: `python perdura.py viz` → `perdura_mindmap.html`
 Per-model reliability scorecard: `python perdura.py track`
 Surface latent disagreement (stance audit every 4th turn): `--audit-every 4`
 **Live dashboard** (watch a session land in real time): `python perdura.py ui` → http://127.0.0.1:8800
+SQLite storage (multi-process, transactional — see below): `--graph perdura.db`
 
 ## How it works
 
@@ -77,7 +78,29 @@ Surface latent disagreement (stance audit every 4th turn): `--audit-every 4`
 
 Full design rationale: [docs/design.md](docs/design.md) ·
 Visual overview: [docs/overview.html](docs/overview.html) ·
-Validation results: [docs/phase0-validation.md](docs/phase0-validation.md)
+Validation results: [docs/phase0-validation.md](docs/phase0-validation.md) ·
+Enterprise plan: [docs/enterprise.md](docs/enterprise.md)
+
+## Beyond the experiment: storage tiers and compliance
+
+The graph is the only state, so persistence is pluggable
+(`perdura_store.py`), selected by file extension — everything above it
+(conductor, Station, MCP, viz, track) is unchanged:
+
+- `perdura_graph.json` (default) — byte-identical Phase 1 behavior,
+  human-diffable, single box.
+- `perdura_graph.db` / `.sqlite[3]` — SQLite in WAL mode: transactional
+  saves, concurrent readers while a conductor writes, multi-process safe
+  on one box (validated 60/60 merges under 4 concurrent conductors).
+- Postgres (planned, enterprise track E2) — same interface,
+  graph-per-tenant.
+
+`python perdura.py redact <node-id>` is the operator-only compliance
+escape hatch (GDPR erasure vs supersede-never-delete): the text payload is
+destroyed; type, confidence, attribution, edges, and lineage survive, so
+the epistemic record stays intact while the content does not. The full
+deployment plan — integration planes, tenancy, security posture, the
+enterprise roadmap — is in [docs/enterprise.md](docs/enterprise.md).
 
 ## See it run
 
@@ -154,7 +177,9 @@ perdura.py            Phase 1 implementation (graph, conductor, workers, CLI)
 docs/design.md        Full design document (thesis, schema, requirements, risks)
 docs/overview.html    Visual overview — architecture as a transit map
 docs/phase0-validation.md  Phase 0 validation results (synthetic + real arms)
+docs/enterprise.md    Enterprise deployment plan (integration planes, tiers)
 perdura_memoric.py    Memoric binary encoder/decoder (Phase 0)
+perdura_store.py      Pluggable persistence: JSON file / SQLite WAL (E0)
 perdura_retrieval.py  Pluggable retrieval layer (Phase 1.5)
 perdura_track.py      Per-model/per-domain track records (Phase 2)
 perdura_viz.py        Force-directed mind-map renderer (Phase 1.5)
