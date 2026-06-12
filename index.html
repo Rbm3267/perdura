@@ -692,8 +692,10 @@
         <h4>Phase 1.5 — Retrieval + viz <span class="t-tag">IN PROGRESS</span></h4>
         <p>Pluggable retrieval shipped — graph (baseline), hybrid (BM25 + dense + graph
            expansion), and a persistent ChromaDB index — behind one interface, so the
-           briefing strategy is now an A/B knob. Force-directed mind-map visualization of the
-           living graph ships alongside. Next: memoric binary in briefings and learned dense
+           briefing strategy is now an A/B knob. The living graph is visible two ways: a
+           force-directed mind map, and the Station — a live local dashboard that watches a
+           session land in real time (questions ranked by contention, the conversation feed,
+           per-model track records). Next: memoric binary in briefings and learned dense
            embeddings.</p>
       </div>
       <div class="t-item now reveal">
@@ -707,6 +709,16 @@
         <h4>Phase 3 — The epistemic router <span class="t-tag">THE THESIS</span></h4>
         <p>Model registry, cost budgets, contention-driven escalation, specialist summoning.
            The graph starts hiring and firing for real. Proves claim 03.</p>
+      </div>
+      <div class="t-item now reveal">
+        <h4>Enterprise track — engine, not experiment <span class="t-tag">E0 SHIPPED</span></h4>
+        <p>A parallel track that hardens the engine for deployment without touching a single
+           conductor invariant. E0 shipped: pluggable storage (JSON file or transactional
+           SQLite, chosen by file extension — Postgres next) and a redaction command that
+           reconciles right-to-erasure with supersede-never-delete. Ahead: a service API over
+           the three integration planes, multi-tenant control plane, ingestion adapters —
+           gated on Phase 3 proving the routing claim.
+           <a href="enterprise.html">The full deployment plan →</a></p>
       </div>
     </div>
   </div>

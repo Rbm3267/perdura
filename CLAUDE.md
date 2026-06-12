@@ -51,6 +51,11 @@ Full detail in ROADMAP.md; docs/memoric-binary.md is the Phase 0 RFC.
   on demand like memoric binary
 - Phase 3   Epistemic router (contention-driven escalation, cost budgets)
 
+## Session conventions
+- Every major change updates README.md AND index.html in the same commit —
+  the operator should never have to ask. If a doc under docs/ changed,
+  re-run tools/build_doc_pages.py and commit the regenerated pages too.
+
 ## Key decisions already made — do not re-litigate
 - perdura_graph.json is gitignored; the mind's state stays local by default
 - Workers never see authorship of prior nodes (counters anchoring)
