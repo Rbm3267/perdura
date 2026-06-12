@@ -796,6 +796,11 @@
         note.textContent = r.status === 409
           ? "That address is already on the list — we'll be in touch."
           : "Got it — we'll reply when seats open.";
+      } else if (r.status === 400) {    // check constraint: bad address
+        btn.disabled = false;
+        btn.textContent = "Request access";
+        note.textContent = "That doesn't look like a valid email address — "
+          + "give it another try.";
       } else {
         throw new Error("signup failed: " + r.status);
       }
