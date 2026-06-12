@@ -725,11 +725,13 @@ def show(graph: Graph):
 def main():
     p = argparse.ArgumentParser(description="Perdura Phase 1")
     p.add_argument("command", choices=["new", "run", "show", "demo", "viz",
-                                       "track"])
+                                       "track", "ui"])
     p.add_argument("text", nargs="?", help="question text (for `new`)")
     p.add_argument("--graph", default="perdura_graph.json")
     p.add_argument("--out", default="perdura_mindmap.html",
                    help="output path (for `viz`)")
+    p.add_argument("--port", type=int, default=8800,
+                   help="port for the Station dashboard (for `ui`)")
     p.add_argument("--turns", type=int, default=6)
     p.add_argument("--workers", default="qwen,claude,gemini",
                    help="comma list: qwen,claude,gemini,mock")
@@ -797,6 +799,10 @@ def main():
     elif args.command == "track":
         from perdura_track import scorecard
         print(scorecard(graph))
+
+    elif args.command == "ui":
+        from perdura_station import serve
+        serve(args.graph, port=args.port)
 
     elif args.command == "demo":
         demo_path = "perdura_demo_graph.json"
