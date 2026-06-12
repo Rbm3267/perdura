@@ -77,6 +77,16 @@ Full design rationale: [docs/design.md](docs/design.md) ·
 Visual overview: [docs/overview.html](docs/overview.html) ·
 Validation results: [docs/phase0-validation.md](docs/phase0-validation.md)
 
+## See it run
+
+A real 24-turn Claude + Gemini session, replayed — claims landing as workers
+board, adversarial challenges flashing red, contention climbing from zero
+(time-compressed preview; [full 74s video with the model conversation](assets/perdura-session.mp4)):
+
+![Session replay: the graph growing as workers contribute, contradiction edges arriving in red](assets/perdura-session-preview.gif)
+
+Regenerate from any graph with `tools/render_session_video.py`.
+
 ## Findings so far
 
 The claims above are falsifiable, with numeric pass bars. What two live

@@ -247,6 +247,9 @@
   .foot-links a:hover { color: var(--cyan); }
   .foot-fine { margin-top: 36px; font-family: var(--mono); font-size: 0.78rem; color: var(--faint); }
 
+  /* ── Session replay video ────────────────────── */
+  .session-video { width: 100%; border-radius: 12px; display: block; }
+
   /* ── Research preview form ───────────────────── */
   .access-form { margin-top: 36px; display: flex; gap: 12px; flex-wrap: wrap; max-width: 520px; }
   .access-form input {
@@ -419,7 +422,7 @@
         <!-- Delta arrow to conductor -->
         <path d="M 545 85 C 615 85, 625 85, 685 85" fill="none" stroke="#ffb454" stroke-width="2" marker-end="url(#aAmber)"/>
         <text x="615" y="72" text-anchor="middle" fill="#ffb454" font-size="11">strict-JSON delta</text>
-        <text x="615" y="102" text-anchor="middle" fill="#5b6688" font-size="9">nodes · edges · supersedes</text>
+        <text x="615" y="102" text-anchor="middle" fill="#5b6688" font-size="9">nodes/edges/supersedes</text>
 
         <!-- Conductor -->
         <rect x="690" y="45" width="250" height="80" rx="12" fill="rgba(255,180,84,0.05)" stroke="#ffb454" stroke-width="2"/>
@@ -442,6 +445,16 @@
         <p>Schema-checked, attributed, merged by pure code. Malformed deltas are rejected — and the rejection itself feeds the track record.</p></div>
       <div class="step reveal"><div class="s-num">STEP 4</div><h4>Disembark</h4>
         <p>The worker is released. Nothing it "knew" is lost, because it never knew anything the graph didn't.</p></div>
+    </div>
+
+    <div class="diagram reveal" style="padding: 16px;">
+      <video class="session-video" autoplay muted loop playsinline controls
+             preload="metadata" aria-label="Replay of a real 24-turn Perdura session">
+        <source src="assets/perdura-session.mp4" type="video/mp4">
+      </video>
+      <div class="diagram-caption" style="margin-top: 14px;"><b>A real session, replayed.</b>
+        24 turns of Claude + Gemini on contested questions — watch the red
+        contradiction edges arrive as adversarial critics board, and contention climb from zero.</div>
     </div>
   </div>
 </section>
