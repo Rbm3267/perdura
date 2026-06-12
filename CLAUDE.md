@@ -49,7 +49,9 @@ Full detail in ROADMAP.md; docs/memoric-binary.md is the Phase 0 RFC.
   track, operator-only MCP tool); reliability = Laplace-smoothed claim
   outcomes (promoted/corroborated vs challenged/superseded), derived
   on demand like memoric binary
-- Phase 3   Epistemic router (contention-driven escalation, cost budgets)
+- Phase 3   KERNEL SHIPPED — perdura_router.py (--route, hard budgets,
+  escalation by track-record reliability/cost) + escalation_ab.py harness
+  (synthetic positive control passes; thesis verdict needs real workers)
 
 ## Session conventions
 - Every major change updates README.md AND index.html in the same commit —

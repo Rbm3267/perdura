@@ -128,7 +128,19 @@ accumulate real outcome data and calibrate the rubric weights.
 
 -----
 
-## Phase 3: Epistemic Router
+## Phase 3: Epistemic Router (KERNEL SHIPPED)
+
+**Status (2026-06-12):** the routing kernel shipped (`perdura_router.py`,
+`perdura.py run --route contention|periodic|random|cheap --budget N`):
+model registry with per-boarding costs and tiers, contention-driven
+escalation (frontier chosen by live track-record reliability per cost),
+hard session budgets with local fallback, and a per-decision ledger. The
+decisive A/B harness shipped too (`experiments/escalation_ab.py`) with a
+synthetic positive control: at equal spend and equal flips, mean contention
+at escalation separates the arms (0.48 contention-routed vs 0.31 random vs
+0.14 periodic) — frontier spend lands on actual disagreement. **The thesis
+verdict requires the real-worker A/B** (qwen + claude + gemini, contested
+seeds); synthetic results validate the machinery, not the claim.
 
 **Goal:** Implement cost-driven routing: escalate to frontier/specialist models only where contention is high.
 
