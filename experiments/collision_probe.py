@@ -32,11 +32,12 @@ def auc(pos, neg):
 def probe(path):
     with open(path, encoding="utf-8") as f:
         data = json.load(f)
-    nodes = {n["id"]: n for n in data["nodes"]}
-    gs = min((n.get("created_at", 0) for n in nodes.values()), default=0)
+    nodes = {n["id"]: n for n in data.get("nodes", []) if "id" in n}
+    gs = min((n.get("created_at") or 0 for n in nodes.values()), default=0)
     claims = [n for n in nodes.values() if n["type"] == "claim"]
-    contra = {frozenset((e["src"], e["dst"])) for e in data["edges"]
-              if e["type"] == "contradicts"
+    contra = {frozenset((e["src"], e["dst"])) for e in data.get("edges", [])
+              if e.get("type") == "contradicts"
+              and "src" in e and "dst" in e
               and nodes.get(e["src"], {}).get("type") == "claim"
               and nodes.get(e["dst"], {}).get("type") == "claim"}
     if len(contra) < 3 or len(claims) < 6:
