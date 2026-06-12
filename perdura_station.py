@@ -27,7 +27,7 @@ from perdura_track import track_records
 
 def payload(graph_path: str) -> dict:
     """Everything the dashboard needs, derived fresh from the graph file."""
-    if not os.path.exists(graph_path):
+    if not os.path.isfile(graph_path):
         return {"nodes": [], "edges": [], "questions": [], "track": {},
                 "contention": 0.0, "log_tail": [], "exists": False}
     g = Graph(graph_path)
@@ -79,8 +79,12 @@ class _Handler(BaseHTTPRequestHandler):
         if self.path in ("/", "/index.html"):
             self._send(PAGE.encode(), "text/html; charset=utf-8")
         elif self.path == "/api/graph":
-            self._send(json.dumps(payload(self.graph_path)).encode(),
-                       "application/json")
+            try:
+                body = json.dumps(payload(self.graph_path)).encode()
+            except Exception as e:                # mid-write or corrupt file
+                self.send_error(500, f"graph read failed: {e}")
+                return
+            self._send(body, "application/json")
         else:
             self.send_error(404)
 
@@ -94,6 +98,8 @@ def serve(graph_path: str, port: int = 8800, host: str = "127.0.0.1"):
         httpd.serve_forever()
     except KeyboardInterrupt:
         print("\nStation closed.")
+    finally:
+        httpd.server_close()
 
 
 PAGE = r"""<!DOCTYPE html>
