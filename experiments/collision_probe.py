@@ -30,7 +30,8 @@ def auc(pos, neg):
 
 
 def probe(path):
-    data = json.load(open(path, encoding="utf-8"))
+    with open(path, encoding="utf-8") as f:
+        data = json.load(f)
     nodes = {n["id"]: n for n in data["nodes"]}
     gs = min((n.get("created_at", 0) for n in nodes.values()), default=0)
     claims = [n for n in nodes.values() if n["type"] == "claim"]
@@ -51,8 +52,8 @@ def probe(path):
             enc["blake2b"][a], enc["blake2b"][b]) / 48,
         "semantic_simhash": lambda a, b: pm.semantic_distance(
             enc["simhash"][a], enc["simhash"][b]) / 48,
-        "conf_delta": lambda a, b: abs(nodes[a]["confidence"]
-                                       - nodes[b]["confidence"]),
+        "conf_delta": lambda a, b: abs(nodes[a].get("confidence", 0.5)
+                                       - nodes[b].get("confidence", 0.5)),
         "epistemic_simhash": lambda a, b: pm.epistemic_distance(
             enc["simhash"][a], enc["simhash"][b]),
     }
@@ -68,9 +69,11 @@ def probe(path):
         print(f"{name:<20} {a:>6.3f}")
 
     # Collision-band calibration
-    h = {c["id"]: pm.simhash_48bits(c["text"]) for c in claims}
-    band = lambda p: (pm.COLLISION_LOW
-                      < (h[p[0]] ^ h[p[1]]).bit_count() <= pm.COLLISION_HIGH)
+    h = {c["id"]: pm.simhash_48bits(c.get("text") or "") for c in claims}
+
+    def band(p):
+        d = (h[p[0]] ^ h[p[1]]).bit_count()
+        return pm.COLLISION_LOW < d <= pm.COLLISION_HIGH
     hit = sum(1 for p in pos_pairs if band(p))
     tot = sum(1 for p in itertools.combinations(ids, 2) if band(p))
     print(f"\ncollision band ({pm.COLLISION_LOW},{pm.COLLISION_HIGH}]: "

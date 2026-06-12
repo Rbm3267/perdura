@@ -269,8 +269,8 @@ CLAIM PAIRS
 
 def build_audit_briefing(pairs):
     """Briefing for a stance-audit turn: collision-band claim pairs."""
-    blocks = [f"{a.id} | {' '.join(a.text.split())}\n"
-              f"{b.id} | {' '.join(b.text.split())}" for a, b in pairs]
+    blocks = [f"{a.id} | {' '.join((a.text or '').split())}\n"
+              f"{b.id} | {' '.join((b.text or '').split())}" for a, b in pairs]
     return AUDIT_PROMPT.format(pairs="\n\n".join(blocks))
 
 

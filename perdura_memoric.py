@@ -408,7 +408,7 @@ def collision_candidates(graph, low=COLLISION_LOW, high=COLLISION_HIGH,
     """Unlinked live claim pairs in the lexical collision band, closest
     first: different workers, no existing edge — stance unknown."""
     claims = [n for n in graph.live_nodes() if n.type == "claim"]
-    hashes = {n.id: simhash_48bits(n.text) for n in claims}
+    hashes = {n.id: simhash_48bits(n.text or "") for n in claims}
     linked = set()
     for e in graph.edges.values():
         linked.add(frozenset((e.src, e.dst)))
@@ -417,7 +417,10 @@ def collision_candidates(graph, low=COLLISION_LOW, high=COLLISION_HIGH,
     for i in range(len(claims)):
         for j in range(i + 1, len(claims)):
             a, b = claims[i], claims[j]
-            if a.created_by == b.created_by:
+            # "Different workers" requires both attributions to exist —
+            # unattributed pairs can't establish independent authorship.
+            if (not a.created_by or not b.created_by
+                    or a.created_by == b.created_by):
                 continue
             if frozenset((a.id, b.id)) in linked:
                 continue
