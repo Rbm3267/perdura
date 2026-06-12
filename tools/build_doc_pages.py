@@ -19,6 +19,7 @@ PAGES = [
     ("docs/memoric-binary.md", "memoric-binary.html", "Memoric Binary RFC"),
     ("ROADMAP.md", "roadmap.html", "Roadmap"),
     ("docs/phase0-validation.md", "validation.html", "Phase 0 Validation"),
+    ("docs/enterprise.md", "enterprise.html", "Enterprise Plan"),
 ]
 
 TEMPLATE = """<!DOCTYPE html>

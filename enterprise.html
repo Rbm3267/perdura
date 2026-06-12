@@ -1,0 +1,248 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Perdura — Enterprise Plan</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,400;0,9..144,600;0,9..144,700;1,9..144,400&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<script defer src="/_vercel/speed-insights/script.js"></script>
+<script defer src="/_vercel/insights/script.js"></script>
+<style>
+  :root { --ink:#0a0e1f; --ink-2:#0e1430; --ink-3:#131a3d; --paper:#f0f3fa;
+    --muted:#97a3c4; --faint:#5b6688; --cyan:#2dd9ff; --amber:#ffb454;
+    --line:rgba(151,163,196,0.16); }
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body { background:var(--ink); color:var(--paper);
+    font-family:"IBM Plex Sans",-apple-system,sans-serif; font-size:16.5px;
+    line-height:1.7; -webkit-font-smoothing:antialiased; }
+  ::selection { background:var(--cyan); color:var(--ink); }
+  nav { position:sticky; top:0; z-index:50; background:rgba(10,14,31,0.85);
+    backdrop-filter:blur(12px); border-bottom:1px solid var(--line); }
+  .nav-inner { max-width:880px; margin:0 auto; padding:0 28px; height:60px;
+    display:flex; align-items:center; justify-content:space-between; }
+  .wordmark { font-family:"Fraunces",serif; font-weight:700; font-size:1.25rem;
+    color:var(--paper); text-decoration:none; }
+  .wordmark .dot { color:var(--cyan); }
+  nav .links a { color:var(--muted); text-decoration:none; font-size:0.88rem;
+    margin-left:20px; }
+  nav .links a:hover { color:var(--cyan); }
+  main { max-width:880px; margin:0 auto; padding:64px 28px 96px; }
+  .doc-kicker { font-family:"IBM Plex Mono",monospace; font-size:0.78rem;
+    letter-spacing:0.18em; text-transform:uppercase; color:var(--cyan);
+    margin-bottom:10px; }
+  h1,h2,h3,h4 { font-family:"Fraunces",Georgia,serif; font-weight:600;
+    line-height:1.2; margin:2.2em 0 0.6em; }
+  h1 { font-size:2.3rem; margin-top:0; }
+  h2 { font-size:1.6rem; border-bottom:1px solid var(--line);
+    padding-bottom:0.35em; }
+  h3 { font-size:1.25rem; } h4 { font-size:1.05rem; }
+  p, ul, ol { margin:0.9em 0; color:var(--muted); }
+  li { margin:0.35em 0; } ul, ol { padding-left:1.4em; }
+  strong { color:var(--paper); } em { color:var(--paper); }
+  a { color:var(--cyan); }
+  blockquote { border-left:3px solid var(--amber); padding:0.4em 1.1em;
+    margin:1.2em 0; background:var(--ink-2); border-radius:0 8px 8px 0; }
+  code { font-family:"IBM Plex Mono",monospace; font-size:0.85em;
+    color:var(--cyan); background:var(--ink-3); padding:2px 6px;
+    border-radius:4px; }
+  pre { background:var(--ink-2); border:1px solid var(--line);
+    border-radius:10px; padding:18px 20px; overflow-x:auto; margin:1.2em 0; }
+  pre code { background:none; padding:0; color:var(--paper);
+    font-size:0.84rem; line-height:1.6; }
+  table { border-collapse:collapse; width:100%; margin:1.2em 0;
+    font-size:0.92rem; }
+  th, td { border:1px solid var(--line); padding:9px 13px; text-align:left;
+    color:var(--muted); }
+  th { color:var(--paper); background:var(--ink-2);
+    font-family:"IBM Plex Mono",monospace; font-size:0.8rem; }
+  hr { border:none; border-top:1px solid var(--line); margin:2.4em 0; }
+  footer { max-width:880px; margin:0 auto; padding:0 28px 56px;
+    font-family:"IBM Plex Mono",monospace; font-size:0.78rem;
+    color:var(--faint); }
+</style></head><body>
+<nav><div class="nav-inner">
+  <a class="wordmark" href="index.html">perdura<span class="dot">.</span></a>
+  <div class="links"><a href="design.html">Design</a> <a href="memoric-binary.html">Memoric</a> <a href="roadmap.html">Roadmap</a> <a href="validation.html">Phase</a> <a href="enterprise.html">Enterprise</a> <a href="index.html#access">Request access</a></div>
+</div></nav>
+<main><div class="doc-kicker">Documentation</div>
+<h1>Perdura in the enterprise — deployment plan</h1>
+<p><em>Status: plan + first foundations shipped (storage tier E0). Everything here
+is the application layer on top of the Phase 3 research bet: if
+contention-driven routing does not beat periodic/random escalation at equal
+cost, this document describes a nice decision-record graph, not a product.
+The research result is the moat.</em></p>
+<h2>1. Why the concept transfers</h2>
+<p>Perdura's thesis — the graph is the system of record; models are ephemeral
+workers — generalizes past models. In an organization, <strong>people, vendors,
+and teams are also ephemeral workers</strong>: engineers leave, contractors rotate,
+vendors get swapped, and the knowledge either walks out the door or
+fossilizes in stale wikis. The same three claims, at org altitude:</p>
+<ol>
+<li><strong>Inverted persistence</strong> → institutional memory that survives churn.
+   <code>question → claims → evidence → decision</code>, with <code>rejected</code> nodes
+   preserving <em>why the road not taken was not taken</em> — the thing every org
+   loses first. Supersede-never-delete is a free audit trail.</li>
+<li><strong>Epistemic track records</strong> → reliability per <em>agent and team, per
+   domain</em> — never per individual (a deliberate line: "the platform team's
+   capacity claims hold 80% of the time; their timeline claims hold 40%"
+   is actionable without being a performance review). Attribution hiding
+   doubles as blind review; track records stay operator-only.</li>
+<li><strong>Contention-driven economics</strong> → contention-driven <strong>attention</strong>. The
+   scarcest enterprise resource is not frontier-model tokens, it is senior
+   engineering time. A contention metric over a cross-department graph
+   routes design reviews to where the org measurably disagrees with itself,
+   instead of by org chart or volume.</li>
+</ol>
+<p>The cross-department failure mode Perdura is uniquely shaped for: two teams
+building on contradicting assumptions that nobody notices until integration.
+In a shared graph that is a <code>contradicts</code> edge waiting to be detected — the
+collision detector + stance-audit boarding (docs/memoric-binary.md §7.5)
+runs continuously across team boundaries, auditing near-miss claim pairs no
+single meeting would ever put in the same room.</p>
+<h2>2. The integration insight: the worker protocol is already a service boundary</h2>
+<p>Workers board, receive a bounded briefing, return a strict-JSON delta, and
+a deterministic conductor merges it. Nothing about that assumes the worker
+is an LLM we spawned. Everything integrates as a worker or an operator,
+which collapses the API surface to three planes:</p>
+<table>
+<thead>
+<tr>
+<th>Plane</th>
+<th>Surface</th>
+<th>Who uses it</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Delta</strong> (write)</td>
+<td><code>POST /graphs/{id}/deltas</code> — the existing strict-JSON delta schema, verbatim</td>
+<td>platform AI agents, ingestion adapters, humans in a UI</td>
+</tr>
+<tr>
+<td><strong>Briefing</strong> (read)</td>
+<td><code>GET /graphs/{id}/briefing?question=…</code> — bounded, attribution-stripped context packets</td>
+<td>anything that prompts a model</td>
+</tr>
+<tr>
+<td><strong>Operator</strong> (control)</td>
+<td>track records, contention dashboards, router policy, budgets — the Station plus a config API</td>
+<td>platform admins</td>
+</tr>
+</tbody>
+</table>
+<p>The merge path stays pure code with no LLM in the loop — schema validation
+rejects garbage at the door, every write is cheap, auditable, and
+deterministic. That is exactly what an enterprise platform team wants from
+a dependency.</p>
+<p><strong>Where it sits in a stack:</strong> not a database, not an orchestrator — a
+memory-and-routing tier between the LLM orchestration layer and the data
+layer. It does not compete with the vector DB (the Phase 1.5 retriever
+treats one as a pluggable backend underneath); it is the epistemic layer
+above it that knows where its own knowledge disagrees with itself and uses
+that to decide when to spend. Every other AI feature is a cost center that
+scales with usage; an epistemic router is the component that <strong>caps</strong> model
+spend.</p>
+<h2>3. Deployment shapes</h2>
+<p>In ascending order of commitment:</p>
+<ol>
+<li><strong>Library / SDK</strong> — the conductor is stateless deterministic code over a
+   graph store; embed it in-process.</li>
+<li><strong>Sidecar service</strong> — one conductor per tenant graph; the platform talks
+   HTTP/MCP to it. The MCP station already works this way today.</li>
+<li><strong>Managed multi-tenant service</strong> — graph-per-tenant, conductors as
+   stateless workers. Because the conductor is single-writer-per-graph
+   deterministic code, each graph is a partition with a leader — a
+   well-understood scaling shape.</li>
+</ol>
+<h2>4. Storage tier (E0 — shipped)</h2>
+<p>The graph is the only state, so storage is the first thing that must stop
+being an experiment. <code>perdura_store.py</code> makes persistence pluggable, chosen
+by file extension, with everything above it unchanged:</p>
+<table>
+<thead>
+<tr>
+<th>Tier</th>
+<th>Path</th>
+<th>Properties</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>JSON file</td>
+<td><code>perdura_graph.json</code> (default)</td>
+<td>byte-identical Phase 1 behavior, human-diffable, single box</td>
+</tr>
+<tr>
+<td>SQLite (WAL)</td>
+<td><code>perdura_graph.db</code></td>
+<td>transactional saves, concurrent readers during writes, multi-process on one box — validated 60/60 merges under 4 concurrent conductors</td>
+</tr>
+<tr>
+<td>Postgres</td>
+<td>(E2)</td>
+<td>same interface, graph-per-tenant, row-level security, the managed-service tier</td>
+</tr>
+</tbody>
+</table>
+<p>Both shipped tiers keep the same correctness story: writers serialize via
+the advisory lock (reload → merge → save), saves are atomic (write-rename /
+one transaction), readers never observe a torn graph. Supersede-never-delete
+means SQLite saves are pure upserts; the append-only merge log inserts only
+new entries.</p>
+<h2>5. Security and compliance — the accidental enterprise features</h2>
+<p>Existing conductor invariants, re-read through a procurement lens:</p>
+<ul>
+<li><strong>Bounded briefings are a data-egress control.</strong> Only a 2-hop
+  neighborhood, capped at <code>BRIEFING_CHAR_BUDGET</code>, ever leaves the graph
+  toward a third-party model API. The maximum exposure per model call is
+  provably bounded, and the bound is a named constant. Most RAG pipelines
+  can make no such statement.</li>
+<li><strong>Attribution hiding is context isolation.</strong> Workers never see who
+  authored prior nodes; generalized: the model never sees more provenance
+  than policy allows.</li>
+<li><strong>Supersede-never-delete is the audit trail</strong> regulators want — with one
+  honest conflict: GDPR right-to-erasure. The resolution is <strong>redaction,
+  not deletion</strong> (<code>perdura.py redact &lt;node-id&gt;</code>, shipped): the text payload
+  is destroyed; type, confidence, attribution, edges, and supersession
+  lineage survive, so the epistemic record stays intact while the content
+  does not. Redactions are operator-only and logged. Memoric encodings are
+  derived on demand (never persisted), so no stale copy of redacted text
+  outlives the command. True crypto-shredding arrives with
+  encrypted-at-rest storage in the Postgres tier.</li>
+<li><strong>The Phase 3 model registry is a per-tenant policy engine.</strong> Enterprises
+  have model allowlists, regional routing, and budget ceilings;
+  contention-driven routing and compliance-driven routing are the same
+  lookup with different constraints.</li>
+</ul>
+<h2>6. Claim supply: ingestion</h2>
+<p>The engine is only as good as its claim supply, and an enterprise platform
+is a claim factory: tickets, PR reviews, incident retros, support
+escalations. Adapters watch those streams and <strong>propose deltas through the
+normal merge path</strong> — no privileged side door, so every conductor invariant
+holds for machine-ingested claims too. Humans board the same way (the MCP
+station already accepts any MCP client — an engineer in an IDE is just
+another worker).</p>
+<p>Metering falls out of the same seams: deltas merged, briefings served,
+audit boardings run — usage-based billing aligned with value, not raw
+token burn.</p>
+<h2>7. Enterprise track roadmap</h2>
+<p>Runs parallel to the research phases; each step is gated so the research
+focus is never displaced.</p>
+<ul>
+<li><strong>E0 — storage tier</strong> ✅ <em>(this change)</em> <code>perdura_store.py</code>: pluggable
+  JSON/SQLite persistence, <code>redact</code> compliance command.</li>
+<li><strong>E1 — service API</strong>: the three planes over HTTP with bearer auth;
+  the Station gains the read-only <strong>Conductor panel</strong> (worker roster,
+  schedules, budgets — visible first, mutable later).</li>
+<li><strong>E2 — multi-tenant control plane</strong>: Postgres store, graph-per-tenant,
+  SSO, roles (worker / operator / admin), per-domain budgets. The
+  configuration page becomes real here.</li>
+<li><strong>E3 — ingestion adapters</strong>: PR/ADR/incident/ticket adapters proposing
+  deltas through the merge path; cross-stream collision audits.</li>
+<li><strong>Gate for E2+:</strong> the Phase 3 escalation A/B (contention-routed vs
+  periodic vs random at equal cost) must show contention-routing wins.
+  If it does not, stop at E1 and say so honestly.</li>
+</ul>
+</main>
+<footer>© 2026 Perdura · perdura.network · MIT licensed · open research — content will change</footer>
+</body></html>
