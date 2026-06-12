@@ -34,10 +34,11 @@ experiments/debate.py  Precursor multi-model debate loop
 
 ## Phase roadmap
 Full detail in ROADMAP.md; docs/memoric-binary.md is the Phase 0 RFC.
-- Phase 0   Memoric binary — synthetic arm passes exp 1; real-session arm
-  hit consensus collapse (homogeneous workers don't contend), countered by
-  --adversarial-every (devil's-advocate boarding); spec NOT locked
-  (docs/phase0-validation.md)
+- Phase 0   Memoric binary — synthetic arm passes exp 1; consensus collapse
+  countered by --adversarial-every; INVERSION FINDING: contradicting claims
+  are lexically CLOSER than random pairs, so distance locates disagreement
+  but can't measure it — collision_candidates() + stance-audit boarding
+  (--audit-every) is the repair; spec NOT locked (docs/phase0-validation.md)
 - Phase 1   ✅ Graph + delta loop, Claude/Gemini/Qwen, round-robin, CLI + MCP station
 - Phase 1.5 STARTED — pluggable retrieval (perdura_retrieval.py;
   --retriever graph|hybrid|chroma, graph = required baseline arm) and
