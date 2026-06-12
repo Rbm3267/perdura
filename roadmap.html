@@ -6,6 +6,7 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,400;0,9..144,600;0,9..144,700;1,9..144,400&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
 <script defer src="/_vercel/speed-insights/script.js"></script>
+<script defer src="/_vercel/insights/script.js"></script>
 <style>
   :root { --ink:#0a0e1f; --ink-2:#0e1430; --ink-3:#131a3d; --paper:#f0f3fa;
     --muted:#97a3c4; --faint:#5b6688; --cyan:#2dd9ff; --amber:#ffb454;
@@ -119,9 +120,11 @@ docs/phase0-validation.md.</p>
 <code>Retriever</code> interface (<code>perdura_retrieval.py</code>): <code>--retriever graph</code>
 (default, byte-identical Phase 1 baseline), <code>hybrid</code> (BM25 + dense +
 graph expansion), <code>chroma</code> (hybrid with a persistent ChromaDB index).
-Mind-map visualization shipped (<code>perdura.py viz</code>). Remaining: memoric
-binary in briefings, learned dense embeddings, retrieval A/B on real
-sessions (research question #1).</p>
+Mind-map visualization shipped (<code>perdura.py viz</code>) and upgraded to a live
+local dashboard, the Station (<code>perdura.py ui</code>): real-time graph with
+2s polling, questions ranked by contention, node inspector, conversation
+feed, and track records. Remaining: memoric binary in briefings, learned
+dense embeddings, retrieval A/B on real sessions (research question #1).</p>
 <p><strong>Goal:</strong> Integrate memoric binary into the graph storage and briefing assembly.</p>
 <p><strong>Scope:</strong></p>
 <ul>

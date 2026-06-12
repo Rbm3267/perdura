@@ -55,6 +55,7 @@ Manufacture contention (devil's-advocate every 3rd turn): `--adversarial-every 3
 Visualize the graph: `python perdura.py viz` → `perdura_mindmap.html`
 Per-model reliability scorecard: `python perdura.py track`
 Surface latent disagreement (stance audit every 4th turn): `--audit-every 4`
+**Live dashboard** (watch a session land in real time): `python perdura.py ui` → http://127.0.0.1:8800
 
 ## How it works
 
@@ -157,6 +158,7 @@ perdura_memoric.py    Memoric binary encoder/decoder (Phase 0)
 perdura_retrieval.py  Pluggable retrieval layer (Phase 1.5)
 perdura_track.py      Per-model/per-domain track records (Phase 2)
 perdura_viz.py        Force-directed mind-map renderer (Phase 1.5)
+perdura_station.py    The Station — live local dashboard (perdura.py ui)
 perdura_server.py     MCP station — any MCP client can board as a worker
 experiments/          Validation experiments, synthetic session, probes
 ```

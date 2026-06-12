@@ -67,9 +67,11 @@ Graph memory + delta extraction with Claude, Gemini, and local Qwen.
 `Retriever` interface (`perdura_retrieval.py`): `--retriever graph`
 (default, byte-identical Phase 1 baseline), `hybrid` (BM25 + dense +
 graph expansion), `chroma` (hybrid with a persistent ChromaDB index).
-Mind-map visualization shipped (`perdura.py viz`). Remaining: memoric
-binary in briefings, learned dense embeddings, retrieval A/B on real
-sessions (research question #1).
+Mind-map visualization shipped (`perdura.py viz`) and upgraded to a live
+local dashboard, the Station (`perdura.py ui`): real-time graph with
+2s polling, questions ranked by contention, node inspector, conversation
+feed, and track records. Remaining: memoric binary in briefings, learned
+dense embeddings, retrieval A/B on real sessions (research question #1).
 
 **Goal:** Integrate memoric binary into the graph storage and briefing assembly.
 
