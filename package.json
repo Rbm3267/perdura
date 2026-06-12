@@ -1,0 +1,13 @@
+{
+  "name": "perdura-site",
+  "version": "1.0.0",
+  "description": "Perdura project website with Vercel Speed Insights",
+  "type": "module",
+  "scripts": {
+    "build": "echo 'Static site - no build step required'"
+  },
+  "dependencies": {
+    "@vercel/speed-insights": "^1.0.14"
+  },
+  "private": true
+}
