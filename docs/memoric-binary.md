@@ -266,6 +266,31 @@ Implemented in `experiments/memoric_eval.py`.
 
 **Success criteria:** >90% routing agreement
 
+## 7.5 The inversion finding (2026-06-12) — semantic distance, redefined
+
+Post-hoc separability on a real session (`experiments/collision_probe.py`):
+**contradicting claim pairs are lexically CLOSER than random pairs**
+(simhash AUC 0.296, confidence-delta 0.371 — both inverted vs the spec's
+assumption). Real disagreement is same-topic + opposite-stance; stance is
+invisible to any hash. Consequences:
+
+- §4.2's "higher distance = more likely disagreement" is **wrong for real
+  model prose**. The synthetic pass was the generator's planted lexical/
+  confidence asymmetry, not the world.
+- **Redefinition:** the semantic field is a disagreement *locator*. Pairs
+  in the collision band — closer than random, farther than duplicates
+  (`COLLISION_LOW < d <= COLLISION_HIGH`) — are where latent disagreement
+  lives. `perdura_memoric.collision_candidates()` finds them
+  deterministically; the stance-audit boarding mode (`--audit-every`)
+  has a cheap worker judge agree-vs-oppose and submit ordinary edges-only
+  deltas through the normal validate/merge. Hash for candidates, small
+  model for stance, frontier never needed.
+- Open question 6 is **resolved by reframing**: simhash wins because
+  collision detection is a lexical job (it also powers near-dup
+  consolidation); blake2b retires to exact-dedup only. Scatter-based
+  contention (§4.3/§6.3) should not advance to the default until rebuilt
+  on stance-aware signals (audited edges or real embeddings).
+
 ## 8. Open Questions
 
 1. **Time granularity** — is 1 hour fine enough? Or should it be 1 minute for fast sessions?

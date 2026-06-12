@@ -5,6 +5,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,400;0,9..144,600;0,9..144,700;1,9..144,400&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<script defer src="/_vercel/speed-insights/script.js"></script>
 <style>
   :root { --ink:#0a0e1f; --ink-2:#0e1430; --ink-3:#131a3d; --paper:#f0f3fa;
     --muted:#97a3c4; --faint:#5b6688; --cyan:#2dd9ff; --amber:#ffb454;
@@ -252,6 +253,30 @@ owns the weight.</p>
 <p><strong>Hypothesis:</strong> You can drop full-text retrieval and use memoric binary alone without losing routing quality.</p>
 <p><strong>Method:</strong> compare top-3 routing order under edge-only contention vs scatter-only contention. <em>Meaningful only with more than ~3 open questions.</em></p>
 <p><strong>Success criteria:</strong> &gt;90% routing agreement</p>
+<h2>7.5 The inversion finding (2026-06-12) — semantic distance, redefined</h2>
+<p>Post-hoc separability on a real session (<code>experiments/collision_probe.py</code>):
+<strong>contradicting claim pairs are lexically CLOSER than random pairs</strong>
+(simhash AUC 0.296, confidence-delta 0.371 — both inverted vs the spec's
+assumption). Real disagreement is same-topic + opposite-stance; stance is
+invisible to any hash. Consequences:</p>
+<ul>
+<li>§4.2's "higher distance = more likely disagreement" is <strong>wrong for real
+  model prose</strong>. The synthetic pass was the generator's planted lexical/
+  confidence asymmetry, not the world.</li>
+<li><strong>Redefinition:</strong> the semantic field is a disagreement <em>locator</em>. Pairs
+  in the collision band — closer than random, farther than duplicates
+  (<code>COLLISION_LOW &lt; d &lt;= COLLISION_HIGH</code>) — are where latent disagreement
+  lives. <code>perdura_memoric.collision_candidates()</code> finds them
+  deterministically; the stance-audit boarding mode (<code>--audit-every</code>)
+  has a cheap worker judge agree-vs-oppose and submit ordinary edges-only
+  deltas through the normal validate/merge. Hash for candidates, small
+  model for stance, frontier never needed.</li>
+<li>Open question 6 is <strong>resolved by reframing</strong>: simhash wins because
+  collision detection is a lexical job (it also powers near-dup
+  consolidation); blake2b retires to exact-dedup only. Scatter-based
+  contention (§4.3/§6.3) should not advance to the default until rebuilt
+  on stance-aware signals (audited edges or real embeddings).</li>
+</ul>
 <h2>8. Open Questions</h2>
 <ol>
 <li><strong>Time granularity</strong> — is 1 hour fine enough? Or should it be 1 minute for fast sessions?</li>

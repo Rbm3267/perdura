@@ -54,6 +54,7 @@ Ollama instead of LM Studio: `--qwen-url http://localhost:11434/v1 --qwen-model 
 Manufacture contention (devil's-advocate every 3rd turn): `--adversarial-every 3`
 Visualize the graph: `python perdura.py viz` → `perdura_mindmap.html`
 Per-model reliability scorecard: `python perdura.py track`
+Surface latent disagreement (stance audit every 4th turn): `--audit-every 4`
 
 ## How it works
 
@@ -105,6 +106,12 @@ multi-model sessions and a synthetic ground-truth arm have actually shown:
   validated on *organic* contention from heterogeneous workers.
 - **First real track records.** Outcome-based reliability separated live
   workers (0.667 vs 0.400) — claim 2's machinery now runs on real data.
+- **The inversion finding.** Contradicting claims are lexically *closer*
+  than random pairs (simhash AUC 0.296 — inverted): same topic, opposite
+  stance, which no hash can see. So memoric distance is a disagreement
+  *locator*, not a measure — the collision detector flags close-but-unlinked
+  pairs and a stance auditor (`--audit-every`) judges agree-vs-oppose,
+  surfacing *organic* contradictions through the normal merge path.
 - **Anchoring is real.** High-confidence claims get challenged less
   (0.227 vs 0.333 challenge rate) even with authorship hidden;
   `--mask-confidence` exists to test the fix.

@@ -237,6 +237,43 @@ your job is to stress-test, not to agree.
 """
 
 
+AUDIT_PROMPT = """\
+You are boarding as a STANCE AUDITOR for a persistent knowledge graph.
+Below are pairs of claims that are topically close but UNLINKED — written
+independently by different workers. Lexical collision located them; only
+stance judgment can classify them. For each pair, decide the relationship:
+
+- Opposing positions -> add a "contradicts" edge between them.
+- One strengthens or sharpens the other -> add a "supports" or "refines" edge.
+- Merely sharing vocabulary, no real relation -> add nothing for that pair.
+
+Respond with ONLY a JSON object, no markdown fences, no prose:
+
+{{
+  "new_nodes": [],
+  "new_edges": [
+    {{"type": "contradicts|supports|refines",
+      "src": "existing node id", "dst": "existing node id"}}
+  ],
+  "supersedes": [],
+  "resolve_questions": []
+}}
+
+Add NO new nodes. Use only the node ids shown below.
+
+CLAIM PAIRS
+===========
+{pairs}
+"""
+
+
+def build_audit_briefing(pairs):
+    """Briefing for a stance-audit turn: collision-band claim pairs."""
+    blocks = [f"{a.id} | {' '.join((a.text or '').split())}\n"
+              f"{b.id} | {' '.join((b.text or '').split())}" for a, b in pairs]
+    return AUDIT_PROMPT.format(pairs="\n\n".join(blocks))
+
+
 DELTA_PROMPT = """\
 You are an ephemeral worker contributing to a persistent knowledge graph.
 You will see a briefing (open question + related nodes), NOT a transcript.
@@ -540,9 +577,24 @@ WORKER_FACTORIES = {
 # ---------------------------------------------------------------------------
 
 def run_turns(graph: Graph, workers: list, turns: int, retriever=None,
-              mask_confidence=False, adversarial_every=0):
+              mask_confidence=False, adversarial_every=0, audit_every=0):
     """Round-robin boarding (Phase 3 replaces this with the router)."""
     for t in range(turns):
+        worker = workers[t % len(workers)]
+        # Stance-audit turn (the inversion finding): the collision detector
+        # locates topically-close unlinked claim pairs deterministically; a
+        # cheap worker judges agree-vs-oppose — the one thing a hash can't.
+        # Its edges-only delta goes through the normal validate/merge.
+        if audit_every > 0 and (t + 1) % audit_every == 0:
+            from perdura_memoric import collision_candidates
+            pairs = collision_candidates(graph)
+            if pairs:
+                print(f"\n[turn {t+1}] {worker.name} boards as stance "
+                      f"auditor ({len(pairs)} collision pairs)")
+                briefing = build_audit_briefing(pairs)
+                _board(graph, worker, briefing)
+                continue
+
         questions = graph.open_questions()
         if not questions:
             print("No open questions — the train is at rest.")
@@ -562,7 +614,6 @@ def run_turns(graph: Graph, workers: list, turns: int, retriever=None,
             questions.sort(
                 key=lambda q: -graph.contention(graph.neighborhood(q.id)))
         q = questions[0]
-        worker = workers[t % len(workers)]
         # Adversarial turn: board as a critic to manufacture contention that
         # homogeneous workers won't produce on their own.
         adversarial = adversarial_every > 0 and (t + 1) % adversarial_every == 0
@@ -574,39 +625,44 @@ def run_turns(graph: Graph, workers: list, turns: int, retriever=None,
         briefing = build_briefing(graph, q, retriever,
                                   mask_confidence=mask_confidence,
                                   adversarial=adversarial)
+        _board(graph, worker, briefing)
+
+
+def _board(graph: Graph, worker, briefing):
+    """Generate, parse (with one repair round), merge under lock."""
+    try:
+        raw = worker.generate(briefing)
         try:
-            raw = worker.generate(briefing)
-            try:
-                delta = parse_delta(raw)
-            except ValueError as e:
-                # One repair round; schema validation in merge_delta is
-                # unchanged — we only re-ask for parseable output.
-                print(f"  unparseable delta ({e}); retrying with repair prompt")
-                delta = parse_delta(worker.generate(
-                    briefing + "\n\n" + REPAIR_PROMPT.format(
-                        error=e, raw=raw[:2000])))
-            # Generation ran outside the lock; the merge reloads under it so
-            # a concurrent conductor or MCP station never loses our delta,
-            # nor we theirs (issue #10).
-            with graph_write_lock(graph.path):
-                fresh = Graph(graph.path)
-                fresh.memoric_weight = graph.memoric_weight
-                acc, rej = merge_delta(fresh, delta, worker.name)
-                fresh.save()
-            graph.nodes, graph.edges, graph.log = (
-                fresh.nodes, fresh.edges, fresh.log)
-            print(f"  merged: {acc} accepted, {rej} rejected | "
-                  f"global contention: {graph.contention()}")
-        except Exception as e:
-            with graph_write_lock(graph.path):
-                fresh = Graph(graph.path)
-                fresh.log.append({"ts": time.time(), "worker": worker.name,
-                                  "accepted": 0, "rejected": 0,
-                                  "error": str(e)[:200]})
-                fresh.save()
-            graph.nodes, graph.edges, graph.log = (
-                fresh.nodes, fresh.edges, fresh.log)
-            print(f"  delta rejected entirely ({e})")
+            delta = parse_delta(raw)
+        except ValueError as e:
+            # One repair round; schema validation in merge_delta is
+            # unchanged — we only re-ask for parseable output.
+            print(f"  unparseable delta ({e}); retrying with repair prompt")
+            delta = parse_delta(worker.generate(
+                briefing + "\n\n" + REPAIR_PROMPT.format(
+                    error=e, raw=raw[:2000])))
+        # Generation ran outside the lock; the merge reloads under it so
+        # a concurrent conductor or MCP station never loses our delta,
+        # nor we theirs (issue #10).
+        with graph_write_lock(graph.path):
+            fresh = Graph(graph.path)
+            fresh.memoric_weight = graph.memoric_weight
+            acc, rej = merge_delta(fresh, delta, worker.name)
+            fresh.save()
+        graph.nodes, graph.edges, graph.log = (
+            fresh.nodes, fresh.edges, fresh.log)
+        print(f"  merged: {acc} accepted, {rej} rejected | "
+              f"global contention: {graph.contention()}")
+    except Exception as e:
+        with graph_write_lock(graph.path):
+            fresh = Graph(graph.path)
+            fresh.log.append({"ts": time.time(), "worker": worker.name,
+                              "accepted": 0, "rejected": 0,
+                              "error": str(e)[:200]})
+            fresh.save()
+        graph.nodes, graph.edges, graph.log = (
+            fresh.nodes, fresh.edges, fresh.log)
+        print(f"  delta rejected entirely ({e})")
 
 
 def show(graph: Graph):
@@ -692,6 +748,10 @@ def main():
     p.add_argument("--mask-confidence", action="store_true",
                    help="hide confidence scores from worker briefings "
                         "(anchoring experiment, issue #6)")
+    p.add_argument("--audit-every", type=int, default=0, metavar="N",
+                   help="every Nth turn, a stance auditor classifies "
+                        "collision-band claim pairs (agree/oppose) — "
+                        "surfaces ORGANIC latent disagreement (0 = off)")
     p.add_argument("--adversarial-every", type=int, default=0, metavar="N",
                    help="every Nth turn, board as a devil's-advocate critic "
                         "to manufacture contention (0 = off). Counters the "
@@ -723,7 +783,8 @@ def main():
         run_turns(graph, workers, args.turns,
                   retriever=RETRIEVERS[args.retriever](),
                   mask_confidence=args.mask_confidence,
-                  adversarial_every=args.adversarial_every)
+                  adversarial_every=args.adversarial_every,
+                  audit_every=args.audit_every)
         show(graph)
 
     elif args.command == "show":

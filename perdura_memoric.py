@@ -387,3 +387,45 @@ if __name__ == "__main__":
                              time=0xFFFF, supersession=0x1FFFF)):
         assert MemoricBinary.from_bytes(mb.to_bytes()) == mb, mb
     print("Round-trip: OK")
+
+
+# ---------------------------------------------------------------------------
+# Collision detection (the inversion finding, 2026-06-12)
+# ---------------------------------------------------------------------------
+# Measured on real sessions: contradicting claims are lexically CLOSER than
+# random pairs (same topic, opposite stance) — so semantic distance is a
+# disagreement LOCATOR, not a disagreement measure. Pairs inside the
+# collision band are where latent disagreement lives; a cheap stance check
+# (the audit boarding mode in perdura.py) decides agree-vs-oppose, which no
+# hash can. experiments/collision_probe.py reproduces the calibration.
+
+COLLISION_LOW = 8    # at/below: near-duplicate (consolidated at merge)
+COLLISION_HIGH = 17  # above: probably different topics
+
+
+def collision_candidates(graph, low=COLLISION_LOW, high=COLLISION_HIGH,
+                         limit=6):
+    """Unlinked live claim pairs in the lexical collision band, closest
+    first: different workers, no existing edge — stance unknown."""
+    claims = [n for n in graph.live_nodes() if n.type == "claim"]
+    hashes = {n.id: simhash_48bits(n.text or "") for n in claims}
+    linked = set()
+    for e in graph.edges.values():
+        linked.add(frozenset((e.src, e.dst)))
+
+    out = []
+    for i in range(len(claims)):
+        for j in range(i + 1, len(claims)):
+            a, b = claims[i], claims[j]
+            # "Different workers" requires both attributions to exist —
+            # unattributed pairs can't establish independent authorship.
+            if (not a.created_by or not b.created_by
+                    or a.created_by == b.created_by):
+                continue
+            if frozenset((a.id, b.id)) in linked:
+                continue
+            d = (hashes[a.id] ^ hashes[b.id]).bit_count()
+            if low < d <= high:
+                out.append((d, a, b))
+    out.sort(key=lambda t: t[0])
+    return [(a, b) for _, a, b in out[:limit]]
