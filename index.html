@@ -740,8 +740,8 @@
              aria-label="Email address">
       <button class="btn btn-primary" type="submit">Request access</button>
     </form>
-    <p class="access-fine">Sends a pre-filled email — no tracking, no list,
-       just a reply when seats open.</p>
+    <p class="access-fine" id="access-note">No tracking — just your address on
+       the preview list, and a reply when seats open.</p>
   </div>
 </section>
 
@@ -767,14 +767,52 @@
 </footer>
 
 <script>
-  // Research preview requests: zero-backend mailto handoff. To switch to a
-  // form service later, replace this with a fetch() to its endpoint.
+  // Research preview requests land in an insert-only Supabase table behind
+  // row-level security: the publishable key below can add a row but can
+  // never read, change, or delete the list. If the request can't get
+  // through (ad blocker, outage), fall back to the old mailto handoff.
+  const SIGNUP_URL = "https://whvnbxcjxzrmrxcgqdgz.supabase.co/rest/v1/preview_signups";
+  const SIGNUP_KEY = "sb_publishable_4DGmlGoYSYsOq5Go-Ry1pw_7P1cxbq0";
+
   function requestAccess(form) {
-    const email = encodeURIComponent(form.email.value);
-    location.href = "mailto:rbm3267@gmail.com"
-      + "?subject=" + encodeURIComponent("Perdura research preview request")
-      + "&body=" + encodeURIComponent("Requesting a research preview seat.\nContact: ")
-      + email;
+    const email = form.email.value.trim();
+    const btn = form.querySelector("button");
+    const note = document.getElementById("access-note");
+    btn.disabled = true;
+    btn.textContent = "Requesting…";
+    fetch(SIGNUP_URL, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "apikey": SIGNUP_KEY,
+        "Authorization": "Bearer " + SIGNUP_KEY,
+        "Prefer": "return=minimal",
+      },
+      body: JSON.stringify({ email: email }),
+    }).then((r) => {
+      if (r.ok || r.status === 409) {   // 409 = already on the list
+        form.email.disabled = true;
+        btn.textContent = "You're on the list";
+        note.textContent = r.status === 409
+          ? "That address is already on the list — we'll be in touch."
+          : "Got it — we'll reply when seats open.";
+      } else if (r.status === 400) {    // check constraint: bad address
+        btn.disabled = false;
+        btn.textContent = "Request access";
+        note.textContent = "That doesn't look like a valid email address — "
+          + "give it another try.";
+      } else {
+        throw new Error("signup failed: " + r.status);
+      }
+    }).catch(() => {
+      btn.disabled = false;
+      btn.textContent = "Request access";
+      note.textContent = "Couldn't reach the signup service — opening your "
+        + "email client instead (or write to rbm3267@gmail.com).";
+      location.href = "mailto:rbm3267@gmail.com"
+        + "?subject=" + encodeURIComponent("Perdura research preview request")
+        + "&body=" + encodeURIComponent("Requesting a research preview seat.\nContact: " + email);
+    });
     return false;
   }
 
