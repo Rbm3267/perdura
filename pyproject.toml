@@ -18,6 +18,11 @@ dependencies = [
 [project.optional-dependencies]
 server = ["fastmcp>=2.0"]
 retrieval = ["chromadb>=1.0"]
+test = ["pytest>=8.0"]
+
+[tool.pytest.ini_options]
+pythonpath = ["."]
+testpaths = ["tests"]
 
 [project.scripts]
 perdura = "perdura:main"

@@ -370,7 +370,10 @@ def parse_delta(raw: str):
     reasoning blocks (qwen3 emits <think>...</think> before the JSON),
     markdown fences, surrounding prose, and trailing commas.
     """
-    s = re.sub(r"<think>.*?(</think>|$)", "", raw, flags=re.DOTALL)
+    # Strip only CLOSED reasoning blocks. An unclosed <think> is left in
+    # place: the brace-scan below can still recover JSON that follows it,
+    # whereas deleting to end-of-string (the old `|$` branch) destroyed it.
+    s = re.sub(r"<think>.*?</think>", "", raw, flags=re.DOTALL)
     s = re.sub(r"```(?:json)?", "", s).strip()
 
     # Try each '{' as a candidate start; raw_decode stops at the matching
