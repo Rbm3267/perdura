@@ -120,16 +120,20 @@ which collapses the API surface to three planes:</p>
 </tr>
 <tr>
 <td><strong>Briefing</strong> (read)</td>
-<td><code>GET /graphs/{id}/briefing?question=…</code> — bounded, attribution-stripped context packets</td>
+<td><code>GET /briefing?question=…</code> — bounded, attribution-stripped context packets (also <code>/questions</code>, <code>/contention</code>)</td>
 <td>anything that prompts a model</td>
 </tr>
 <tr>
 <td><strong>Operator</strong> (control)</td>
-<td>track records, contention dashboards, router policy, budgets — the Station plus a config API</td>
+<td>track records, the attributed graph, contention dashboards, router policy, budgets — the Station plus the operator routes</td>
 <td>platform admins</td>
 </tr>
 </tbody>
 </table>
+<p><em>(E1 ships these as <code>perdura_service.py</code> — <code>POST /deltas</code>, <code>GET /briefing</code>,
+<code>/questions</code>, <code>/contention</code> for worker tokens; <code>GET /track</code>, <code>/graph</code> for
+operator tokens. The <code>/graphs/{id}/…</code> multi-tenant prefix arrives with the
+Postgres store in E2.)</em></p>
 <p>The merge path stays pure code with no LLM in the loop — schema validation
 rejects garbage at the door, every write is cheap, auditable, and
 deterministic. That is exactly what an enterprise platform team wants from
@@ -229,11 +233,17 @@ token burn.</p>
 <p>Runs parallel to the research phases; each step is gated so the research
 focus is never displaced.</p>
 <ul>
-<li><strong>E0 — storage tier</strong> ✅ <em>(this change)</em> <code>perdura_store.py</code>: pluggable
-  JSON/SQLite persistence, <code>redact</code> compliance command.</li>
-<li><strong>E1 — service API</strong>: the three planes over HTTP with bearer auth;
-  the Station gains the read-only <strong>Conductor panel</strong> (worker roster,
-  schedules, budgets — visible first, mutable later).</li>
+<li><strong>E0 — storage tier</strong> ✅ <code>perdura_store.py</code>: pluggable JSON/SQLite
+  persistence, <code>redact</code> compliance command.</li>
+<li><strong>E1 — service API</strong> ✅ <code>perdura_service.py</code>: the three planes over HTTP
+  with bearer auth and the worker/operator split enforced at the boundary
+  (worker tokens board, contribute, and read contention; <code>/track</code> and the
+  attributed <code>/graph</code> are operator-only — attribution-hiding becomes an
+  access-control boundary, not just a convention). The Station gains a
+  read-only <strong>Conductor panel</strong>: the model registry and a live routing
+  preview (per open question, what the contention policy would do at the
+  current threshold). Worker schedules and budgets become <em>mutable</em> config
+  in E2.</li>
 <li><strong>E2 — multi-tenant control plane</strong>: Postgres store, graph-per-tenant,
   SSO, roles (worker / operator / admin), per-domain budgets. The
   configuration page becomes real here.</li>

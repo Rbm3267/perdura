@@ -46,8 +46,13 @@ which collapses the API surface to three planes:
 | Plane | Surface | Who uses it |
 |---|---|---|
 | **Delta** (write) | `POST /graphs/{id}/deltas` — the existing strict-JSON delta schema, verbatim | platform AI agents, ingestion adapters, humans in a UI |
-| **Briefing** (read) | `GET /graphs/{id}/briefing?question=…` — bounded, attribution-stripped context packets | anything that prompts a model |
-| **Operator** (control) | track records, contention dashboards, router policy, budgets — the Station plus a config API | platform admins |
+| **Briefing** (read) | `GET /briefing?question=…` — bounded, attribution-stripped context packets (also `/questions`, `/contention`) | anything that prompts a model |
+| **Operator** (control) | track records, the attributed graph, contention dashboards, router policy, budgets — the Station plus the operator routes | platform admins |
+
+*(E1 ships these as `perdura_service.py` — `POST /deltas`, `GET /briefing`,
+`/questions`, `/contention` for worker tokens; `GET /track`, `/graph` for
+operator tokens. The `/graphs/{id}/…` multi-tenant prefix arrives with the
+Postgres store in E2.)*
 
 The merge path stays pure code with no LLM in the loop — schema validation
 rejects garbage at the door, every write is cheap, auditable, and
@@ -139,11 +144,17 @@ token burn.
 Runs parallel to the research phases; each step is gated so the research
 focus is never displaced.
 
-- **E0 — storage tier** ✅ *(this change)* `perdura_store.py`: pluggable
-  JSON/SQLite persistence, `redact` compliance command.
-- **E1 — service API**: the three planes over HTTP with bearer auth;
-  the Station gains the read-only **Conductor panel** (worker roster,
-  schedules, budgets — visible first, mutable later).
+- **E0 — storage tier** ✅ `perdura_store.py`: pluggable JSON/SQLite
+  persistence, `redact` compliance command.
+- **E1 — service API** ✅ `perdura_service.py`: the three planes over HTTP
+  with bearer auth and the worker/operator split enforced at the boundary
+  (worker tokens board, contribute, and read contention; `/track` and the
+  attributed `/graph` are operator-only — attribution-hiding becomes an
+  access-control boundary, not just a convention). The Station gains a
+  read-only **Conductor panel**: the model registry and a live routing
+  preview (per open question, what the contention policy would do at the
+  current threshold). Worker schedules and budgets become *mutable* config
+  in E2.
 - **E2 — multi-tenant control plane**: Postgres store, graph-per-tenant,
   SSO, roles (worker / operator / admin), per-domain budgets. The
   configuration page becomes real here.

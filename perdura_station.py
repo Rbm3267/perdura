@@ -43,8 +43,25 @@ def payload(graph_path: str) -> dict:
                           if n.id in hood and n.type == "claim"),
         })
     questions.sort(key=lambda r: -r["contention"])
+    # Conductor panel: a read-only routing preview. What the contention
+    # policy would do right now — local by default, frontier where the
+    # graph disagrees with itself past the threshold. Derived from the
+    # graph + the router's cost model; no ledger is persisted.
+    from perdura_router import (DEFAULT_COSTS, DEFAULT_TIERS,
+                                DEFAULT_ESCALATE_AT)
+    routing = {
+        "threshold": DEFAULT_ESCALATE_AT,
+        "registry": [{"name": k, "tier": DEFAULT_TIERS.get(k, "local"),
+                      "cost": DEFAULT_COSTS[k]} for k in DEFAULT_COSTS],
+        "preview": [{"id": q["id"], "text": q["text"],
+                     "contention": q["contention"],
+                     "route": ("frontier" if q["contention"] >=
+                               DEFAULT_ESCALATE_AT else "local")}
+                    for q in questions],
+    }
     return {
         "exists": True,
+        "routing": routing,
         "nodes": [{"id": n.id, "type": n.type, "text": n.text,
                    "confidence": n.confidence, "by": n.created_by,
                    "tags": n.domain_tags or [], "t": n.created_at,
@@ -180,6 +197,7 @@ border-radius:99px;padding:1px 8px;margin:2px 3px 2px 0;color:var(--muted)}
       <button data-tab="feed">Feed</button>
       <button data-tab="insp">Inspector</button>
       <button data-tab="track">Track</button>
+      <button data-tab="cond">Conductor</button>
     </nav>
     <div id="panel"></div>
   </aside>
@@ -243,7 +261,7 @@ function step(){
 }
 function render(){if(tab==="questions")drawQuestions();
   else if(tab==="feed")drawFeed();else if(tab==="track")drawTrack();
-  else drawInspector()}
+  else if(tab==="cond")drawConductor();else drawInspector()}
 function draw(){
   step();
   ctx.setTransform(1,0,0,1,0,0);ctx.clearRect(0,0,cv.width,cv.height);
@@ -361,6 +379,21 @@ function drawTrack(){
     return `<div class="tk"><div class="tw" style="color:${wcol(w)}">${esc(w)} — ${r.reliability.toFixed(3)}</div>
       <div class="bar"><i style="width:${(r.reliability*100).toFixed(0)}%;background:${c}"></i></div>
       <div class="td">${r.claims} claims · +${r.good.toFixed(1)} good · −${r.bad.toFixed(1)} bad</div></div>`}).join("")}
+
+function drawConductor(){
+  const R=G.routing;
+  if(!R){panel.innerHTML='<div class="empty">Router preview unavailable.</div>';return}
+  let h="<h3>Conductor — routing preview</h3>";
+  h+=`<div class="td" style="margin-bottom:12px">Local labor by default; a frontier worker is summoned where a question's contention reaches ${R.threshold}.</div>`;
+  h+="<div class='tk'><div class='tw'>Model registry</div>"+R.registry.map(m=>
+    `<div class="td">${esc(m.name)} · <span style="color:${m.tier==="frontier"?"#ffb454":"#3ddc97"}">${m.tier}</span> · cost ${m.cost}</div>`).join("")+"</div>";
+  if(!R.preview.length){h+='<div class="empty">No open questions to route.</div>';panel.innerHTML=h;return}
+  h+=R.preview.map(p=>{
+    const front=p.route==="frontier",c=front?"#ffb454":"#3ddc97";
+    return `<div class="tk"><div class="tw">${esc(p.text)}</div>
+      <div class="bar"><i style="width:${Math.min(100,p.contention*100).toFixed(0)}%;background:${c}"></i></div>
+      <div class="td">contention ${p.contention.toFixed(3)} · would route to <span style="color:${c}">${p.route}</span></div></div>`}).join("");
+  panel.innerHTML=h}
 
 document.getElementById("s-path").textContent=location.host;
 </script></body></html>

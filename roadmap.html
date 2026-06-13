@@ -223,8 +223,11 @@ never displaces the research focus.</p>
   concurrent conductors). Plus <code>perdura.py redact &lt;node-id&gt;</code>: the
   operator-only GDPR escape hatch — text destroyed, structure/attribution/
   lineage preserved.</li>
-<li><strong>E1 — service API</strong>: the three planes over HTTP with bearer auth;
-  read-only Conductor panel in the Station.</li>
+<li><strong>E1 — service API</strong> ✅ (2026-06-13): <code>perdura_service.py</code> — the three
+  planes over HTTP with bearer auth, worker/operator roles enforced at the
+  boundary (attribution-hiding becomes access control: <code>/track</code> and the
+  attributed <code>/graph</code> are operator-only). Read-only Conductor panel in the
+  Station (model registry + live routing preview).</li>
 <li><strong>E2 — multi-tenant control plane</strong>: Postgres store, graph-per-tenant,
   SSO, roles, per-domain budgets. <strong>Gate: Phase 3 escalation A/B must show
   contention-routing wins at equal cost.</strong></li>

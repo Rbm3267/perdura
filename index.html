@@ -716,14 +716,15 @@
            periodic or random at equal cost? — awaits the real-worker run. Proves claim 03.</p>
       </div>
       <div class="t-item now reveal">
-        <h4>Enterprise track — engine, not experiment <span class="t-tag">E0 SHIPPED</span></h4>
+        <h4>Enterprise track — engine, not experiment <span class="t-tag">E0–E1 SHIPPED</span></h4>
         <p>A parallel track that hardens the engine for deployment without touching a single
-           conductor invariant. E0 shipped: pluggable storage (JSON file or transactional
-           SQLite, chosen by file extension — Postgres next) and a redaction command that
-           reconciles right-to-erasure with supersede-never-delete. Ahead: a service API over
-           the three integration planes, multi-tenant control plane, ingestion adapters —
-           gated on Phase 3 proving the routing claim.
-           <a href="enterprise.html">The full deployment plan →</a></p>
+           conductor invariant. E0: pluggable storage (JSON file or transactional SQLite —
+           Postgres next) and a redaction command reconciling right-to-erasure with
+           supersede-never-delete. E1: the three integration planes over authenticated HTTP,
+           where attribution-hiding becomes an access-control boundary — worker tokens board
+           and contribute but never see authorship; track records stay operator-only. Ahead:
+           multi-tenant control plane and ingestion adapters, gated on Phase 3 proving the
+           routing claim. <a href="enterprise.html">The full deployment plan →</a></p>
       </div>
     </div>
   </div>

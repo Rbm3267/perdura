@@ -29,6 +29,7 @@ supports · contradicts · refines · answers · depends_on
 ## Repo layout
 perdura.py             Phase 1 implementation
 perdura_store.py       Pluggable persistence (JSON default / SQLite by extension)
+perdura_service.py     Authenticated HTTP service — three planes, bearer auth (E1)
 docs/design.md         Full design doc and rationale
 docs/overview.html     Transit-map architecture visual
 docs/enterprise.md     Enterprise deployment plan (track E0–E3)
