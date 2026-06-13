@@ -60,10 +60,10 @@ Full detail in ROADMAP.md; docs/memoric-binary.md is the Phase 0 RFC.
 - Invariant changes need a test in tests/ (offline pytest, no keys/server);
   CI (.github/workflows/ci.yml) runs `pytest` on every push/PR. Run it
   locally before pushing: `.venv/bin/python -m pytest -q`.
-- Auto-merge: the operator has standing approval to merge PRs once all
-  checks pass — don't wait for a "merge" reply. Open the PR, let CI go
-  green, then mark it ready and merge. Still pause for anything genuinely
-  destructive or a scope change the operator must decide.
+- Auto-merge: Claude has standing approval to merge PRs once all checks
+  pass — don't wait for the operator's "merge" reply. Open the PR, let CI
+  go green, then mark it ready and merge. Still pause for anything
+  genuinely destructive or a scope change the operator must decide.
 
 ## Key decisions already made — do not re-litigate
 - perdura_graph.json is gitignored; the mind's state stays local by default
