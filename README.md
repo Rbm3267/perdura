@@ -194,7 +194,25 @@ perdura_viz.py        Force-directed mind-map renderer (Phase 1.5)
 perdura_station.py    The Station — live local dashboard (perdura.py ui)
 perdura_server.py     MCP station — any MCP client can board as a worker
 experiments/          Validation experiments, synthetic session, probes
+tests/                Offline invariant suite (pytest) — runs in CI
 ```
+
+## Tests
+
+The conductor invariants are pinned by an offline pytest suite — merge
+validation, bounded briefings, attribution hiding, supersede-never-delete,
+contention, the storage round-trip (JSON and SQLite), router budgets, and
+track-record scoring. It needs no API keys or model server (workers import
+their SDKs lazily), so it runs anywhere:
+
+```bash
+pip install -e ".[test]"
+pytest
+```
+
+GitHub Actions runs it on every push and pull request
+([.github/workflows/ci.yml](.github/workflows/ci.yml)) across Python 3.11
+and 3.12.
 
 ## Status
 
