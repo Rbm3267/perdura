@@ -167,6 +167,30 @@ Workers receive bounded briefings and contribute strict-JSON deltas;
 attribution and track records stay hidden from them. Run a separate
 instance with `--operator` for the unredacted view.
 
+## The service API (enterprise E1)
+
+For non-MCP integrations, `perdura_service.py` exposes the same three
+planes over authenticated HTTP, with the worker/operator split enforced by
+bearer token — so attribution-hiding is an access-control boundary, not
+just a convention:
+
+```bash
+PERDURA_WORKER_TOKEN=… PERDURA_OPERATOR_TOKEN=… \
+  python perdura_service.py --graph /abs/path/perdura_graph.json --port 8900
+```
+
+| Route | Method | Token |
+|---|---|---|
+| `/briefing`, `/questions`, `/contention` | GET | worker or operator |
+| `/deltas` | POST | worker or operator |
+| `/track`, `/graph` (attributed) | GET | operator only |
+
+Worker tokens board, contribute, and read contention but never see
+authorship; `/track` and the attributed `/graph` return 403 for them. The
+Station's **Conductor** tab adds a read-only routing preview — the model
+registry and, per open question, what the contention policy would do at the
+current threshold. Full deployment plan: [docs/enterprise.md](docs/enterprise.md).
+
 ## Roadmap
 
 | Phase | Scope | Status |
@@ -187,6 +211,7 @@ docs/phase0-validation.md  Phase 0 validation results (synthetic + real arms)
 docs/enterprise.md    Enterprise deployment plan (integration planes, tiers)
 perdura_memoric.py    Memoric binary encoder/decoder (Phase 0)
 perdura_store.py      Pluggable persistence: JSON file / SQLite WAL (E0)
+perdura_service.py    Authenticated HTTP service — the three planes (E1)
 perdura_retrieval.py  Pluggable retrieval layer (Phase 1.5)
 perdura_track.py      Per-model/per-domain track records (Phase 2)
 perdura_router.py     The epistemic router — contention-driven escalation (Phase 3)

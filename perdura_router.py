@@ -32,6 +32,10 @@ DEFAULT_COSTS = {"qwen": 0.0, "mock": 0.0, "gemini": 1.0, "claude": 3.0}
 DEFAULT_TIERS = {"qwen": "local", "mock": "local",
                  "gemini": "frontier", "claude": "frontier"}
 
+# Contention at/above which the contention policy summons a frontier worker.
+# Shared so the Station's routing preview matches what the router would do.
+DEFAULT_ESCALATE_AT = 0.15
+
 
 @dataclass
 class ModelSpec:
@@ -64,7 +68,7 @@ class Router:
     registry: list
     policy: str = "contention"      # contention | periodic | random | cheap
     budget: float = float("inf")    # session budget, in cost units
-    escalate_at: float = 0.15       # contention threshold (contention policy)
+    escalate_at: float = DEFAULT_ESCALATE_AT   # contention threshold
     every: int = 3                  # escalate each Nth turn (periodic policy)
     p_escalate: float = 0.0         # escalation probability (random policy)
     seed: int = 0                   # rng seed (random policy, reproducible)
