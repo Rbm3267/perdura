@@ -57,6 +57,7 @@ Per-model reliability scorecard: `python perdura.py track`
 Surface latent disagreement (stance audit every 4th turn): `--audit-every 4`
 **Live dashboard** (watch a session land in real time): `python perdura.py ui` → http://127.0.0.1:8800
 SQLite storage (multi-process, transactional — see below): `--graph perdura.db`
+**The router** (Phase 3 — local labor by default, frontier summoned on contention): `--route contention --budget 6`
 
 ## How it works
 
@@ -140,10 +141,16 @@ multi-model sessions and a synthetic ground-truth arm have actually shown:
   (0.227 vs 0.333 challenge rate) even with authorship hidden;
   `--mask-confidence` exists to test the fix.
 
-**The decisive experiment still ahead (Phase 3 kernel):** does
-contention-triggered escalation flip outcomes more often than random or
-periodic escalation at equal cost? Yes proves the thesis; no falsifies it
-cheaply — either is a result.
+**The decisive experiment still ahead:** does contention-triggered
+escalation flip outcomes more often than random or periodic escalation at
+equal cost? Yes proves the thesis; no falsifies it cheaply — either is a
+result. The machinery is now built and waiting on real workers: the router
+(`--route contention|periodic|random|cheap`, hard budgets, escalation by
+live track records) and the A/B harness
+(`experiments/escalation_ab.py`), whose synthetic positive control already
+shows the targeting separation — at equal spend and equal flips, mean
+contention at the moment of escalation is 0.48 (contention-routed) vs 0.31
+(random) vs 0.14 (periodic).
 
 ## The MCP station
 
@@ -168,7 +175,7 @@ instance with `--operator` for the unredacted view.
 | 0 | Memoric binary: 96-bit epistemic encoding + validation experiments | 🔬 validating |
 | 1.5 | Pluggable retrieval (`--retriever graph\|hybrid\|chroma`, BM25 + dense + graph expansion) and force-directed mind-map viz (`perdura.py viz`) | 🛠️ in progress |
 | 2 | Attribution analytics: per-model, per-domain track records from claim outcomes (`perdura.py track`) | 🛠️ engine shipped — accumulating real outcome data |
-| 3 | The epistemic router: registry, contention-driven escalation, cost budgets, specialist summoning | planned |
+| 3 | The epistemic router: registry, contention-driven escalation, cost budgets, specialist summoning | 🛠️ kernel shipped (`--route`) — decisive A/B awaits real workers |
 
 ## Repository layout
 
@@ -182,6 +189,7 @@ perdura_memoric.py    Memoric binary encoder/decoder (Phase 0)
 perdura_store.py      Pluggable persistence: JSON file / SQLite WAL (E0)
 perdura_retrieval.py  Pluggable retrieval layer (Phase 1.5)
 perdura_track.py      Per-model/per-domain track records (Phase 2)
+perdura_router.py     The epistemic router — contention-driven escalation (Phase 3)
 perdura_viz.py        Force-directed mind-map renderer (Phase 1.5)
 perdura_station.py    The Station — live local dashboard (perdura.py ui)
 perdura_server.py     MCP station — any MCP client can board as a worker

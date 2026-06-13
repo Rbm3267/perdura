@@ -577,10 +577,12 @@ WORKER_FACTORIES = {
 # ---------------------------------------------------------------------------
 
 def run_turns(graph: Graph, workers: list, turns: int, retriever=None,
-              mask_confidence=False, adversarial_every=0, audit_every=0):
-    """Round-robin boarding (Phase 3 replaces this with the router)."""
+              mask_confidence=False, adversarial_every=0, audit_every=0,
+              router=None):
+    """Worker boarding loop. Round-robin by default; with a router (Phase 3)
+    each turn's worker is chosen by contention, track records, and budget."""
     for t in range(turns):
-        worker = workers[t % len(workers)]
+        worker = router.pick(graph, t) if router else workers[t % len(workers)]
         # Stance-audit turn (the inversion finding): the collision detector
         # locates topically-close unlinked claim pairs deterministically; a
         # cheap worker judges agree-vs-oppose — the one thing a hash can't.
@@ -768,6 +770,20 @@ def main():
                         "2-hop neighborhood (default/baseline), hybrid = "
                         "BM25 + dense + expansion, chroma = hybrid with a "
                         "persistent ChromaDB index")
+    p.add_argument("--route", choices=["contention", "periodic", "random",
+                                       "cheap"], default=None,
+                   help="Phase 3 router: replace round-robin worker "
+                        "selection with contention-driven escalation "
+                        "(local labor by default, frontier summoned where "
+                        "the graph disagrees with itself). periodic/random/"
+                        "cheap are the A/B control arms")
+    p.add_argument("--budget", type=float, default=float("inf"),
+                   help="session budget in router cost units "
+                        "(qwen 0, gemini 1, claude 3); spent budget falls "
+                        "back to local labor")
+    p.add_argument("--escalate-at", type=float, default=0.15, metavar="C",
+                   help="contention threshold that summons a frontier "
+                        "worker (--route contention)")
     args = p.parse_args()
 
     graph = Graph(args.graph)
@@ -784,12 +800,21 @@ def main():
     elif args.command == "run":
         names = [w.strip() for w in args.workers.split(",")]
         workers = [WORKER_FACTORIES[n](args) for n in names]
+        router = None
+        if args.route:
+            from perdura_router import Router, registry_from_workers
+            router = Router(registry=registry_from_workers(workers),
+                            policy=args.route, budget=args.budget,
+                            escalate_at=args.escalate_at)
         from perdura_retrieval import RETRIEVERS
         run_turns(graph, workers, args.turns,
                   retriever=RETRIEVERS[args.retriever](),
                   mask_confidence=args.mask_confidence,
                   adversarial_every=args.adversarial_every,
-                  audit_every=args.audit_every)
+                  audit_every=args.audit_every,
+                  router=router)
+        if router:
+            print("\n" + router.summary())
         show(graph)
 
     elif args.command == "show":
