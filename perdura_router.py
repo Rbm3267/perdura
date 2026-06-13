@@ -73,8 +73,10 @@ class Router:
 
     def __post_init__(self):
         self._rng = random.Random(self.seed)
-        if not any(s.tier == "local" or s.cost == 0.0 for s in self.registry):
-            # Without a free fallback a spent budget would halt the session.
+        if not any(s.cost == 0.0 for s in self.registry):
+            # A strictly zero-cost worker is the invariant _cheapest() leans
+            # on: it stays affordable at any spend, so the session can never
+            # stall. A local-but-priced worker wouldn't guarantee that.
             raise ValueError("router registry needs at least one local "
                              "(zero-cost) worker as the default labor force")
 
@@ -83,8 +85,12 @@ class Router:
         return self.spent + spec.cost <= self.budget
 
     def _cheapest(self):
-        return min((s for s in self.registry if self._affordable(s)),
-                   key=lambda s: s.cost)
+        affordable = [s for s in self.registry if self._affordable(s)]
+        # The zero-cost worker (guaranteed in __post_init__) is always
+        # affordable, so `affordable` is non-empty in normal operation. The
+        # fallback is last-resort defense: pick the absolute cheapest rather
+        # than crash, even though it may nudge spend past the budget.
+        return min(affordable or self.registry, key=lambda s: s.cost)
 
     def _best_frontier(self, graph):
         """Highest reliability-per-cost among affordable frontier workers."""
