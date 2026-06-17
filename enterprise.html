@@ -142,9 +142,10 @@ which collapses the API surface to three planes:</p>
 </tbody>
 </table>
 <p><em>(E1 ships these as <code>perdura_service.py</code> — <code>POST /deltas</code>, <code>GET /briefing</code>,
-<code>/questions</code>, <code>/contention</code> for worker tokens; <code>GET /track</code>, <code>/graph</code> for
-operator tokens. The <code>/graphs/{id}/…</code> multi-tenant prefix arrives with the
-Postgres store in E2.)</em></p>
+<code>/questions</code>, <code>/contention</code> for worker tokens; <code>GET /track</code>, <code>/graph</code>,
+<code>/viz</code> (live collision-aware mind map) for operator tokens. The
+<code>/graphs/{id}/…</code> multi-tenant prefix arrives with the Postgres store in
+E2.)</em></p>
 <p>The merge path stays pure code with no LLM in the loop — schema validation
 rejects garbage at the door, every write is cheap, auditable, and
 deterministic. That is exactly what an enterprise platform team wants from
@@ -267,6 +268,17 @@ collision detector (<code>--audit-every</code>) finds lexically-close, unlinked
 claims <strong>across streams</strong> — an ADR's context claim and an incident's
 root-cause claim about the same area — which is the cross-stream
 collision audit this section called for.</p>
+<p><strong>Also shipped:</strong> <code>perdura_connectors.py</code> closes the "already-fetched
+item" gap above for one stream — <code>fetch_github_prs</code>/<code>sync_github_prs</code>
+pull merged PRs and their review comments straight from the GitHub REST
+API and feed them through <code>pr_review_delta</code>, with a cursor (highest PR
+number synced) for idempotent incremental re-sync. <code>perdura.py
+sync-github --repo owner/name --token $GITHUB_TOKEN</code> runs it end to end.
+The HTTP transport is an injected <code>fetch</code> callable — the default hits
+<code>api.github.com</code> via <code>urllib</code>, tests supply a fake — so the connector's
+mapping and cursor logic is covered offline (<code>tests/test_connectors.py</code>)
+the same way every other adapter is, with no token or live call required
+to prove it works.</p>
 <h2>7. Enterprise track roadmap</h2>
 <p>Runs parallel to the research phases; each step is gated so the research
 focus is never displaced.</p>
@@ -298,7 +310,11 @@ focus is never displaced.</p>
   privileged side door. <code>perdura.py ingest &lt;file&gt; --adapter ...</code> (CLI),
   single item or batch. Attribution <code>adapter:&lt;source&gt;</code> makes cross-stream
   collision audits fall out of the existing collision detector
-  (<code>--audit-every</code>) and gives each stream its own track record for free.</li>
+  (<code>--audit-every</code>) and gives each stream its own track record for free.
+  <code>perdura_connectors.py</code> (same date) adds a live GitHub PR connector —
+  <code>perdura.py sync-github --repo owner/name</code> — so <code>pr_review_delta</code> can
+  run against the real API instead of a pre-fetched dict, with a cursor
+  file for idempotent incremental sync.</li>
 <li><strong>Gate for E2+:</strong> the Phase 3 escalation A/B (contention-routed vs
   periodic vs random at equal cost) must show contention-routing wins.
   If it does not, stop at E1 and say so honestly. <strong>This gate was not

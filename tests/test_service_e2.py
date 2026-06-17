@@ -128,6 +128,20 @@ def test_worker_can_read_own_tenant(service):
     assert code == 200 and body["open_questions"] == []
 
 
+def test_operator_can_view_per_tenant_viz_worker_cannot(service):
+    req = urllib.request.Request(
+        service.base + f"/graphs/{service.tenant_a}/viz", method="GET")
+    req.add_header("Authorization", "Bearer " + _tok("operator", service.tenant_a))
+    with urllib.request.urlopen(req) as r:
+        assert r.status == 200
+        assert r.headers["Content-Type"].startswith("text/html")
+        assert "const DATA" in r.read().decode()
+
+    code, _ = call(service.base, "GET", f"/graphs/{service.tenant_a}/viz",
+                   token=_tok("worker", service.tenant_a))
+    assert code == 403
+
+
 def test_token_tenant_mismatch_is_403(service):
     code, _ = call(service.base, "GET",
                    f"/graphs/{service.tenant_b}/questions",

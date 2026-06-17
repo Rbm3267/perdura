@@ -116,15 +116,19 @@ docs/phase0-validation.md.</p>
 </ul>
 <hr />
 <h2>Phase 1.5: Memoric Retrieval Layer (STARTED)</h2>
-<p><strong>Status (2026-06-10):</strong> retrieval layer shipped behind a pluggable
+<p><strong>Status (2026-06-17):</strong> retrieval layer shipped behind a pluggable
 <code>Retriever</code> interface (<code>perdura_retrieval.py</code>): <code>--retriever graph</code>
 (default, byte-identical Phase 1 baseline), <code>hybrid</code> (BM25 + dense +
 graph expansion), <code>chroma</code> (hybrid with a persistent ChromaDB index).
 Mind-map visualization shipped (<code>perdura.py viz</code>) and upgraded to a live
 local dashboard, the Station (<code>perdura.py ui</code>): real-time graph with
 2s polling, questions ranked by contention, node inspector, conversation
-feed, and track records. Remaining: memoric binary in briefings, learned
-dense embeddings, retrieval A/B on real sessions (research question #1).</p>
+feed, and track records. The mind map now draws <code>collision_candidates()</code>
+as dotted lines (lexically-close, unlinked claim pairs from different
+authors) and is servable live over HTTP (<code>GET /viz</code>, operator-only,
+<code>perdura_service.py</code>), not just as a static file. Remaining: memoric
+binary in briefings, learned dense embeddings, retrieval A/B on real
+sessions (research question #1).</p>
 <p><strong>Goal:</strong> Integrate memoric binary into the graph storage and briefing assembly.</p>
 <p><strong>Scope:</strong></p>
 <ul>
@@ -173,7 +177,7 @@ accumulate real outcome data and calibrate the rubric weights.</p>
 <p><strong>Timeline:</strong> 3–4 weeks post-Phase 1.5</p>
 <hr />
 <h2>Phase 3: Epistemic Router (KERNEL SHIPPED)</h2>
-<p><strong>Status (2026-06-12):</strong> the routing kernel shipped (<code>perdura_router.py</code>,
+<p><strong>Status (2026-06-17):</strong> the routing kernel shipped (<code>perdura_router.py</code>,
 <code>perdura.py run --route contention|periodic|random|cheap --budget N</code>):
 model registry with per-boarding costs and tiers, contention-driven
 escalation (frontier chosen by live track-record reliability per cost),
@@ -181,9 +185,14 @@ hard session budgets with local fallback, and a per-decision ledger. The
 decisive A/B harness shipped too (<code>experiments/escalation_ab.py</code>) with a
 synthetic positive control: at equal spend and equal flips, mean contention
 at escalation separates the arms (0.48 contention-routed vs 0.31 random vs
-0.14 periodic) — frontier spend lands on actual disagreement. <strong>The thesis
-verdict requires the real-worker A/B</strong> (qwen + claude + gemini, contested
-seeds); synthetic results validate the machinery, not the claim.</p>
+0.14 periodic) — frontier spend lands on actual disagreement. The harness
+now has a <code>--real</code> mode (same four arms, same metrics, real
+<code>ClaudeWorker</code>/<code>GeminiWorker</code>/<code>QwenWorker</code> instead of the scripted
+Pad/Challenger pair) so the real run is one command away
+(<code>escalation_ab.py --real --local qwen --frontier claude,gemini</code>) — but
+<strong>the thesis verdict still requires actually running it</strong>: no environment
+this codebase has been built in (including this one) has held the API
+keys or a local model server needed to execute it for real.</p>
 <p><strong>Goal:</strong> Implement cost-driven routing: escalate to frontier/specialist models only where contention is high.</p>
 <p><strong>Scope:</strong></p>
 <ul>
@@ -253,7 +262,12 @@ never displaces the research focus.</p>
   claim vs an incident's root-cause claim) for free, and gives each stream
   its own per-domain track record. The Phase 3 escalation A/B gate (above)
   was not satisfied when this was built either — the operator explicitly
-  extended the E2 override to cover E3 too; see <code>docs/enterprise.md</code> §1/§7.</li>
+  extended the E2 override to cover E3 too; see <code>docs/enterprise.md</code> §1/§7.
+  Follow-up (same date): <code>perdura_connectors.py</code> adds a live GitHub PR
+  connector (<code>perdura.py sync-github --repo owner/name</code>) feeding the same
+  <code>pr_review_delta</code> adapter from the real API instead of a pre-fetched
+  dict, with a cursor file for idempotent re-sync; the HTTP transport is
+  injectable so its tests stay offline.</li>
 </ul>
 <hr />
 <h2>Phase 4: Multi-Model Collaborative Routing (Optional)</h2>

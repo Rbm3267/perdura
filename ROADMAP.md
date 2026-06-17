@@ -63,15 +63,19 @@ Graph memory + delta extraction with Claude, Gemini, and local Qwen.
 
 ## Phase 1.5: Memoric Retrieval Layer (STARTED)
 
-**Status (2026-06-10):** retrieval layer shipped behind a pluggable
+**Status (2026-06-17):** retrieval layer shipped behind a pluggable
 `Retriever` interface (`perdura_retrieval.py`): `--retriever graph`
 (default, byte-identical Phase 1 baseline), `hybrid` (BM25 + dense +
 graph expansion), `chroma` (hybrid with a persistent ChromaDB index).
 Mind-map visualization shipped (`perdura.py viz`) and upgraded to a live
 local dashboard, the Station (`perdura.py ui`): real-time graph with
 2s polling, questions ranked by contention, node inspector, conversation
-feed, and track records. Remaining: memoric binary in briefings, learned
-dense embeddings, retrieval A/B on real sessions (research question #1).
+feed, and track records. The mind map now draws `collision_candidates()`
+as dotted lines (lexically-close, unlinked claim pairs from different
+authors) and is servable live over HTTP (`GET /viz`, operator-only,
+`perdura_service.py`), not just as a static file. Remaining: memoric
+binary in briefings, learned dense embeddings, retrieval A/B on real
+sessions (research question #1).
 
 **Goal:** Integrate memoric binary into the graph storage and briefing assembly.
 
@@ -130,7 +134,7 @@ accumulate real outcome data and calibrate the rubric weights.
 
 ## Phase 3: Epistemic Router (KERNEL SHIPPED)
 
-**Status (2026-06-12):** the routing kernel shipped (`perdura_router.py`,
+**Status (2026-06-17):** the routing kernel shipped (`perdura_router.py`,
 `perdura.py run --route contention|periodic|random|cheap --budget N`):
 model registry with per-boarding costs and tiers, contention-driven
 escalation (frontier chosen by live track-record reliability per cost),
@@ -138,9 +142,14 @@ hard session budgets with local fallback, and a per-decision ledger. The
 decisive A/B harness shipped too (`experiments/escalation_ab.py`) with a
 synthetic positive control: at equal spend and equal flips, mean contention
 at escalation separates the arms (0.48 contention-routed vs 0.31 random vs
-0.14 periodic) — frontier spend lands on actual disagreement. **The thesis
-verdict requires the real-worker A/B** (qwen + claude + gemini, contested
-seeds); synthetic results validate the machinery, not the claim.
+0.14 periodic) — frontier spend lands on actual disagreement. The harness
+now has a `--real` mode (same four arms, same metrics, real
+`ClaudeWorker`/`GeminiWorker`/`QwenWorker` instead of the scripted
+Pad/Challenger pair) so the real run is one command away
+(`escalation_ab.py --real --local qwen --frontier claude,gemini`) — but
+**the thesis verdict still requires actually running it**: no environment
+this codebase has been built in (including this one) has held the API
+keys or a local model server needed to execute it for real.
 
 **Goal:** Implement cost-driven routing: escalate to frontier/specialist models only where contention is high.
 
@@ -219,6 +228,11 @@ never displaces the research focus.
   its own per-domain track record. The Phase 3 escalation A/B gate (above)
   was not satisfied when this was built either — the operator explicitly
   extended the E2 override to cover E3 too; see `docs/enterprise.md` §1/§7.
+  Follow-up (same date): `perdura_connectors.py` adds a live GitHub PR
+  connector (`perdura.py sync-github --repo owner/name`) feeding the same
+  `pr_review_delta` adapter from the real API instead of a pre-fetched
+  dict, with a cursor file for idempotent re-sync; the HTTP transport is
+  injectable so its tests stay offline.
 
 -----
 

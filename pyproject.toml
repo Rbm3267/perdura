@@ -34,4 +34,5 @@ Repository = "https://github.com/Rbm3267/perdura"
 [tool.setuptools]
 py-modules = ["perdura", "perdura_memoric", "perdura_retrieval", "perdura_viz",
               "perdura_track", "perdura_station", "perdura_store",
-              "perdura_router", "perdura_service", "perdura_sso"]
+              "perdura_router", "perdura_service", "perdura_sso",
+              "perdura_ingest", "perdura_connectors"]

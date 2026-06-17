@@ -11,6 +11,8 @@ worker/operator split enforced at the boundary.
                       GET  /contention      worker | operator
     Operator (control) GET /track           operator only
                        GET /graph           operator only
+                       GET /viz             operator only (live mind map,
+                                             collision_candidates() drawn in)
 
 E2 (multi-tenant control plane) adds a third role, **admin**, and a tenant
 prefix: start with `--pg-dsn` instead of `--graph` and every route above
@@ -152,6 +154,15 @@ def make_handler(graph_path: str = None, tokens: dict = None,
             self.end_headers()
             self.wfile.write(body)
 
+        def _send_html(self, code, html):
+            body = html.encode()
+            self.send_response(code)
+            self.send_header("Content-Type", "text/html; charset=utf-8")
+            self.send_header("Content-Length", str(len(body)))
+            self.send_header("Cache-Control", "no-store")
+            self.end_headers()
+            self.wfile.write(body)
+
         def _read_body(self):
             """Returns the request body bytes, or None after sending 413 if
             the (caller-controlled) Content-Length exceeds the cap."""
@@ -204,13 +215,16 @@ def make_handler(graph_path: str = None, tokens: dict = None,
                     return self._send(200, _contention(g))
                 return self._briefing(g, qs)
 
-            if sub in ("/track", "/graph"):
+            if sub in ("/track", "/graph", "/viz"):
                 if not self._authorize("operator", tenant_id):
                     return
                 g = Graph(self._graph_path_for(tenant_id))
                 if sub == "/track":
                     from perdura_track import track_records
                     return self._send(200, {"track_records": track_records(g)})
+                if sub == "/viz":
+                    from perdura_viz import render
+                    return self._send_html(200, render(g))   # unattributed
                 return self._send(200, self._full_graph(g))   # attributed
 
             if sub == "/config":

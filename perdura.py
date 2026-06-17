@@ -721,7 +721,8 @@ def show(graph: Graph):
 def main():
     p = argparse.ArgumentParser(description="Perdura Phase 1")
     p.add_argument("command", choices=["new", "run", "show", "demo", "viz",
-                                       "track", "ui", "redact", "ingest"])
+                                       "track", "ui", "redact", "ingest",
+                                       "sync-github"])
     p.add_argument("text", nargs="?",
                    help="question text (for `new`) / node id (for "
                         "`redact`) / JSON file path (for `ingest`)")
@@ -788,8 +789,24 @@ def main():
                    help="(E3, for `ingest`) which adapter maps the JSON "
                         "file's item(s) into deltas")
     p.add_argument("--question", default=None, metavar="NODE_ID",
-                   help="(E3, for `ingest`) attach to this existing "
-                        "question node instead of opening a new one")
+                   help="(E3, for `ingest`/`sync-github`) attach to this "
+                        "existing question node instead of opening a new one")
+    p.add_argument("--repo", default=None, metavar="OWNER/NAME",
+                   help="(for `sync-github`) GitHub repo to pull merged/closed "
+                        "PRs from")
+    p.add_argument("--token", default=None,
+                   help="(for `sync-github`) GitHub token; defaults to "
+                        "$GITHUB_TOKEN (unauthenticated requests are "
+                        "rate-limited to 60/hour)")
+    p.add_argument("--state", default="closed", choices=["open", "closed", "all"],
+                   help="(for `sync-github`) PR state to sync")
+    p.add_argument("--per-page", type=int, default=20,
+                   help="(for `sync-github`) PRs per sync (one page; rerun "
+                        "to page further back, or just rerun periodically — "
+                        "the cursor file skips PRs already ingested)")
+    p.add_argument("--cursor-file", default=None,
+                   help="(for `sync-github`) where the last-synced PR number "
+                        "is stored; defaults to <graph>.github-cursor.json")
     args = p.parse_args()
 
     graph = Graph(args.graph)
@@ -886,6 +903,31 @@ def main():
             total_rej += rej
         print(f"Ingested {len(items)} item(s) via adapter:{args.adapter} -> "
               f"{total_acc} accepted, {total_rej} rejected")
+        show(Graph(args.graph))
+
+    elif args.command == "sync-github":
+        # The live half of E3: fetch real PRs, map to the same pr_review_delta
+        # shape `ingest` uses, merge through the same conductor path
+        # (perdura_connectors.py).
+        from perdura_connectors import sync_github_prs
+        if not args.repo:
+            sys.exit("Provide --repo owner/name: "
+                      "perdura.py sync-github --repo owner/name")
+        token = args.token or os.environ.get("GITHUB_TOKEN")
+        cursor_file = args.cursor_file or f"{args.graph}.github-cursor.json"
+        since_number = 0
+        if os.path.exists(cursor_file):
+            with open(cursor_file, encoding="utf-8") as f:
+                since_number = json.load(f).get("since_number", 0)
+        result = sync_github_prs(args.graph, args.repo, token=token,
+                                 state=args.state, since_number=since_number,
+                                 per_page=args.per_page,
+                                 question_id=args.question)
+        with open(cursor_file, "w", encoding="utf-8") as f:
+            json.dump({"since_number": result["since_number"]}, f)
+        print(f"Synced {result['prs_synced']} PR(s) from {args.repo} -> "
+              f"{result['accepted']} accepted, {result['rejected']} rejected "
+              f"(cursor now PR #{result['since_number']})")
         show(Graph(args.graph))
 
     elif args.command == "demo":

@@ -7,10 +7,21 @@ superseded nodes faded. No external dependencies; open the file anywhere.
 
     python perdura.py viz                  # -> perdura_mindmap.html
     python perdura.py viz --out mind.html
+
+Also draws `perdura_memoric.collision_candidates()` as dotted amber lines —
+unlinked, lexically-close claims from different workers/streams that no
+edge connects yet. This is the cross-stream contradiction E3 ingestion
+adapters create exposure to (docs/enterprise.md §1): an incident's claimed
+root cause and an ADR's context claim, never linked, surfaced visually
+instead of waiting on an operator to run `--audit-every`. Same O(n^2)
+unindexed scan as the CLI audit — fine for a demo-sized graph, the known
+scalability gap for a large one (see collision_candidates' docstring).
 """
 
 import json
 from string import Template
+
+from perdura_memoric import collision_candidates
 
 _TEMPLATE = Template("""<!DOCTYPE html>
 <html lang="en"><head><meta charset="UTF-8">
@@ -29,7 +40,7 @@ _TEMPLATE = Template("""<!DOCTYPE html>
   #legend i{display:inline-block;width:9px;height:9px;border-radius:50%;margin-right:5px;vertical-align:-1px}
 </style></head><body>
 <canvas id="c"></canvas>
-<div id="hud"><b>perdura</b> · $count_nodes nodes · $count_edges edges · contention $contention<br>drag to pan · wheel to zoom</div>
+<div id="hud"><b>perdura</b> · $count_nodes nodes · $count_edges edges · $count_collisions collisions · contention $contention<br>drag to pan · wheel to zoom</div>
 <div id="tip"></div>
 <div id="legend">
   <span><i style="background:#2dd9ff"></i>question</span>
@@ -38,6 +49,7 @@ _TEMPLATE = Template("""<!DOCTYPE html>
   <span><i style="background:#ffb454"></i>decision</span>
   <span><i style="background:#ff5d8f"></i>rejected</span>
   <span style="color:#ff5d8f">— contradicts</span>
+  <span style="color:#ffb454">⋯ collision (unlinked, lexically close)</span>
 </div>
 <script>
 const DATA = $data;
@@ -53,6 +65,7 @@ const nodes = DATA.nodes.map((n,i)=>({...n,
   vx:0, vy:0, r: n.type==="question"?9: n.type==="decision"?8:6}));
 const byId = Object.fromEntries(nodes.map(n=>[n.id,n]));
 const edges = DATA.edges.filter(e=>byId[e.src]&&byId[e.dst]);
+const collisions = DATA.collisions.filter(c=>byId[c.src]&&byId[c.dst]);
 
 let cam = {x:0,y:0,z:1}, dragging=null, hover=null;
 
@@ -85,6 +98,12 @@ function draw(){
     ctx.beginPath(); ctx.moveTo(a.x,a.y); ctx.lineTo(b.x,b.y);
     if (e.type==="contradicts"){ ctx.strokeStyle="#ff5d8f"; ctx.lineWidth=1.6/cam.z; ctx.setLineDash([5,4]); }
     else { ctx.strokeStyle="rgba(151,163,196,0.28)"; ctx.lineWidth=1/cam.z; ctx.setLineDash([]); }
+    ctx.stroke(); ctx.setLineDash([]);
+  }
+  for (const c of collisions){
+    const a=byId[c.src], b=byId[c.dst];
+    ctx.beginPath(); ctx.moveTo(a.x,a.y); ctx.lineTo(b.x,b.y);
+    ctx.strokeStyle="#ffb454"; ctx.lineWidth=1.4/cam.z; ctx.setLineDash([2,5]);
     ctx.stroke(); ctx.setLineDash([]);
   }
   for (const n of nodes){
@@ -127,6 +146,7 @@ function esc(s){const d=document.createElement("i");d.textContent=s;return d.inn
 
 def render(graph) -> str:
     """Render a Graph into a standalone HTML mind map."""
+    collisions = collision_candidates(graph)
     data = {
         "nodes": [{"id": n.id, "type": n.type, "text": n.text,
                    "confidence": n.confidence, "tags": n.domain_tags or [],
@@ -134,11 +154,13 @@ def render(graph) -> str:
                   for n in graph.nodes.values()],
         "edges": [{"src": e.src, "dst": e.dst, "type": e.type}
                   for e in graph.edges.values()],
+        "collisions": [{"src": a.id, "dst": b.id} for a, b in collisions],
     }
     return _TEMPLATE.substitute(
         data=json.dumps(data),
         count_nodes=len(data["nodes"]),
         count_edges=len(data["edges"]),
+        count_collisions=len(data["collisions"]),
         contention=graph.contention())
 
 

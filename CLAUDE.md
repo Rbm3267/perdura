@@ -32,6 +32,7 @@ perdura_store.py       Pluggable persistence (JSON / SQLite / Postgres multi-ten
 perdura_sso.py         SSO bearer tokens — JWT verified against an IdP's JWKS (E2)
 perdura_service.py     Authenticated HTTP service — three planes, single + multi-tenant (E1+E2)
 perdura_ingest.py       PR/ADR/incident/ticket ingestion adapters -> merge_delta (E3)
+perdura_connectors.py   Live GitHub PR connector -> pr_review_delta (E3)
 docs/design.md         Full design doc and rationale
 docs/overview.html     Transit-map architecture visual
 docs/enterprise.md     Enterprise deployment plan (track E0–E3)
@@ -47,14 +48,20 @@ Full detail in ROADMAP.md; docs/memoric-binary.md is the Phase 0 RFC.
 - Phase 1   ✅ Graph + delta loop, Claude/Gemini/Qwen, round-robin, CLI + MCP station
 - Phase 1.5 STARTED — pluggable retrieval (perdura_retrieval.py;
   --retriever graph|hybrid|chroma, graph = required baseline arm) and
-  mind-map viz (perdura.py viz)
+  mind-map viz (perdura.py viz), now drawing collision_candidates() as
+  dotted lines and servable live (perdura_service.py GET /viz,
+  operator-only)
 - Phase 2   STARTED — track-record engine (perdura_track.py, perdura.py
   track, operator-only MCP tool); reliability = Laplace-smoothed claim
   outcomes (promoted/corroborated vs challenged/superseded), derived
   on demand like memoric binary
 - Phase 3   KERNEL SHIPPED — perdura_router.py (--route, hard budgets,
   escalation by track-record reliability/cost) + escalation_ab.py harness
-  (synthetic positive control passes; thesis verdict needs real workers)
+  (synthetic positive control passes; now has a --real mode that runs the
+  same four-arm protocol against real ClaudeWorker/GeminiWorker/QwenWorker
+  instead of the scripted pair; thesis verdict still needs that run to
+  actually happen with real API keys/a local model server — neither
+  exists in any sandboxed dev environment this has been built in)
 - Enterprise E2 SHIPPED (gate overridden, 2026-06-17) — Postgres
   multi-tenant store (RLS-isolated, advisory-lock writers), perdura_sso.py
   (JWT/JWKS), perdura_service.py /graphs/{tenant_id}/... + admin role +
@@ -119,3 +126,18 @@ Full detail in ROADMAP.md; docs/memoric-binary.md is the Phase 0 RFC.
   tables must also be owned by that role (FORCE doesn't bind to a role that
   doesn't own the table). tests/test_postgres_store.py proves isolation
   under exactly this credential shape, including fail-closed behavior
+- `/viz` (perdura_service.py) is operator-only, not worker-tier, even
+  though it strips attribution like `/briefing` does — unlike `/briefing`
+  it renders the *entire* graph's text with no 2-hop bound, so the
+  unbounded-egress concern (docs/enterprise.md §5) puts it on the
+  operator side of the line
+- perdura_connectors.py's GitHub fetch is dependency-injected (`fetch=`
+  param, default a real urllib call) so the connector follows the same
+  offline-test convention as every adapter — tests/test_connectors.py
+  never touches the network or needs a token
+- escalation_ab.py's `run_arm` flip-counting was generalized from a
+  hardcoded `"challenger"` name check to `{s.name for s in registry if
+  s.tier == "frontier"}`, so it works for any named worker — required for
+  `--real` mode to produce meaningful metrics for claude/gemini/qwen/mock
+  alike; tests/test_escalation_ab.py proves this with MockWorker standing
+  in for both the local and frontier slots
