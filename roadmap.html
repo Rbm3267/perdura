@@ -240,9 +240,20 @@ never displaces the research focus.</p>
   control has run. The operator explicitly chose to override the gate and
   build E2 ahead of it; see <code>docs/enterprise.md</code> §1/§7 for the full record.
   The real A/B remains required before any claim about contention-routing's
-  real-world cost-effectiveness, and before E3.</li>
-<li><strong>E3 — ingestion adapters</strong>: PR/ADR/incident/ticket streams proposing
-  deltas through the normal merge path.</li>
+  real-world cost-effectiveness.</li>
+<li><strong>E3 — ingestion adapters</strong> ✅ (2026-06-17, gate overridden):
+  <code>perdura_ingest.py</code> — <code>adr_delta</code>/<code>incident_delta</code>/<code>ticket_delta</code>/
+  <code>pr_review_delta</code> map a structured item (already-fetched, no live API
+  calls baked in) to the strict-JSON delta schema; <code>ingest()</code> merges
+  through the normal conductor path under the same write lock as an LLM
+  worker turn — no privileged side door. <code>perdura.py ingest &lt;file&gt;
+  --adapter {adr,incident,ticket,pr}</code> (CLI, single item or batch).
+  Attribution <code>adapter:&lt;source&gt;</code> makes the collision detector
+  (<code>--audit-every</code>) surface cross-stream contradictions (an ADR's context
+  claim vs an incident's root-cause claim) for free, and gives each stream
+  its own per-domain track record. The Phase 3 escalation A/B gate (above)
+  was not satisfied when this was built either — the operator explicitly
+  extended the E2 override to cover E3 too; see <code>docs/enterprise.md</code> §1/§7.</li>
 </ul>
 <hr />
 <h2>Phase 4: Multi-Model Collaborative Routing (Optional)</h2>

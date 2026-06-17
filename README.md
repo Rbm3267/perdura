@@ -221,6 +221,31 @@ RLS is the backstop behind that HTTP-layer check, not a substitute for it.
 Full deployment plan, including the explicit record of the E2 gate decision:
 [docs/enterprise.md](docs/enterprise.md).
 
+## Claim ingestion (enterprise E3)
+
+An enterprise platform is a claim factory: tickets, PR reviews, incident
+postmortems, ADRs. `perdura_ingest.py` turns one structured item from any
+of those streams into the exact strict-JSON delta an LLM worker produces,
+then merges it through the same conductor path — no privileged side door,
+every invariant (validation, attribution, supersede-never-delete) holds for
+machine-ingested claims too:
+
+```bash
+python perdura.py ingest items.json --adapter {adr,incident,ticket,pr}
+# attach to an existing open question instead of opening a new one:
+python perdura.py ingest items.json --adapter ticket --question n_xxxxxxxx
+```
+
+`items.json` is a single object or a list (batch ingestion), shaped to the
+adapter's expected keys (see the docstrings in `perdura_ingest.py`).
+Attribution is stamped `adapter:<source>` (e.g. `adapter:incident`), so
+two things fall out for free: per-domain track records
+(`perdura.py track`) score each stream's reliability over time like any
+worker, and the collision detector (`--audit-every`) finds lexically-close,
+unlinked claims **across streams** — an ADR's claim and an incident's claim
+about the same area — the cross-stream collision audits E3 calls for, with
+no new machinery.
+
 ## Roadmap
 
 | Phase | Scope | Status |
@@ -243,6 +268,7 @@ perdura_memoric.py    Memoric binary encoder/decoder (Phase 0)
 perdura_store.py      Pluggable persistence: JSON file / SQLite WAL / Postgres (E0, E2)
 perdura_sso.py        SSO bearer tokens — JWT verified against an IdP's JWKS (E2)
 perdura_service.py    Authenticated HTTP service — the three planes, multi-tenant (E1, E2)
+perdura_ingest.py     PR/ADR/incident/ticket ingestion adapters -> merge_delta (E3)
 perdura_retrieval.py  Pluggable retrieval layer (Phase 1.5)
 perdura_track.py      Per-model/per-domain track records (Phase 2)
 perdura_router.py     The epistemic router — contention-driven escalation (Phase 3)
@@ -258,8 +284,10 @@ tests/                Offline invariant suite (pytest) — runs in CI
 The conductor invariants are pinned by an offline pytest suite — merge
 validation, bounded briefings, attribution hiding, supersede-never-delete,
 contention, the storage round-trip (JSON, SQLite, Postgres), router budgets
-(global and per-domain), track-record scoring, SSO token verification, and
-the E1/E2 service API. It needs no API keys or model server (workers import
+(global and per-domain), track-record scoring, SSO token verification, the
+E1/E2 service API, and the E3 ingestion adapters (`tests/test_ingest.py`),
+including a cross-stream collision case (an ADR claim vs an incident claim
+about the same area). It needs no API keys or model server (workers import
 their SDKs lazily), so it runs anywhere:
 
 ```bash

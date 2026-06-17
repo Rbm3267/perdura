@@ -1,19 +1,22 @@
 # Perdura in the enterprise — deployment plan
 
-*Status: E0, E1, and E2 shipped. Everything here is the application layer on
-top of the Phase 3 research bet: if contention-driven routing does not beat
-periodic/random escalation at equal cost, this document describes a nice
-decision-record graph, not a product. The research result is the moat.*
+*Status: E0, E1, E2, and E3 shipped. Everything here is the application layer
+on top of the Phase 3 research bet: if contention-driven routing does not
+beat periodic/random escalation at equal cost, this document describes a
+nice decision-record graph, not a product. The research result is the moat.*
 
 *Gate note: the documented gate for E2+ below (§7) is the Phase 3 escalation
 A/B passing on real workers. That A/B has not been run for real — only the
 synthetic positive control in `escalation_ab.py` has. The operator made an
 explicit, informed decision to build E2 anyway, ahead of the gate, rather
-than have it skipped silently. This paragraph is that record. The gate
-still applies to anything claimed about contention-routing's real-world
-cost-effectiveness; it does not apply to "can this codebase serve a
-multi-tenant, SSO-authenticated, RLS-isolated control plane," which E2
-now answers for real.*
+than have it skipped silently — and made the same explicit decision again
+for E3, which §7 had called out as still gated even after the E2 override.
+This paragraph is that record. The gate still applies to anything claimed
+about contention-routing's real-world cost-effectiveness; it does not apply
+to "can this codebase serve a multi-tenant, SSO-authenticated, RLS-isolated
+control plane" (E2) or "can PR/ADR/incident/ticket streams propose deltas
+through the normal merge path, with cross-stream collision audits falling
+out of existing machinery" (E3) — both of which now answer for real.*
 
 ## 1. Why the concept transfers
 
@@ -161,6 +164,22 @@ Metering falls out of the same seams: deltas merged, briefings served,
 audit boardings run — usage-based billing aligned with value, not raw
 token burn.
 
+**Shipped:** `perdura_ingest.py` — one pure function per stream
+(`adr_delta`, `incident_delta`, `ticket_delta`, `pr_review_delta`) maps a
+plain dict (already-fetched item data, not a live API call) to the
+strict-JSON delta schema; `ingest()` merges it through `merge_delta()`
+under the same write lock as an LLM worker turn — `python perdura.py
+ingest <file.json> --adapter {adr,incident,ticket,pr}`, single item or
+batch, optionally `--question <node-id>` to attach to an existing open
+question instead of opening a new one. Attribution is stamped
+`adapter:<source>` (e.g. `adapter:incident`), so two things fall out with
+no new machinery: per-domain track records (`perdura.py track`) score each
+stream's reliability over time exactly like an LLM worker, and the
+collision detector (`--audit-every`) finds lexically-close, unlinked
+claims **across streams** — an ADR's context claim and an incident's
+root-cause claim about the same area — which is the cross-stream
+collision audit this section called for.
+
 ## 7. Enterprise track roadmap
 
 Runs parallel to the research phases; each step is gated so the research
@@ -185,14 +204,20 @@ focus is never displaced.
   front of RLS), and a real `GET`/`PUT /graphs/{tenant_id}/config` for
   per-domain router budgets (`perdura_router.py`'s `domain_budgets`,
   persisted in Postgres instead of a CLI flag).
-- **E3 — ingestion adapters**: PR/ADR/incident/ticket adapters proposing
-  deltas through the merge path; cross-stream collision audits.
+- **E3 — ingestion adapters** ✅ (gate overridden — see below)
+  `perdura_ingest.py`: `adr_delta`/`incident_delta`/`ticket_delta`/
+  `pr_review_delta` map a structured item to the strict-JSON delta schema;
+  `ingest()` merges through the normal conductor path (same write lock,
+  same validation, same attribution stamping as an LLM worker turn) — no
+  privileged side door. `perdura.py ingest <file> --adapter ...` (CLI),
+  single item or batch. Attribution `adapter:<source>` makes cross-stream
+  collision audits fall out of the existing collision detector
+  (`--audit-every`) and gives each stream its own track record for free.
 - **Gate for E2+:** the Phase 3 escalation A/B (contention-routed vs
   periodic vs random at equal cost) must show contention-routing wins.
   If it does not, stop at E1 and say so honestly. **This gate was not
-  satisfied when E2 was built** — only the synthetic positive control in
-  `escalation_ab.py` has run, never the real-worker A/B. The operator
-  explicitly chose to override the gate and build E2 anyway (see the
-  status note at the top of this document); E3 and any claims about
-  contention-routing's real-world cost-effectiveness still wait on the
-  real A/B.
+  satisfied when E2 or E3 was built** — only the synthetic positive
+  control in `escalation_ab.py` has run, never the real-worker A/B. The
+  operator explicitly chose to override the gate for both (see the status
+  note at the top of this document); any claim about contention-routing's
+  real-world cost-effectiveness still waits on the real A/B.

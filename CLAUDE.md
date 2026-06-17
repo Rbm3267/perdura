@@ -31,6 +31,7 @@ perdura.py             Phase 1 implementation
 perdura_store.py       Pluggable persistence (JSON / SQLite / Postgres multi-tenant, E0+E2)
 perdura_sso.py         SSO bearer tokens — JWT verified against an IdP's JWKS (E2)
 perdura_service.py     Authenticated HTTP service — three planes, single + multi-tenant (E1+E2)
+perdura_ingest.py       PR/ADR/incident/ticket ingestion adapters -> merge_delta (E3)
 docs/design.md         Full design doc and rationale
 docs/overview.html     Transit-map architecture visual
 docs/enterprise.md     Enterprise deployment plan (track E0–E3)
@@ -59,6 +60,13 @@ Full detail in ROADMAP.md; docs/memoric-binary.md is the Phase 0 RFC.
   (JWT/JWKS), perdura_service.py /graphs/{tenant_id}/... + admin role +
   per-domain-budget config route. See "Key decisions" below and
   docs/enterprise.md §1/§7 for the full record of the override.
+- Enterprise E3 SHIPPED (gate override extended, 2026-06-17) —
+  perdura_ingest.py: adr/incident/ticket/pr adapters map a structured item
+  to the strict-JSON delta schema; ingest() merges through the same
+  conductor path (write lock, validation, attribution) as an LLM worker
+  turn. adapter:<source> attribution makes cross-stream collision audits
+  and per-stream track records fall out of existing machinery for free.
+  See docs/enterprise.md §1/§6/§7.
 
 ## Session conventions
 - Every major change updates README.md AND index.html in the same commit —
@@ -95,9 +103,16 @@ Full detail in ROADMAP.md; docs/memoric-binary.md is the Phase 0 RFC.
   positive control in escalation_ab.py has. The operator explicitly chose
   (2026-06-17, via direct instruction) to build the full E2 multi-tenant
   control plane ahead of that gate anyway. Do not silently re-impose the
-  gate on E2 work already shipped; the gate still applies to E3 and to any
-  claim about contention-routing's real-world cost-effectiveness, which
-  remain open
+  gate on E2 work already shipped; any claim about contention-routing's
+  real-world cost-effectiveness remains open until the real A/B runs
+- **The E3 gate override extends the E2 one.** docs/enterprise.md §7 said
+  the gate "still applies to E3" when E2 shipped. When E3 (ingestion
+  adapters, perdura_ingest.py) was built next, the operator explicitly
+  extended the same override rather than let the contradiction stand
+  silently. Any claim about contention-routing's real-world
+  cost-effectiveness still waits on the real escalation A/B — building E3
+  doesn't change that, it only means the claim-supply layer no longer
+  waits on it either.
 - Postgres RLS is invisible to a superuser regardless of `FORCE ROW LEVEL
   SECURITY` — the application's Postgres credential must be a
   non-superuser, `NOBYPASSRLS` role or tenant isolation is fiction. The

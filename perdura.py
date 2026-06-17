@@ -721,9 +721,10 @@ def show(graph: Graph):
 def main():
     p = argparse.ArgumentParser(description="Perdura Phase 1")
     p.add_argument("command", choices=["new", "run", "show", "demo", "viz",
-                                       "track", "ui", "redact"])
+                                       "track", "ui", "redact", "ingest"])
     p.add_argument("text", nargs="?",
-                   help="question text (for `new`) / node id (for `redact`)")
+                   help="question text (for `new`) / node id (for "
+                        "`redact`) / JSON file path (for `ingest`)")
     p.add_argument("--graph", default="perdura_graph.json",
                    help="graph path; .db/.sqlite[3] extension selects the "
                         "SQLite store (WAL) instead of the JSON file")
@@ -783,6 +784,12 @@ def main():
                    help="(E2) per-domain cap on router spend, in the same "
                         "cost units as --budget; repeatable. A tag with no "
                         "--domain-budget is uncapped (only --budget applies)")
+    p.add_argument("--adapter", choices=["adr", "incident", "ticket", "pr"],
+                   help="(E3, for `ingest`) which adapter maps the JSON "
+                        "file's item(s) into deltas")
+    p.add_argument("--question", default=None, metavar="NODE_ID",
+                   help="(E3, for `ingest`) attach to this existing "
+                        "question node instead of opening a new one")
     args = p.parse_args()
 
     graph = Graph(args.graph)
@@ -857,6 +864,29 @@ def main():
             g.save()
         print(f"Redacted {args.text}: text destroyed; structure, "
               f"attribution, and lineage preserved.")
+
+    elif args.command == "ingest":
+        # E3: PR/ADR/incident/ticket streams propose deltas through the
+        # SAME merge path as an LLM worker turn — no privileged side door
+        # (docs/enterprise.md §6).
+        from perdura_ingest import ADAPTERS, ingest as run_ingest
+        if not args.text:
+            sys.exit("Provide the JSON file path: "
+                      "perdura.py ingest <path> --adapter {adr,incident,ticket,pr}")
+        if args.adapter not in ADAPTERS:
+            sys.exit(f"--adapter required, one of {sorted(ADAPTERS)}")
+        with open(args.text, encoding="utf-8") as f:
+            payload = json.load(f)
+        items = payload if isinstance(payload, list) else [payload]
+        total_acc = total_rej = 0
+        for item in items:
+            acc, rej = run_ingest(args.graph, args.adapter, item,
+                                  question_id=args.question)
+            total_acc += acc
+            total_rej += rej
+        print(f"Ingested {len(items)} item(s) via adapter:{args.adapter} -> "
+              f"{total_acc} accepted, {total_rej} rejected")
+        show(Graph(args.graph))
 
     elif args.command == "demo":
         demo_path = "perdura_demo_graph.json"

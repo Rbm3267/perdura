@@ -205,9 +205,20 @@ never displaces the research focus.
   control has run. The operator explicitly chose to override the gate and
   build E2 ahead of it; see `docs/enterprise.md` §1/§7 for the full record.
   The real A/B remains required before any claim about contention-routing's
-  real-world cost-effectiveness, and before E3.
-- **E3 — ingestion adapters**: PR/ADR/incident/ticket streams proposing
-  deltas through the normal merge path.
+  real-world cost-effectiveness.
+- **E3 — ingestion adapters** ✅ (2026-06-17, gate overridden):
+  `perdura_ingest.py` — `adr_delta`/`incident_delta`/`ticket_delta`/
+  `pr_review_delta` map a structured item (already-fetched, no live API
+  calls baked in) to the strict-JSON delta schema; `ingest()` merges
+  through the normal conductor path under the same write lock as an LLM
+  worker turn — no privileged side door. `perdura.py ingest <file>
+  --adapter {adr,incident,ticket,pr}` (CLI, single item or batch).
+  Attribution `adapter:<source>` makes the collision detector
+  (`--audit-every`) surface cross-stream contradictions (an ADR's context
+  claim vs an incident's root-cause claim) for free, and gives each stream
+  its own per-domain track record. The Phase 3 escalation A/B gate (above)
+  was not satisfied when this was built either — the operator explicitly
+  extended the E2 override to cover E3 too; see `docs/enterprise.md` §1/§7.
 
 -----
 

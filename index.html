@@ -716,7 +716,7 @@
            periodic or random at equal cost? — awaits the real-worker run. Proves claim 03.</p>
       </div>
       <div class="t-item now reveal">
-        <h4>Enterprise track — engine, not experiment <span class="t-tag">E0–E2 SHIPPED</span></h4>
+        <h4>Enterprise track — engine, not experiment <span class="t-tag">E0–E3 SHIPPED</span></h4>
         <p>A parallel track that hardens the engine for deployment without touching a single
            conductor invariant. E0: pluggable storage (JSON file or transactional SQLite) and a
            redaction command reconciling right-to-erasure with supersede-never-delete. E1: the
@@ -725,10 +725,14 @@
            authorship; track records stay operator-only. E2: the multi-tenant control plane —
            Postgres storage with row-level-security tenant isolation, SSO (JWT bearer tokens
            verified against an IdP's JWKS), an admin role, and per-domain router budgets as
-           real per-tenant config. E2 shipped ahead of its documented gate — the operator
-           explicitly chose to override it rather than have it skipped silently; the gate
-           still stands for E3 and for any claim about contention-routing's real-world
-           cost-effectiveness. <a href="enterprise.html">The full deployment plan →</a></p>
+           real per-tenant config. E3: ingestion adapters — PR/ADR/incident/ticket streams
+           propose deltas through the exact same merge path as an LLM worker turn, no
+           privileged side door; attribution by stream makes cross-stream collision audits and
+           per-stream track records fall out of existing machinery for free. Both E2 and E3
+           shipped ahead of their documented gate — the operator explicitly chose to override
+           it rather than have it skipped silently; the gate still stands for any claim about
+           contention-routing's real-world cost-effectiveness.
+           <a href="enterprise.html">The full deployment plan →</a></p>
       </div>
     </div>
   </div>
