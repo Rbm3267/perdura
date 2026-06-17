@@ -1,10 +1,19 @@
 # Perdura in the enterprise — deployment plan
 
-*Status: plan + first foundations shipped (storage tier E0). Everything here
-is the application layer on top of the Phase 3 research bet: if
-contention-driven routing does not beat periodic/random escalation at equal
-cost, this document describes a nice decision-record graph, not a product.
-The research result is the moat.*
+*Status: E0, E1, and E2 shipped. Everything here is the application layer on
+top of the Phase 3 research bet: if contention-driven routing does not beat
+periodic/random escalation at equal cost, this document describes a nice
+decision-record graph, not a product. The research result is the moat.*
+
+*Gate note: the documented gate for E2+ below (§7) is the Phase 3 escalation
+A/B passing on real workers. That A/B has not been run for real — only the
+synthetic positive control in `escalation_ab.py` has. The operator made an
+explicit, informed decision to build E2 anyway, ahead of the gate, rather
+than have it skipped silently. This paragraph is that record. The gate
+still applies to anything claimed about contention-routing's real-world
+cost-effectiveness; it does not apply to "can this codebase serve a
+multi-tenant, SSO-authenticated, RLS-isolated control plane," which E2
+now answers for real.*
 
 ## 1. Why the concept transfers
 
@@ -81,7 +90,7 @@ In ascending order of commitment:
    deterministic code, each graph is a partition with a leader — a
    well-understood scaling shape.
 
-## 4. Storage tier (E0 — shipped)
+## 4. Storage tier (E0, E2 — shipped)
 
 The graph is the only state, so storage is the first thing that must stop
 being an experiment. `perdura_store.py` makes persistence pluggable, chosen
@@ -91,13 +100,23 @@ by file extension, with everything above it unchanged:
 |---|---|---|
 | JSON file | `perdura_graph.json` (default) | byte-identical Phase 1 behavior, human-diffable, single box |
 | SQLite (WAL) | `perdura_graph.db` | transactional saves, concurrent readers during writes, multi-process on one box — validated 60/60 merges under 4 concurrent conductors |
-| Postgres | (E2) | same interface, graph-per-tenant, row-level security, the managed-service tier |
+| Postgres | `postgresql://host/db?tenant=acme` | same interface, graph-per-tenant, row-level security, the managed-service tier |
 
-Both shipped tiers keep the same correctness story: writers serialize via
-the advisory lock (reload → merge → save), saves are atomic (write-rename /
-one transaction), readers never observe a torn graph. Supersede-never-delete
-means SQLite saves are pure upserts; the append-only merge log inserts only
-new entries.
+All three tiers keep the same correctness story: writers serialize via the
+advisory lock (reload → merge → save), saves are atomic (write-rename / one
+transaction), readers never observe a torn graph. Supersede-never-delete
+means SQLite and Postgres saves are pure upserts; the append-only merge log
+inserts only new entries.
+
+Postgres adds tenant isolation as a hard backstop, not just an app-level
+WHERE clause: every tenant table has row-level security `FORCE`d, scoped to
+`current_setting('perdura.tenant_id')`. RLS never applies to a Postgres
+superuser regardless of `FORCE` — the application's database credential
+must be a non-superuser, `NOBYPASSRLS` role, or the isolation guarantee is
+fiction. `tests/test_postgres_store.py` proves isolation against that exact
+role shape, including fail-closed behavior (no tenant set → no rows, not all
+rows). The write lock is a Postgres advisory lock keyed by tenant, so writers
+serialize across hosts, not just within one box.
 
 ## 5. Security and compliance — the accidental enterprise features
 
@@ -123,7 +142,10 @@ Existing conductor invariants, re-read through a procurement lens:
 - **The Phase 3 model registry is a per-tenant policy engine.** Enterprises
   have model allowlists, regional routing, and budget ceilings;
   contention-driven routing and compliance-driven routing are the same
-  lookup with different constraints.
+  lookup with different constraints. `Router.domain_budgets` (E2: persisted
+  per tenant via `GET`/`PUT /graphs/{tenant_id}/config`, admin-only) caps
+  spend per domain tag, attributed to the hottest open question at decision
+  time — a per-tenant, per-domain ceiling, not just a global one.
 
 ## 6. Claim supply: ingestion
 
@@ -155,11 +177,22 @@ focus is never displaced.
   preview (per open question, what the contention policy would do at the
   current threshold). Worker schedules and budgets become *mutable* config
   in E2.
-- **E2 — multi-tenant control plane**: Postgres store, graph-per-tenant,
-  SSO, roles (worker / operator / admin), per-domain budgets. The
-  configuration page becomes real here.
+- **E2 — multi-tenant control plane** ✅ (gate overridden — see below)
+  `perdura_store.py` (`PostgresStore`, RLS-isolated, graph-per-tenant),
+  `perdura_sso.py` (JWT bearer tokens verified against an IdP's JWKS, no
+  hand-rolled crypto), `perdura_service.py` (`/graphs/{tenant_id}/...`
+  routing, the `admin` role, tenant claims enforced at the HTTP layer in
+  front of RLS), and a real `GET`/`PUT /graphs/{tenant_id}/config` for
+  per-domain router budgets (`perdura_router.py`'s `domain_budgets`,
+  persisted in Postgres instead of a CLI flag).
 - **E3 — ingestion adapters**: PR/ADR/incident/ticket adapters proposing
   deltas through the merge path; cross-stream collision audits.
 - **Gate for E2+:** the Phase 3 escalation A/B (contention-routed vs
   periodic vs random at equal cost) must show contention-routing wins.
-  If it does not, stop at E1 and say so honestly.
+  If it does not, stop at E1 and say so honestly. **This gate was not
+  satisfied when E2 was built** — only the synthetic positive control in
+  `escalation_ab.py` has run, never the real-worker A/B. The operator
+  explicitly chose to override the gate and build E2 anyway (see the
+  status note at the top of this document); E3 and any claims about
+  contention-routing's real-world cost-effectiveness still wait on the
+  real A/B.

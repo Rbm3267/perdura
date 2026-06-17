@@ -55,12 +55,21 @@ def registry_from_workers(workers) -> list:
             for w in workers]
 
 
-def hottest_contention(graph) -> float:
-    """Contention of the most-contended open question (the routing signal)."""
+def hottest_question(graph):
+    """The most-contended open question, or None — the routing signal and
+    (E2) the domain whose budget a turn's spend counts against."""
     qs = graph.open_questions()
     if not qs:
+        return None
+    return max(qs, key=lambda q: graph.contention(graph.neighborhood(q.id)))
+
+
+def hottest_contention(graph) -> float:
+    """Contention of the most-contended open question (the routing signal)."""
+    q = hottest_question(graph)
+    if q is None:
         return 0.0
-    return max(graph.contention(graph.neighborhood(q.id)) for q in qs)
+    return graph.contention(graph.neighborhood(q.id))
 
 
 @dataclass
@@ -72,6 +81,15 @@ class Router:
     every: int = 3                  # escalate each Nth turn (periodic policy)
     p_escalate: float = 0.0         # escalation probability (random policy)
     seed: int = 0                   # rng seed (random policy, reproducible)
+    # Per-domain caps (E2): tag -> budget, in the same cost units as
+    # `budget`. A tag absent from this dict is uncapped — only the global
+    # session budget applies. Spend is attributed to the domain tags of
+    # whichever open question is hottest at decision time (the same
+    # question the contention policy is reacting to); on explore turns the
+    # conductor may then actually work a different question, which is a
+    # known, documented approximation rather than exact per-question metering.
+    domain_budgets: dict = field(default_factory=dict)
+    domain_spent: dict = field(default_factory=dict)
     spent: float = 0.0
     ledger: list = field(default_factory=list)
 
@@ -85,21 +103,25 @@ class Router:
                              "(zero-cost) worker as the default labor force")
 
     # -- selection ----------------------------------------------------------
-    def _affordable(self, spec) -> bool:
-        return self.spent + spec.cost <= self.budget
+    def _affordable(self, spec, domains=()) -> bool:
+        if self.spent + spec.cost > self.budget:
+            return False
+        return all(self.domain_spent.get(tag, 0.0) + spec.cost
+                   <= self.domain_budgets[tag]
+                   for tag in domains if tag in self.domain_budgets)
 
-    def _cheapest(self):
-        affordable = [s for s in self.registry if self._affordable(s)]
+    def _cheapest(self, domains=()):
+        affordable = [s for s in self.registry if self._affordable(s, domains)]
         # The zero-cost worker (guaranteed in __post_init__) is always
         # affordable, so `affordable` is non-empty in normal operation. The
         # fallback is last-resort defense: pick the absolute cheapest rather
         # than crash, even though it may nudge spend past the budget.
         return min(affordable or self.registry, key=lambda s: s.cost)
 
-    def _best_frontier(self, graph):
+    def _best_frontier(self, graph, domains=()):
         """Highest reliability-per-cost among affordable frontier workers."""
         cands = [s for s in self.registry
-                 if s.tier == "frontier" and self._affordable(s)]
+                 if s.tier == "frontier" and self._affordable(s, domains)]
         if not cands:
             return None
         records = track_records(graph)
@@ -110,7 +132,9 @@ class Router:
 
     def pick(self, graph, turn: int):
         """Choose the worker for this turn; returns the worker instance."""
-        contention = hottest_contention(graph)
+        q = hottest_question(graph)
+        domains = q.domain_tags if q else []
+        contention = graph.contention(graph.neighborhood(q.id)) if q else 0.0
         if self.policy == "contention":
             escalate = contention >= self.escalate_at
         elif self.policy == "periodic":
@@ -124,15 +148,18 @@ class Router:
 
         spec, reason = None, "default"
         if escalate:
-            spec = self._best_frontier(graph)
+            spec = self._best_frontier(graph, domains)
             reason = "escalate" if spec else "escalate-unaffordable"
         if spec is None:
-            spec = self._cheapest()
+            spec = self._cheapest(domains)
         self.spent += spec.cost
+        for tag in domains:
+            self.domain_spent[tag] = self.domain_spent.get(tag, 0.0) + spec.cost
         self.ledger.append({"turn": turn + 1, "worker": spec.name,
                             "cost": spec.cost, "reason": reason,
                             "contention": round(contention, 4),
-                            "spent": round(self.spent, 4)})
+                            "spent": round(self.spent, 4),
+                            "domains": domains})
         return spec.worker
 
     # -- reporting ----------------------------------------------------------
@@ -144,6 +171,10 @@ class Router:
                  f"{len(esc)} escalations, spend {self.spent:g}"
                  + (f"/{self.budget:g}" if self.budget != float("inf") else "")
                  + (f", {denied} escalations denied by budget" if denied else "")]
+        if self.domain_budgets:
+            lines.append("  domain budgets: " + ", ".join(
+                f"{tag} {self.domain_spent.get(tag, 0.0):g}/{cap:g}"
+                for tag, cap in self.domain_budgets.items()))
         for e in self.ledger:
             mark = "↑" if e["reason"] == "escalate" else \
                    "✗" if e["reason"] == "escalate-unaffordable" else " "

@@ -228,9 +228,19 @@ never displaces the research focus.</p>
   boundary (attribution-hiding becomes access control: <code>/track</code> and the
   attributed <code>/graph</code> are operator-only). Read-only Conductor panel in the
   Station (model registry + live routing preview).</li>
-<li><strong>E2 — multi-tenant control plane</strong>: Postgres store, graph-per-tenant,
-  SSO, roles, per-domain budgets. <strong>Gate: Phase 3 escalation A/B must show
-  contention-routing wins at equal cost.</strong></li>
+<li><strong>E2 — multi-tenant control plane</strong> ✅ (2026-06-17, gate overridden):
+  <code>PostgresStore</code> (graph-per-tenant, row-level security FORCEd and proven
+  against a non-superuser role, advisory-lock writer serialization across
+  hosts), <code>perdura_sso.py</code> (JWT bearer tokens verified against an IdP's
+  JWKS, role + tenant as IdP-vouched claims), <code>perdura_service.py</code>
+  <code>/graphs/{tenant_id}/...</code> routing with an <code>admin</code> role and a real
+  <code>GET</code>/<code>PUT /graphs/{tenant_id}/config</code> for per-domain router budgets. The
+  documented gate (Phase 3 escalation A/B must show contention-routing wins
+  at equal cost) was <strong>not</strong> satisfied — only the synthetic positive
+  control has run. The operator explicitly chose to override the gate and
+  build E2 ahead of it; see <code>docs/enterprise.md</code> §1/§7 for the full record.
+  The real A/B remains required before any claim about contention-routing's
+  real-world cost-effectiveness, and before E3.</li>
 <li><strong>E3 — ingestion adapters</strong>: PR/ADR/incident/ticket streams proposing
   deltas through the normal merge path.</li>
 </ul>
