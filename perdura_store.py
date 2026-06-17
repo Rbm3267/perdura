@@ -33,6 +33,7 @@ entries past the stored count are inserted.
 import json
 import os
 import sqlite3
+import threading
 from contextlib import contextmanager
 from urllib.parse import parse_qs, urlencode, urlsplit, urlunsplit
 
@@ -173,6 +174,14 @@ class PostgresStore:
     cannot do, and the reason this tier exists.
     """
 
+    # Schema DDL (ALTER TABLE ... ENABLE/FORCE ROW LEVEL SECURITY) takes an
+    # ACCESS EXCLUSIVE lock, so it must run at most once per process per
+    # target database, not on every connection — a class-level, lock-guarded
+    # set of already-initialized DSNs (double-checked) keeps the common path
+    # cheap and free of that lock entirely.
+    _schema_lock = threading.Lock()
+    _schema_ready: set = set()
+
     def __init__(self, dsn: str):
         parts = urlsplit(dsn)
         qs = parse_qs(parts.query)
@@ -186,7 +195,11 @@ class PostgresStore:
     def _connect(self):
         import psycopg
         con = psycopg.connect(self.dsn)
-        self._ensure_schema(con)
+        if self.dsn not in PostgresStore._schema_ready:
+            with PostgresStore._schema_lock:
+                if self.dsn not in PostgresStore._schema_ready:
+                    self._ensure_schema(con)
+                    PostgresStore._schema_ready.add(self.dsn)
         con.execute("SELECT set_config('perdura.tenant_id', %s, false)",
                     (self.tenant_id,))
         con.commit()
@@ -274,9 +287,14 @@ class PostgresStore:
     @contextmanager
     def lock(self):
         import psycopg
+        import zlib
         con = psycopg.connect(self.dsn, autocommit=True)
         key1 = _ADVISORY_LOCK_NS
-        key2 = hash(self.tenant_id) & 0x7FFFFFFF
+        # crc32, not the builtin hash(): str hashing is randomized per
+        # process (PYTHONHASHSEED), which would make the same tenant_id
+        # produce a different lock key on every host — defeating the
+        # cross-host serialization this lock exists for.
+        key2 = zlib.crc32(self.tenant_id.encode("utf-8")) & 0x7FFFFFFF
         try:
             con.execute("SELECT pg_advisory_lock(%s, %s)", (key1, key2))
             yield

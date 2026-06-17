@@ -123,12 +123,15 @@ def make_handler(graph_path: str = None, tokens: dict = None,
                 return None
             token = auth[len("Bearer "):].strip()
             if SSO is not None:
-                import jwt
                 try:
                     claims = SSO.verify(token)
                     return claims["role"], claims["tenant"]
-                except jwt.PyJWTError:
-                    pass   # fall through to the static map (break-glass)
+                except Exception:
+                    # Fall through to the static map (break-glass) on *any*
+                    # SSO failure — not just an invalid token, but also a
+                    # JWKS-fetch outage or network/timeout error. Break-glass
+                    # that only covers bad tokens isn't break-glass.
+                    pass
             entry = tokens.get(token)
             if entry is None:
                 return None
