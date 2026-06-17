@@ -93,8 +93,11 @@ The graph is the only state, so persistence is pluggable
 - `perdura_graph.db` / `.sqlite[3]` — SQLite in WAL mode: transactional
   saves, concurrent readers while a conductor writes, multi-process safe
   on one box (validated 60/60 merges under 4 concurrent conductors).
-- Postgres (planned, enterprise track E2) — same interface,
-  graph-per-tenant.
+- `postgresql://host/db?tenant=acme` (enterprise track E2) — same interface,
+  graph-per-tenant, with row-level security FORCEd as a hard isolation
+  backstop (proven against a non-superuser role — RLS is invisible to
+  superusers regardless of FORCE) and a tenant-keyed Postgres advisory lock
+  serializing writers across hosts.
 
 `python perdura.py redact <node-id>` is the operator-only compliance
 escape hatch (GDPR erasure vs supersede-never-delete): the text payload is
@@ -167,7 +170,7 @@ Workers receive bounded briefings and contribute strict-JSON deltas;
 attribution and track records stay hidden from them. Run a separate
 instance with `--operator` for the unredacted view.
 
-## The service API (enterprise E1)
+## The service API (enterprise E1 + E2)
 
 For non-MCP integrations, `perdura_service.py` exposes the same three
 planes over authenticated HTTP, with the worker/operator split enforced by
@@ -189,7 +192,34 @@ Worker tokens board, contribute, and read contention but never see
 authorship; `/track` and the attributed `/graph` return 403 for them. The
 Station's **Conductor** tab adds a read-only routing preview — the model
 registry and, per open question, what the contention policy would do at the
-current threshold. Full deployment plan: [docs/enterprise.md](docs/enterprise.md).
+current threshold.
+
+**Multi-tenant (E2):** start with `--pg-dsn` instead of `--graph` and every
+route above gains a `/graphs/{tenant_id}` prefix, backed by one Postgres
+database with row-level-security tenant isolation. A third role, **admin**,
+gets a control-plane route for per-domain router budgets:
+
+```bash
+pip install -e ".[enterprise]"
+PERDURA_STATIC_TOKENS='{"tok-acme-admin":{"role":"admin","tenant":"acme"}}' \
+  python perdura_service.py --pg-dsn postgresql://host/perdura --port 8900
+```
+
+| Route | Method | Token |
+|---|---|---|
+| `/graphs/{tenant_id}/config` | GET, PUT | admin only — reads/sets `domain_budgets` |
+
+Auth has two layers, either can carry role + tenant, and either is enough to
+authenticate: **SSO** (`perdura_sso.py` — bearer tokens are JWTs verified
+against the org IdP's JWKS, configured via `PERDURA_OIDC_*` env vars; role
+and tenant are claims the IdP vouched for) is tried first, then **static
+tokens** (`PERDURA_STATIC_TOKENS`, a JSON map of token → `{"role","tenant"}`
+— local dev, tests, or break-glass alongside SSO). A token's tenant claim
+must match the `{tenant_id}` in the URL or the request gets 403; Postgres
+RLS is the backstop behind that HTTP-layer check, not a substitute for it.
+
+Full deployment plan, including the explicit record of the E2 gate decision:
+[docs/enterprise.md](docs/enterprise.md).
 
 ## Roadmap
 
@@ -210,8 +240,9 @@ docs/overview.html    Visual overview — architecture as a transit map
 docs/phase0-validation.md  Phase 0 validation results (synthetic + real arms)
 docs/enterprise.md    Enterprise deployment plan (integration planes, tiers)
 perdura_memoric.py    Memoric binary encoder/decoder (Phase 0)
-perdura_store.py      Pluggable persistence: JSON file / SQLite WAL (E0)
-perdura_service.py    Authenticated HTTP service — the three planes (E1)
+perdura_store.py      Pluggable persistence: JSON file / SQLite WAL / Postgres (E0, E2)
+perdura_sso.py        SSO bearer tokens — JWT verified against an IdP's JWKS (E2)
+perdura_service.py    Authenticated HTTP service — the three planes, multi-tenant (E1, E2)
 perdura_retrieval.py  Pluggable retrieval layer (Phase 1.5)
 perdura_track.py      Per-model/per-domain track records (Phase 2)
 perdura_router.py     The epistemic router — contention-driven escalation (Phase 3)
@@ -226,16 +257,21 @@ tests/                Offline invariant suite (pytest) — runs in CI
 
 The conductor invariants are pinned by an offline pytest suite — merge
 validation, bounded briefings, attribution hiding, supersede-never-delete,
-contention, the storage round-trip (JSON and SQLite), router budgets, and
-track-record scoring. It needs no API keys or model server (workers import
+contention, the storage round-trip (JSON, SQLite, Postgres), router budgets
+(global and per-domain), track-record scoring, SSO token verification, and
+the E1/E2 service API. It needs no API keys or model server (workers import
 their SDKs lazily), so it runs anywhere:
 
 ```bash
-pip install -e ".[test]"
+pip install -e ".[test,enterprise]"
 pytest
 ```
 
-GitHub Actions runs it on every push and pull request
+The Postgres-backed E2 tests (`tests/test_postgres_store.py`,
+`tests/test_service_e2.py`) skip cleanly when no Postgres is reachable —
+the suite stays offline-by-default everywhere else. GitHub Actions runs the
+full suite, including those, against a real Postgres service container on
+every push and pull request
 ([.github/workflows/ci.yml](.github/workflows/ci.yml)) across Python 3.11
 and 3.12.
 

@@ -28,8 +28,9 @@ supports · contradicts · refines · answers · depends_on
 
 ## Repo layout
 perdura.py             Phase 1 implementation
-perdura_store.py       Pluggable persistence (JSON default / SQLite by extension)
-perdura_service.py     Authenticated HTTP service — three planes, bearer auth (E1)
+perdura_store.py       Pluggable persistence (JSON / SQLite / Postgres multi-tenant, E0+E2)
+perdura_sso.py         SSO bearer tokens — JWT verified against an IdP's JWKS (E2)
+perdura_service.py     Authenticated HTTP service — three planes, single + multi-tenant (E1+E2)
 docs/design.md         Full design doc and rationale
 docs/overview.html     Transit-map architecture visual
 docs/enterprise.md     Enterprise deployment plan (track E0–E3)
@@ -53,6 +54,11 @@ Full detail in ROADMAP.md; docs/memoric-binary.md is the Phase 0 RFC.
 - Phase 3   KERNEL SHIPPED — perdura_router.py (--route, hard budgets,
   escalation by track-record reliability/cost) + escalation_ab.py harness
   (synthetic positive control passes; thesis verdict needs real workers)
+- Enterprise E2 SHIPPED (gate overridden, 2026-06-17) — Postgres
+  multi-tenant store (RLS-isolated, advisory-lock writers), perdura_sso.py
+  (JWT/JWKS), perdura_service.py /graphs/{tenant_id}/... + admin role +
+  per-domain-budget config route. See "Key decisions" below and
+  docs/enterprise.md §1/§7 for the full record of the override.
 
 ## Session conventions
 - Every major change updates README.md AND index.html in the same commit —
@@ -75,9 +81,26 @@ Full detail in ROADMAP.md; docs/memoric-binary.md is the Phase 0 RFC.
 - contention() defaults to edge-only (w=0) until Phase 0 experiments 1+3
   pass (issue #11); the 0.5 blend is opt-in via --memoric-weight and the
   edge-only run stays the required baseline arm
-- Storage is pluggable by file extension (perdura_store.py): JSON file is
-  the default and stays byte-identical; .db/.sqlite[3] selects SQLite WAL.
+- Storage is pluggable by file extension/prefix (perdura_store.py): JSON
+  file is the default and stays byte-identical; .db/.sqlite[3] selects
+  SQLite WAL; postgres(ql):// selects the multi-tenant Postgres tier (E2).
   Same advisory lock + reload-merge-save discipline for every store
 - `redact` is the one sanctioned exception to supersede-never-delete:
   operator-only, destroys node TEXT only (structure/attribution/lineage
   survive), logged — the GDPR escape hatch (docs/enterprise.md §5)
+- **The E2 gate was knowingly overridden, not skipped.** docs/enterprise.md
+  §7 states the gate for E2+: the Phase 3 escalation A/B (contention-routed
+  vs periodic vs random at equal cost) must show contention-routing wins,
+  or stop at E1. That A/B has never run for real — only the synthetic
+  positive control in escalation_ab.py has. The operator explicitly chose
+  (2026-06-17, via direct instruction) to build the full E2 multi-tenant
+  control plane ahead of that gate anyway. Do not silently re-impose the
+  gate on E2 work already shipped; the gate still applies to E3 and to any
+  claim about contention-routing's real-world cost-effectiveness, which
+  remain open
+- Postgres RLS is invisible to a superuser regardless of `FORCE ROW LEVEL
+  SECURITY` — the application's Postgres credential must be a
+  non-superuser, `NOBYPASSRLS` role or tenant isolation is fiction. The
+  tables must also be owned by that role (FORCE doesn't bind to a role that
+  doesn't own the table). tests/test_postgres_store.py proves isolation
+  under exactly this credential shape, including fail-closed behavior

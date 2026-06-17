@@ -86,3 +86,47 @@ def test_ledger_records_every_decision(tmp_path):
         r.pick(g, t)
     assert len(r.ledger) == 3
     assert all("contention" in e and "reason" in e for e in r.ledger)
+
+
+def _contested_with_domain(tmp_path, domain):
+    g = Graph(str(tmp_path / "g.json"))
+    q = g.add_node("question", "Q?", created_by="user", confidence=1.0,
+                   domain_tags=[domain])
+    a = g.add_node("claim", "a", created_by="x", confidence=0.9)
+    b = g.add_node("claim", "b", created_by="y", confidence=0.9)
+    g.add_edge("answers", a, q, "x")
+    g.add_edge("answers", b, q, "y")
+    g.add_edge("contradicts", b, a, "y")
+    return g
+
+
+def test_domain_budget_blocks_escalation_even_under_global_budget(tmp_path):
+    g = _contested_with_domain(tmp_path, "legal")
+    r = Router(registry=_reg(), policy="contention", escalate_at=0.15,
+              domain_budgets={"legal": 0.0})   # plenty of global budget
+    assert r.pick(g, 0).name == "qwen"
+    assert r.ledger[-1]["reason"] == "escalate-unaffordable"
+
+
+def test_domain_budget_does_not_cap_other_domains(tmp_path):
+    g = _contested_with_domain(tmp_path, "legal")
+    r = Router(registry=_reg(), policy="contention", escalate_at=0.15,
+              domain_budgets={"unrelated-domain": 0.0})
+    assert r.pick(g, 0).name == "claude"   # the cap doesn't apply to "legal"
+
+
+def test_domain_spend_accumulates_per_tag(tmp_path):
+    g = _contested_with_domain(tmp_path, "legal")
+    r = Router(registry=_reg(), policy="contention", escalate_at=0.15,
+              domain_budgets={"legal": 3.0})
+    assert r.pick(g, 0).name == "claude"            # spends 3.0 on "legal"
+    assert r.domain_spent["legal"] == 3.0
+    assert r.pick(g, 1).name == "qwen"              # "legal" budget exhausted
+    assert r.ledger[-1]["reason"] == "escalate-unaffordable"
+
+
+def test_uncapped_domain_is_unaffected_by_domain_budgets_dict(tmp_path):
+    g = _contested(tmp_path)   # no domain tags on the question at all
+    r = Router(registry=_reg(), policy="contention", escalate_at=0.15,
+              domain_budgets={"legal": 0.0})
+    assert r.pick(g, 0).name == "claude"

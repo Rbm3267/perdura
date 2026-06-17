@@ -35,26 +35,17 @@ from dataclasses import dataclass, asdict, field
 
 from perdura_store import store_for
 
-try:
-    import fcntl
-except ImportError:          # Windows: no advisory locks; single writer only
-    fcntl = None
-
 
 @contextmanager
 def graph_write_lock(path):
-    """Advisory write lock shared with the MCP station (same lockfile).
-    Writers must reload-merge-save inside it so concurrent conductors and
-    station workers never lose updates (issue #10)."""
-    if fcntl is None:
+    """Advisory write lock, delegated to the store (issue #10). JSON/SQLite
+    use a local flock (shared with the MCP station, same lockfile); Postgres
+    uses a tenant-keyed `pg_advisory_lock` so writers serialize across hosts,
+    not just across processes on one box (E2). Writers must reload-merge-save
+    inside it so concurrent conductors and station workers never lose
+    updates."""
+    with store_for(path).lock():
         yield
-        return
-    with open(path + ".lock", "w") as lf:
-        fcntl.flock(lf, fcntl.LOCK_EX)
-        try:
-            yield
-        finally:
-            fcntl.flock(lf, fcntl.LOCK_UN)
 
 # ---------------------------------------------------------------------------
 # Graph
@@ -787,6 +778,11 @@ def main():
     p.add_argument("--escalate-at", type=float, default=0.15, metavar="C",
                    help="contention threshold that summons a frontier "
                         "worker (--route contention)")
+    p.add_argument("--domain-budget", action="append", default=[],
+                   metavar="TAG=AMOUNT",
+                   help="(E2) per-domain cap on router spend, in the same "
+                        "cost units as --budget; repeatable. A tag with no "
+                        "--domain-budget is uncapped (only --budget applies)")
     args = p.parse_args()
 
     graph = Graph(args.graph)
@@ -806,9 +802,16 @@ def main():
         router = None
         if args.route:
             from perdura_router import Router, registry_from_workers
+            domain_budgets = {}
+            for spec in args.domain_budget:
+                tag, _, amount = spec.partition("=")
+                if not _:
+                    sys.exit(f"--domain-budget wants TAG=AMOUNT, got {spec!r}")
+                domain_budgets[tag] = float(amount)
             router = Router(registry=registry_from_workers(workers),
                             policy=args.route, budget=args.budget,
-                            escalate_at=args.escalate_at)
+                            escalate_at=args.escalate_at,
+                            domain_budgets=domain_budgets)
         from perdura_retrieval import RETRIEVERS
         run_turns(graph, workers, args.turns,
                   retriever=RETRIEVERS[args.retriever](),
