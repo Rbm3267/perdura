@@ -221,7 +221,7 @@ class PostgresStore:
                 domain_budgets JSONB NOT NULL DEFAULT '{}'::jsonb,
                 created_at TIMESTAMPTZ NOT NULL DEFAULT now());
         """)
-        for table in ("nodes", "edges", "log"):
+        for table in ("nodes", "edges", "log", "tenants"):
             con.execute(f"ALTER TABLE {table} ENABLE ROW LEVEL SECURITY")
             con.execute(f"ALTER TABLE {table} FORCE ROW LEVEL SECURITY")
             con.execute(f"""
@@ -299,8 +299,10 @@ class PostgresStore:
             con.execute("SELECT pg_advisory_lock(%s, %s)", (key1, key2))
             yield
         finally:
-            con.execute("SELECT pg_advisory_unlock(%s, %s)", (key1, key2))
-            con.close()
+            try:
+                con.execute("SELECT pg_advisory_unlock(%s, %s)", (key1, key2))
+            finally:
+                con.close()
 
     # -- tenant config (E2 control plane) ------------------------------------
     def get_tenant_config(self) -> dict:

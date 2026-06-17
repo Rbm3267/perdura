@@ -192,3 +192,20 @@ def test_ingest_unknown_adapter_raises(tmp_path):
 
 def test_all_adapters_registered():
     assert set(ADAPTERS) == {"adr", "incident", "ticket", "pr"}
+
+
+@pytest.mark.parametrize("adapter,item", [
+    (adr_delta, {"decision": "no title given"}),
+    (adr_delta, {"title": "no decision given"}),
+    (incident_delta, {"root_cause": "no title given"}),
+    (incident_delta, {"title": "no root cause given"}),
+    (ticket_delta, {"description": "no title given"}),
+    (ticket_delta, {"title": "no description given"}),
+    (pr_review_delta, {"body": "no title given"}),
+])
+def test_adapter_missing_required_key_raises_value_error(adapter, item):
+    """A malformed item should fail loudly with a message naming the
+    adapter and the missing key, not merge a placeholder claim or crash
+    with a bare KeyError."""
+    with pytest.raises(ValueError):
+        adapter(item)

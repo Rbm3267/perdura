@@ -30,6 +30,17 @@ keeps this module dependency-free and offline-testable.
 from perdura import Graph, graph_write_lock, merge_delta
 
 
+def _require(item: dict, key: str, adapter: str) -> str:
+    """A missing required key is a malformed item, not a bug in the
+    conductor -- fail with a message that names the adapter and the key
+    instead of a bare KeyError."""
+    try:
+        return item[key]
+    except KeyError:
+        raise ValueError(
+            f"{adapter}_delta: item is missing required key {key!r}") from None
+
+
 def _attach(question_id, domain_tags, title_if_new):
     """No question_id -> open a new question (ref "q"); edges target that
     ref. A question_id -> edges target the existing node directly; nothing
@@ -52,12 +63,14 @@ def adr_delta(adr: dict, question_id: str = None) -> dict:
     to true iff status == "accepted").
     """
     domain_tags = adr.get("domain_tags", [])
+    title = _require(adr, "title", "adr")
     nodes, dst, existing = _attach(
-        question_id, domain_tags, f"What should we decide: {adr['title']}?")
+        question_id, domain_tags, f"What should we decide: {title}?")
     edges = []
 
     decision_type = "rejected" if adr.get("status") == "rejected" else "decision"
-    nodes.append({"ref": "d", "type": decision_type, "text": adr["decision"],
+    nodes.append({"ref": "d", "type": decision_type,
+                  "text": _require(adr, "decision", "adr"),
                   "confidence": 1.0 if adr.get("status") == "accepted" else 0.5,
                   "domain_tags": domain_tags})
     edges.append({"type": "answers", "src": "d", "dst": dst})
@@ -88,11 +101,13 @@ def incident_delta(incident: dict, question_id: str = None) -> dict:
     to true: a postmortem is written after the cause is established).
     """
     domain_tags = incident.get("domain_tags", [])
+    title = _require(incident, "title", "incident")
     nodes, dst, existing = _attach(
-        question_id, domain_tags, f"What caused: {incident['title']}?")
+        question_id, domain_tags, f"What caused: {title}?")
     edges = []
 
-    nodes.append({"ref": "rc", "type": "claim", "text": incident["root_cause"],
+    nodes.append({"ref": "rc", "type": "claim",
+                  "text": _require(incident, "root_cause", "incident"),
                   "confidence": 0.8, "domain_tags": domain_tags})
     edges.append({"type": "answers", "src": "rc", "dst": dst})
 
@@ -122,10 +137,12 @@ def ticket_delta(ticket: dict, question_id: str = None) -> dict:
     is closed/resolved/done).
     """
     domain_tags = ticket.get("domain_tags") or ticket.get("labels", [])
-    nodes, dst, existing = _attach(question_id, domain_tags, ticket["title"])
+    title = _require(ticket, "title", "ticket")
+    nodes, dst, existing = _attach(question_id, domain_tags, title)
     edges = []
 
-    nodes.append({"ref": "c", "type": "claim", "text": ticket["description"],
+    nodes.append({"ref": "c", "type": "claim",
+                  "text": _require(ticket, "description", "ticket"),
                   "confidence": 0.5, "domain_tags": domain_tags})
     edges.append({"type": "answers", "src": "c", "dst": dst})
 
@@ -149,11 +166,12 @@ def pr_review_delta(pr: dict, question_id: str = None) -> dict:
     merged, resolved (bool, optional — resolved defaults to `merged`).
     """
     domain_tags = pr.get("domain_tags", [])
+    title = _require(pr, "title", "pr")
     nodes, dst, existing = _attach(
-        question_id, domain_tags, f"Should we merge: {pr['title']}?")
+        question_id, domain_tags, f"Should we merge: {title}?")
     edges = []
 
-    nodes.append({"ref": "c", "type": "claim", "text": pr.get("body") or pr["title"],
+    nodes.append({"ref": "c", "type": "claim", "text": pr.get("body") or title,
                   "confidence": 0.5, "domain_tags": domain_tags})
     edges.append({"type": "answers", "src": "c", "dst": dst})
 

@@ -59,6 +59,10 @@ from perdura_store import store_for
 # role rank: each role inherits everything ranked below it
 _RANK = {"worker": 1, "operator": 2, "admin": 3}
 
+# caps a worker-controlled Content-Length before it's used to size a read,
+# so a forged header can't be used to force an oversized in-memory buffer
+_MAX_BODY_SIZE = 10 * 1024 * 1024  # 10MB
+
 
 def _dsn_for_tenant(base_dsn: str, tenant_id: str) -> str:
     parts = urlsplit(base_dsn)
@@ -148,6 +152,15 @@ def make_handler(graph_path: str = None, tokens: dict = None,
             self.end_headers()
             self.wfile.write(body)
 
+        def _read_body(self):
+            """Returns the request body bytes, or None after sending 413 if
+            the (caller-controlled) Content-Length exceeds the cap."""
+            length = int(self.headers.get("Content-Length") or 0)
+            if length > _MAX_BODY_SIZE:
+                self._send(413, {"error": "request entity too large"})
+                return None
+            return self.rfile.read(length)
+
         def _authorize(self, need, tenant_id):
             """Return the caller's role, or None after sending 401/403."""
             resolved = self._resolve_token()
@@ -220,9 +233,11 @@ def make_handler(graph_path: str = None, tokens: dict = None,
             if PG_DSN is None:
                 return self._send(400, {"error": "tenant config needs "
                                         "multi-tenant (--pg-dsn) mode"})
-            length = int(self.headers.get("Content-Length") or 0)
+            body = self._read_body()
+            if body is None:
+                return
             try:
-                payload = json.loads(self.rfile.read(length) or b"{}")
+                payload = json.loads(body or b"{}")
                 domain_budgets = {str(k): float(v) for k, v in
                                   dict(payload["domain_budgets"]).items()}
             except Exception as e:
@@ -269,9 +284,11 @@ def make_handler(graph_path: str = None, tokens: dict = None,
                 return self._send(404, {"error": "no such route"})
             if not self._authorize("worker", tenant_id):
                 return
-            length = int(self.headers.get("Content-Length") or 0)
+            body = self._read_body()
+            if body is None:
+                return
             try:
-                payload = json.loads(self.rfile.read(length) or b"{}")
+                payload = json.loads(body or b"{}")
                 worker = str(payload.get("worker") or "service-client")
                 raw = payload["delta"]
                 delta = parse_delta(raw if isinstance(raw, str)
