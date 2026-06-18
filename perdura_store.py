@@ -172,6 +172,14 @@ class PostgresStore:
     The write lock is a Postgres advisory lock keyed by tenant, so it
     coordinates writers across hosts — the thing a flock on a local path
     cannot do, and the reason this tier exists.
+
+    Connections are pooled (psycopg_pool.ConnectionPool, one pool per DSN,
+    shared across every tenant on that database) rather than opened fresh
+    per load/save/config call — load-bearing under perdura_service.py,
+    which constructs a new PostgresStore per HTTP request. The advisory
+    lock in `lock()` deliberately bypasses the pool: it's held for the
+    whole reload-merge-save critical section, not one query, so it gets
+    its own dedicated connection for that duration.
     """
 
     # Schema DDL (ALTER TABLE ... ENABLE/FORCE ROW LEVEL SECURITY) takes an
@@ -181,6 +189,14 @@ class PostgresStore:
     # cheap and free of that lock entirely.
     _schema_lock = threading.Lock()
     _schema_ready: set = set()
+
+    # One pool per (tenant-stripped) DSN, shared by every PostgresStore
+    # instance/tenant on that database — perdura_service.py builds a new
+    # PostgresStore per request, so pooling has to live above the instance
+    # or it would just be opening a fresh connection per request again.
+    # Tenant scoping is per-checkout (set_config below), not per-pool.
+    _pool_lock = threading.Lock()
+    _pools: dict = {}
 
     def __init__(self, dsn: str):
         parts = urlsplit(dsn)
@@ -192,18 +208,31 @@ class PostgresStore:
         self.tenant_id = tenant
 
     # -- connection / schema -------------------------------------------------
+    @classmethod
+    def _pool_for(cls, dsn: str):
+        pool = cls._pools.get(dsn)
+        if pool is None:
+            from psycopg_pool import ConnectionPool
+            with cls._pool_lock:
+                pool = cls._pools.get(dsn)
+                if pool is None:
+                    pool = ConnectionPool(dsn, min_size=1, max_size=10, open=True)
+                    cls._pools[dsn] = pool
+        return pool
+
+    @contextmanager
     def _connect(self):
-        import psycopg
-        con = psycopg.connect(self.dsn)
-        if self.dsn not in PostgresStore._schema_ready:
-            with PostgresStore._schema_lock:
-                if self.dsn not in PostgresStore._schema_ready:
-                    self._ensure_schema(con)
-                    PostgresStore._schema_ready.add(self.dsn)
-        con.execute("SELECT set_config('perdura.tenant_id', %s, false)",
-                    (self.tenant_id,))
-        con.commit()
-        return con
+        pool = self._pool_for(self.dsn)
+        with pool.connection() as con:
+            if self.dsn not in PostgresStore._schema_ready:
+                with PostgresStore._schema_lock:
+                    if self.dsn not in PostgresStore._schema_ready:
+                        self._ensure_schema(con)
+                        PostgresStore._schema_ready.add(self.dsn)
+            con.execute("SELECT set_config('perdura.tenant_id', %s, false)",
+                        (self.tenant_id,))
+            con.commit()
+            yield con
 
     def _ensure_schema(self, con):
         con.execute("""
@@ -221,7 +250,7 @@ class PostgresStore:
                 domain_budgets JSONB NOT NULL DEFAULT '{}'::jsonb,
                 created_at TIMESTAMPTZ NOT NULL DEFAULT now());
         """)
-        for table in ("nodes", "edges", "log"):
+        for table in ("nodes", "edges", "log", "tenants"):
             con.execute(f"ALTER TABLE {table} ENABLE ROW LEVEL SECURITY")
             con.execute(f"ALTER TABLE {table} FORCE ROW LEVEL SECURITY")
             con.execute(f"""
@@ -235,18 +264,14 @@ class PostgresStore:
     def exists(self) -> bool:
         # A tenant "exists" once it has ever saved — an empty/never-seen
         # tenant behaves like a fresh graph, same as a missing JSON file.
-        con = self._connect()
-        try:
+        with self._connect() as con:
             row = con.execute(
                 "SELECT 1 FROM tenants WHERE tenant_id = %s",
                 (self.tenant_id,)).fetchone()
             return row is not None
-        finally:
-            con.close()
 
     def load(self) -> dict:
-        con = self._connect()
-        try:
+        with self._connect() as con:
             nodes = [r[0] for r in con.execute(
                 "SELECT data FROM nodes WHERE tenant_id = %s", (self.tenant_id,))]
             edges = [r[0] for r in con.execute(
@@ -255,13 +280,10 @@ class PostgresStore:
                 "SELECT entry FROM log WHERE tenant_id = %s ORDER BY seq",
                 (self.tenant_id,))]
             return {"nodes": nodes, "edges": edges, "log": log}
-        finally:
-            con.close()
 
     def save(self, nodes: list, edges: list, log: list):
         from psycopg.types.json import Jsonb
-        con = self._connect()
-        try:
+        with self._connect() as con:
             with con.transaction(), con.cursor() as cur:
                 cur.execute(
                     "INSERT INTO tenants (tenant_id) VALUES (%s) "
@@ -281,8 +303,6 @@ class PostgresStore:
                     "INSERT INTO log (tenant_id, seq, entry) VALUES (%s, %s, %s)",
                     [(self.tenant_id, stored + i, Jsonb(entry))
                      for i, entry in enumerate(log[stored:])])
-        finally:
-            con.close()
 
     @contextmanager
     def lock(self):
@@ -299,30 +319,26 @@ class PostgresStore:
             con.execute("SELECT pg_advisory_lock(%s, %s)", (key1, key2))
             yield
         finally:
-            con.execute("SELECT pg_advisory_unlock(%s, %s)", (key1, key2))
-            con.close()
+            try:
+                con.execute("SELECT pg_advisory_unlock(%s, %s)", (key1, key2))
+            finally:
+                con.close()
 
     # -- tenant config (E2 control plane) ------------------------------------
     def get_tenant_config(self) -> dict:
-        con = self._connect()
-        try:
+        with self._connect() as con:
             row = con.execute(
                 "SELECT domain_budgets FROM tenants WHERE tenant_id = %s",
                 (self.tenant_id,)).fetchone()
             return {"tenant_id": self.tenant_id,
                     "domain_budgets": (row[0] if row else {}) or {}}
-        finally:
-            con.close()
 
     def set_tenant_config(self, domain_budgets: dict):
         from psycopg.types.json import Jsonb
-        con = self._connect()
-        try:
+        with self._connect() as con:
             with con.transaction():
                 con.execute(
                     "INSERT INTO tenants (tenant_id, domain_budgets) "
                     "VALUES (%s, %s) ON CONFLICT (tenant_id) "
                     "DO UPDATE SET domain_budgets = excluded.domain_budgets",
                     (self.tenant_id, Jsonb(domain_budgets)))
-        finally:
-            con.close()

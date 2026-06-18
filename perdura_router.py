@@ -133,7 +133,7 @@ class Router:
     def pick(self, graph, turn: int):
         """Choose the worker for this turn; returns the worker instance."""
         q = hottest_question(graph)
-        domains = q.domain_tags if q else []
+        domains = (q.domain_tags or []) if q else []
         contention = graph.contention(graph.neighborhood(q.id)) if q else 0.0
         if self.policy == "contention":
             escalate = contention >= self.escalate_at

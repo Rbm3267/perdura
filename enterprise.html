@@ -66,19 +66,22 @@
 </div></nav>
 <main><div class="doc-kicker">Documentation</div>
 <h1>Perdura in the enterprise — deployment plan</h1>
-<p><em>Status: E0, E1, and E2 shipped. Everything here is the application layer on
-top of the Phase 3 research bet: if contention-driven routing does not beat
-periodic/random escalation at equal cost, this document describes a nice
-decision-record graph, not a product. The research result is the moat.</em></p>
+<p><em>Status: E0, E1, E2, and E3 shipped. Everything here is the application layer
+on top of the Phase 3 research bet: if contention-driven routing does not
+beat periodic/random escalation at equal cost, this document describes a
+nice decision-record graph, not a product. The research result is the moat.</em></p>
 <p><em>Gate note: the documented gate for E2+ below (§7) is the Phase 3 escalation
 A/B passing on real workers. That A/B has not been run for real — only the
 synthetic positive control in <code>escalation_ab.py</code> has. The operator made an
 explicit, informed decision to build E2 anyway, ahead of the gate, rather
-than have it skipped silently. This paragraph is that record. The gate
-still applies to anything claimed about contention-routing's real-world
-cost-effectiveness; it does not apply to "can this codebase serve a
-multi-tenant, SSO-authenticated, RLS-isolated control plane," which E2
-now answers for real.</em></p>
+than have it skipped silently — and made the same explicit decision again
+for E3, which §7 had called out as still gated even after the E2 override.
+This paragraph is that record. The gate still applies to anything claimed
+about contention-routing's real-world cost-effectiveness; it does not apply
+to "can this codebase serve a multi-tenant, SSO-authenticated, RLS-isolated
+control plane" (E2) or "can PR/ADR/incident/ticket streams propose deltas
+through the normal merge path, with cross-stream collision audits falling
+out of existing machinery" (E3) — both of which now answer for real.</em></p>
 <h2>1. Why the concept transfers</h2>
 <p>Perdura's thesis — the graph is the system of record; models are ephemeral
 workers — generalizes past models. In an organization, <strong>people, vendors,
@@ -139,9 +142,10 @@ which collapses the API surface to three planes:</p>
 </tbody>
 </table>
 <p><em>(E1 ships these as <code>perdura_service.py</code> — <code>POST /deltas</code>, <code>GET /briefing</code>,
-<code>/questions</code>, <code>/contention</code> for worker tokens; <code>GET /track</code>, <code>/graph</code> for
-operator tokens. The <code>/graphs/{id}/…</code> multi-tenant prefix arrives with the
-Postgres store in E2.)</em></p>
+<code>/questions</code>, <code>/contention</code> for worker tokens; <code>GET /track</code>, <code>/graph</code>,
+<code>/viz</code> (live collision-aware mind map) for operator tokens. The
+<code>/graphs/{id}/…</code> multi-tenant prefix arrives with the Postgres store in
+E2.)</em></p>
 <p>The merge path stays pure code with no LLM in the loop — schema validation
 rejects garbage at the door, every write is cheap, auditable, and
 deterministic. That is exactly what an enterprise platform team wants from
@@ -210,6 +214,14 @@ fiction. <code>tests/test_postgres_store.py</code> proves isolation against that
 role shape, including fail-closed behavior (no tenant set → no rows, not all
 rows). The write lock is a Postgres advisory lock keyed by tenant, so writers
 serialize across hosts, not just within one box.</p>
+<p><code>PostgresStore</code> pools connections (<code>psycopg_pool.ConnectionPool</code>, one pool
+per database DSN, shared across every tenant on it) rather than opening a
+fresh connection per load/save/config call — <code>perdura_service.py</code>
+constructs a new store per HTTP request, so pooling lives at the class
+level, above any one store instance, or it would just move the same
+per-request connection cost one layer up. The advisory lock in <code>lock()</code>
+keeps its own dedicated connection outside the pool, since it's held for
+an entire reload-merge-save cycle, not a single query.</p>
 <h2>5. Security and compliance — the accidental enterprise features</h2>
 <p>Existing conductor invariants, re-read through a procurement lens:</p>
 <ul>
@@ -249,6 +261,32 @@ another worker).</p>
 <p>Metering falls out of the same seams: deltas merged, briefings served,
 audit boardings run — usage-based billing aligned with value, not raw
 token burn.</p>
+<p><strong>Shipped:</strong> <code>perdura_ingest.py</code> — one pure function per stream
+(<code>adr_delta</code>, <code>incident_delta</code>, <code>ticket_delta</code>, <code>pr_review_delta</code>) maps a
+plain dict (already-fetched item data, not a live API call) to the
+strict-JSON delta schema; <code>ingest()</code> merges it through <code>merge_delta()</code>
+under the same write lock as an LLM worker turn — <code>python perdura.py
+ingest &lt;file.json&gt; --adapter {adr,incident,ticket,pr}</code>, single item or
+batch, optionally <code>--question &lt;node-id&gt;</code> to attach to an existing open
+question instead of opening a new one. Attribution is stamped
+<code>adapter:&lt;source&gt;</code> (e.g. <code>adapter:incident</code>), so two things fall out with
+no new machinery: per-domain track records (<code>perdura.py track</code>) score each
+stream's reliability over time exactly like an LLM worker, and the
+collision detector (<code>--audit-every</code>) finds lexically-close, unlinked
+claims <strong>across streams</strong> — an ADR's context claim and an incident's
+root-cause claim about the same area — which is the cross-stream
+collision audit this section called for.</p>
+<p><strong>Also shipped:</strong> <code>perdura_connectors.py</code> closes the "already-fetched
+item" gap above for one stream — <code>fetch_github_prs</code>/<code>sync_github_prs</code>
+pull merged PRs and their review comments straight from the GitHub REST
+API and feed them through <code>pr_review_delta</code>, with a cursor (highest PR
+number synced) for idempotent incremental re-sync. <code>perdura.py
+sync-github --repo owner/name --token $GITHUB_TOKEN</code> runs it end to end.
+The HTTP transport is an injected <code>fetch</code> callable — the default hits
+<code>api.github.com</code> via <code>urllib</code>, tests supply a fake — so the connector's
+mapping and cursor logic is covered offline (<code>tests/test_connectors.py</code>)
+the same way every other adapter is, with no token or live call required
+to prove it works.</p>
 <h2>7. Enterprise track roadmap</h2>
 <p>Runs parallel to the research phases; each step is gated so the research
 focus is never displaced.</p>
@@ -272,17 +310,27 @@ focus is never displaced.</p>
   front of RLS), and a real <code>GET</code>/<code>PUT /graphs/{tenant_id}/config</code> for
   per-domain router budgets (<code>perdura_router.py</code>'s <code>domain_budgets</code>,
   persisted in Postgres instead of a CLI flag).</li>
-<li><strong>E3 — ingestion adapters</strong>: PR/ADR/incident/ticket adapters proposing
-  deltas through the merge path; cross-stream collision audits.</li>
+<li><strong>E3 — ingestion adapters</strong> ✅ (gate overridden — see below)
+  <code>perdura_ingest.py</code>: <code>adr_delta</code>/<code>incident_delta</code>/<code>ticket_delta</code>/
+  <code>pr_review_delta</code> map a structured item to the strict-JSON delta schema;
+  <code>ingest()</code> merges through the normal conductor path (same write lock,
+  same validation, same attribution stamping as an LLM worker turn) — no
+  privileged side door. <code>perdura.py ingest &lt;file&gt; --adapter ...</code> (CLI),
+  single item or batch. Attribution <code>adapter:&lt;source&gt;</code> makes cross-stream
+  collision audits fall out of the existing collision detector
+  (<code>--audit-every</code>) and gives each stream its own track record for free.
+  <code>perdura_connectors.py</code> (same date) adds a live GitHub PR connector —
+  <code>perdura.py sync-github --repo owner/name</code> — so <code>pr_review_delta</code> can
+  run against the real API instead of a pre-fetched dict, with a cursor
+  file for idempotent incremental sync.</li>
 <li><strong>Gate for E2+:</strong> the Phase 3 escalation A/B (contention-routed vs
   periodic vs random at equal cost) must show contention-routing wins.
   If it does not, stop at E1 and say so honestly. <strong>This gate was not
-  satisfied when E2 was built</strong> — only the synthetic positive control in
-  <code>escalation_ab.py</code> has run, never the real-worker A/B. The operator
-  explicitly chose to override the gate and build E2 anyway (see the
-  status note at the top of this document); E3 and any claims about
-  contention-routing's real-world cost-effectiveness still wait on the
-  real A/B.</li>
+  satisfied when E2 or E3 was built</strong> — only the synthetic positive
+  control in <code>escalation_ab.py</code> has run, never the real-worker A/B. The
+  operator explicitly chose to override the gate for both (see the status
+  note at the top of this document); any claim about contention-routing's
+  real-world cost-effectiveness still waits on the real A/B.</li>
 </ul>
 </main>
 <footer>© 2026 Perdura · perdura.network · MIT licensed · open research — content will change</footer>

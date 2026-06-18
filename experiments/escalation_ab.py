@@ -18,8 +18,8 @@ one), same workers, same turn count:
     cheap        never escalate (the floor)
 
 Metrics per arm: spend, escalations, outcome flips (contradicts +
-supersessions authored by the frontier worker), and **mean contention at
-the moment of escalation** — the targeting-precision metric: it asks
+supersessions authored by a frontier-tier worker), and **mean contention
+at the moment of escalation** — the targeting-precision metric: it asks
 whether frontier spend landed where the graph was actually disagreeing
 with itself, and it works identically for scripted and real workers.
 
@@ -28,12 +28,17 @@ harness, not evidence for the thesis: the scripted frontier worker always
 challenges, so flip counts converge at equal cost by construction. What
 synthetic mode validates is the machinery — cost parity holds, the
 contention arm escalates only above threshold, the cheap arm spends
-nothing, and every delta merges through the normal conductor path. The
-thesis itself needs real workers:
+nothing, and every delta merges through the normal conductor path.
 
-    python experiments/escalation_ab.py            # synthetic control
-    (real arms: run perdura.py run --route ... with real workers and
-     compare ledgers/scorecards — same metrics, real outcomes)
+    python experiments/escalation_ab.py                  # synthetic control
+
+The thesis itself needs real workers, which `--real` runs through this
+same harness — same seeded graph, same four arms, same metrics, real
+outcomes (needs ANTHROPIC_API_KEY/GEMINI_API_KEY, or a local Qwen server
+for --local qwen):
+
+    python experiments/escalation_ab.py --real \\
+        --local qwen --frontier claude,gemini
 """
 
 import json
@@ -45,7 +50,7 @@ import tempfile
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from perdura import Graph, run_turns
-from perdura_router import ModelSpec, Router
+from perdura_router import DEFAULT_COSTS, DEFAULT_TIERS, ModelSpec, Router
 
 TURNS = 12
 BUDGET = 4.0
@@ -106,6 +111,16 @@ class ChallengerWorker:
         })
 
 
+def _synthetic_registry():
+    """Fresh Pad/Challenger pair with their shared "#i" counters reset, so
+    every arm's transcript starts from "#1" regardless of run order."""
+    PadWorker._i = ChallengerWorker._i = 0
+    pad, challenger = PadWorker(), ChallengerWorker()
+    return ([ModelSpec("pad", 0.0, "local", pad),
+             ModelSpec("challenger", 1.0, "frontier", challenger)],
+            [pad, challenger])
+
+
 # -- protocol -----------------------------------------------------------------
 
 def seed(path: str) -> Graph:
@@ -130,24 +145,25 @@ def seed(path: str) -> Graph:
     return g
 
 
-def run_arm(policy: str, workdir: str, every: int = 3,
-            p_escalate: float = 0.0) -> dict:
-    PadWorker._i = ChallengerWorker._i = 0
+def run_arm(policy: str, workdir: str, registry: list, workers: list,
+           every: int = 3, p_escalate: float = 0.0, turns: int = TURNS,
+           budget: float = BUDGET, escalate_at: float = ESCALATE_AT) -> dict:
+    """Run one arm's protocol on a fresh seeded graph against the given
+    registry/workers (scripted Pad/Challenger for the synthetic control,
+    real ClaudeWorker/GeminiWorker/QwenWorker for `--real`)."""
     g = seed(os.path.join(workdir, f"{policy}.json"))
-    workers = [PadWorker(), ChallengerWorker()]
-    router = Router(
-        registry=[ModelSpec("pad", 0.0, "local", workers[0]),
-                  ModelSpec("challenger", 1.0, "frontier", workers[1])],
-        policy=policy, budget=BUDGET, escalate_at=ESCALATE_AT,
-        every=every, p_escalate=p_escalate, seed=42)
-    run_turns(g, workers, TURNS, router=router)
+    router = Router(registry=registry, policy=policy, budget=budget,
+                    escalate_at=escalate_at, every=every,
+                    p_escalate=p_escalate, seed=42)
+    run_turns(g, workers, turns, router=router)
     esc = [e for e in router.ledger if e["reason"] == "escalate"]
+    frontier_names = {s.name for s in registry if s.tier == "frontier"}
     flips = sum(1 for e in g.edges.values()
-                if e.type == "contradicts" and e.created_by == "challenger")
+                if e.type == "contradicts" and e.created_by in frontier_names)
     flips += sum(1 for n in g.nodes.values()
-                 if n.superseded_by and n.created_by != "challenger"
+                 if n.superseded_by and n.created_by not in frontier_names
                  and g.nodes.get(n.superseded_by) is not None
-                 and g.nodes[n.superseded_by].created_by == "challenger")
+                 and g.nodes[n.superseded_by].created_by in frontier_names)
     return {"policy": policy, "spend": router.spent,
             "escalations": len(esc),
             "mean_contention_at_escalation":
@@ -158,19 +174,71 @@ def run_arm(policy: str, workdir: str, every: int = 3,
             "ledger": router.ledger}
 
 
-def main():
+def _run_four_arms(build_registry, turns, budget, escalate_at) -> dict:
+    """Run all four arms with a fresh (registry, workers) pair per arm
+    (`build_registry()` -> (registry, workers)), periodic/random tuned to
+    the contention arm's escalation count for cost parity."""
     with tempfile.TemporaryDirectory() as workdir:
         arms = {}
-        arms["contention"] = run_arm("contention", workdir)
+        registry, workers = build_registry()
+        arms["contention"] = run_arm("contention", workdir, registry, workers,
+                                     turns=turns, budget=budget,
+                                     escalate_at=escalate_at)
         e = max(arms["contention"]["escalations"], 1)
-        arms["periodic"] = run_arm("periodic", workdir,
-                                   every=max(round(TURNS / e), 1))
-        arms["random"] = run_arm("random", workdir, p_escalate=e / TURNS)
-        arms["cheap"] = run_arm("cheap", workdir)
+        registry, workers = build_registry()
+        arms["periodic"] = run_arm("periodic", workdir, registry, workers,
+                                   every=max(round(turns / e), 1), turns=turns,
+                                   budget=budget, escalate_at=escalate_at)
+        registry, workers = build_registry()
+        arms["random"] = run_arm("random", workdir, registry, workers,
+                                 p_escalate=e / turns, turns=turns,
+                                 budget=budget, escalate_at=escalate_at)
+        registry, workers = build_registry()
+        arms["cheap"] = run_arm("cheap", workdir, registry, workers,
+                                turns=turns, budget=budget,
+                                escalate_at=escalate_at)
+    return arms
 
+
+def run_synthetic_arms(turns=TURNS, budget=BUDGET, escalate_at=ESCALATE_AT):
+    return _run_four_arms(_synthetic_registry, turns, budget, escalate_at)
+
+
+def run_real_arms(local_name: str, frontier_names: list, turns=TURNS,
+                  budget=BUDGET, escalate_at=ESCALATE_AT) -> dict:
+    """Same protocol, real workers: `local_name` (zero-cost default labor —
+    qwen needs a local OpenAI-compatible server; mock needs nothing but
+    isn't a real worker) plus `frontier_names` (claude/gemini, real API
+    calls, real cost). Router requires >=1 strictly-zero-cost worker, which
+    is why a local/mock anchor is mandatory even in --real mode."""
+    from types import SimpleNamespace
+
+    from perdura import (DEFAULT_CLAUDE_MODEL, DEFAULT_GEMINI_MODEL,
+                         DEFAULT_QWEN_MODEL, DEFAULT_QWEN_URL,
+                         WORKER_FACTORIES)
+
+    fake_args = SimpleNamespace(claude_model=DEFAULT_CLAUDE_MODEL,
+                                gemini_model=DEFAULT_GEMINI_MODEL,
+                                qwen_model=DEFAULT_QWEN_MODEL,
+                                qwen_url=DEFAULT_QWEN_URL)
+
+    def build_registry():
+        names = [local_name] + [n for n in frontier_names if n]
+        instances = [(name, WORKER_FACTORIES[name](fake_args)) for name in names]
+        registry = [ModelSpec(name, DEFAULT_COSTS.get(name, 0.0),
+                              DEFAULT_TIERS.get(name, "local"), w)
+                   for name, w in instances]
+        return registry, [w for _, w in instances]
+
+    return _run_four_arms(build_registry, turns, budget, escalate_at)
+
+
+# -- reporting ------------------------------------------------------------
+
+def print_report(arms: dict, turns: int, budget: float, escalate_at: float):
     print("\n" + "=" * 72)
-    print(f"Escalation A/B — {TURNS} turns, budget {BUDGET:g}, "
-          f"threshold {ESCALATE_AT}")
+    print(f"Escalation A/B — {turns} turns, budget {budget:g}, "
+          f"threshold {escalate_at}")
     print(f"{'arm':<12}{'spend':>6}{'escal.':>8}{'flips':>7}"
           f"{'cont@esc':>10}{'final cont.':>13}")
     for a in arms.values():
@@ -178,9 +246,45 @@ def main():
               f"{a['flips']:>7}{a['mean_contention_at_escalation']:>10}"
               f"{a['final_contention']:>13}")
 
+
+def main():
+    import argparse
+    p = argparse.ArgumentParser(description=__doc__,
+                                formatter_class=argparse.RawDescriptionHelpFormatter)
+    p.add_argument("--real", action="store_true",
+                  help="run real workers instead of the synthetic positive "
+                       "control — this is the actual decisive experiment")
+    p.add_argument("--local", default="qwen", choices=["qwen", "mock"],
+                  help="(--real only) the zero-cost default-labor worker; "
+                       "qwen needs a local OpenAI-compatible server "
+                       "(--qwen-url in perdura.py's default, LM Studio)")
+    p.add_argument("--frontier", default="claude,gemini",
+                  help="(--real only) comma list of frontier workers to "
+                       "escalate to; needs the matching API key(s) "
+                       "(ANTHROPIC_API_KEY / GEMINI_API_KEY)")
+    p.add_argument("--turns", type=int, default=TURNS)
+    p.add_argument("--budget", type=float, default=BUDGET)
+    p.add_argument("--escalate-at", type=float, default=ESCALATE_AT)
+    args = p.parse_args()
+
+    if args.real:
+        arms = run_real_arms(args.local, args.frontier.split(","),
+                             turns=args.turns, budget=args.budget,
+                             escalate_at=args.escalate_at)
+        print_report(arms, args.turns, args.budget, args.escalate_at)
+        print("\nREAL WORKER RUN — this is the decisive Phase 3 experiment "
+              "(docs/enterprise.md's gate), not a positive control: no "
+              "pass/fail assertion here, read the table. Contention-routing's "
+              "real-world cost-effectiveness was an open claim before this "
+              "run (CLAUDE.md \"Key decisions\") — this is what answers it.")
+        return
+
+    arms = run_synthetic_arms(args.turns, args.budget, args.escalate_at)
+    print_report(arms, args.turns, args.budget, args.escalate_at)
+
     # harness validity checks (the synthetic arm is a positive control)
     c = arms["contention"]
-    assert all(e["contention"] >= ESCALATE_AT for e in c["ledger"]
+    assert all(e["contention"] >= args.escalate_at for e in c["ledger"]
                if e["reason"] == "escalate"), \
         "contention arm escalated below threshold"
     assert arms["cheap"]["spend"] == 0, "cheap arm spent budget"
@@ -189,8 +293,10 @@ def main():
     assert c["mean_contention_at_escalation"] >= \
         arms["random"]["mean_contention_at_escalation"], \
         "contention arm did not out-target random at escalation time"
-    print("\nharness checks passed — synthetic positive control only; "
-          "the thesis verdict needs real workers (see module docstring)")
+    print("\nharness checks passed — synthetic positive control only; the "
+          "thesis verdict needs real workers: rerun with --real (needs "
+          "ANTHROPIC_API_KEY/GEMINI_API_KEY, or a local Qwen server for "
+          "--local qwen)")
 
 
 if __name__ == "__main__":

@@ -32,6 +32,7 @@ caller, unlike a missing local config which simply has no such caller.
 
 import json
 import os
+import threading
 import time
 import urllib.request
 
@@ -58,6 +59,7 @@ class SSOConfig:
         self.algorithms = list(algorithms)
         self._jwks_cache = None
         self._jwks_cached_at = 0.0
+        self._jwks_lock = threading.Lock()
 
     @classmethod
     def from_env(cls):
@@ -83,9 +85,13 @@ class SSOConfig:
                 return json.load(f)
         now = time.monotonic()
         if self._jwks_cache is None or now - self._jwks_cached_at > JWKS_CACHE_TTL:
-            with urllib.request.urlopen(self.jwks_url, timeout=5) as resp:
-                self._jwks_cache = json.load(resp)
-            self._jwks_cached_at = now
+            with self._jwks_lock:
+                now = time.monotonic()
+                if self._jwks_cache is None \
+                        or now - self._jwks_cached_at > JWKS_CACHE_TTL:
+                    with urllib.request.urlopen(self.jwks_url, timeout=5) as resp:
+                        self._jwks_cache = json.load(resp)
+                    self._jwks_cached_at = now
         return self._jwks_cache
 
     def _public_key_for(self, token: str):

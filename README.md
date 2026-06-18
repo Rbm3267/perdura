@@ -52,7 +52,7 @@ python perdura.py show
 All-local labor: `python perdura.py run --turns 10 --workers qwen`
 Ollama instead of LM Studio: `--qwen-url http://localhost:11434/v1 --qwen-model qwen3:14b`
 Manufacture contention (devil's-advocate every 3rd turn): `--adversarial-every 3`
-Visualize the graph: `python perdura.py viz` → `perdura_mindmap.html`
+Visualize the graph: `python perdura.py viz` → `perdura_mindmap.html` (draws `collision_candidates()` as dotted lines — lexically-close, unlinked claim pairs from different authors)
 Per-model reliability scorecard: `python perdura.py track`
 Surface latent disagreement (stance audit every 4th turn): `--audit-every 4`
 **Live dashboard** (watch a session land in real time): `python perdura.py ui` → http://127.0.0.1:8800
@@ -97,7 +97,11 @@ The graph is the only state, so persistence is pluggable
   graph-per-tenant, with row-level security FORCEd as a hard isolation
   backstop (proven against a non-superuser role — RLS is invisible to
   superusers regardless of FORCE) and a tenant-keyed Postgres advisory lock
-  serializing writers across hosts.
+  serializing writers across hosts. Connections are pooled
+  (`psycopg_pool`, one pool per database shared across every tenant) so a
+  service handling many short-lived HTTP requests (`perdura_service.py`
+  builds a new store per request) reuses connections instead of paying a
+  fresh handshake on every load/save/config call.
 
 `python perdura.py redact <node-id>` is the operator-only compliance
 escape hatch (GDPR erasure vs supersede-never-delete): the text payload is
@@ -153,7 +157,17 @@ live track records) and the A/B harness
 (`experiments/escalation_ab.py`), whose synthetic positive control already
 shows the targeting separation — at equal spend and equal flips, mean
 contention at the moment of escalation is 0.48 (contention-routed) vs 0.31
-(random) vs 0.14 (periodic).
+(random) vs 0.14 (periodic). The harness can now run the real arm too:
+
+```bash
+python experiments/escalation_ab.py --real --local qwen --frontier claude,gemini
+```
+
+needs `ANTHROPIC_API_KEY`/`GEMINI_API_KEY` (or a local Qwen server for
+`--local qwen`) — none of which this repo's CI or any sandboxed dev
+environment supplies, so the real verdict is still open; `--real` prints
+the same metrics table with no pass/fail assertion, because that table
+*is* the result, not a check on the harness.
 
 ## The MCP station
 
@@ -186,7 +200,12 @@ PERDURA_WORKER_TOKEN=… PERDURA_OPERATOR_TOKEN=… \
 |---|---|---|
 | `/briefing`, `/questions`, `/contention` | GET | worker or operator |
 | `/deltas` | POST | worker or operator |
-| `/track`, `/graph` (attributed) | GET | operator only |
+| `/track`, `/graph` (attributed), `/viz` (live mind map) | GET | operator only |
+
+`/viz` renders the same collision-aware mind map as `perdura.py viz`, live
+from the current graph — operator-only because, unlike `/briefing`, it
+exposes the *entire* graph's text, not a bounded 2-hop neighborhood (it
+still strips attribution).
 
 Worker tokens board, contribute, and read contention but never see
 authorship; `/track` and the attributed `/graph` return 403 for them. The
@@ -221,6 +240,45 @@ RLS is the backstop behind that HTTP-layer check, not a substitute for it.
 Full deployment plan, including the explicit record of the E2 gate decision:
 [docs/enterprise.md](docs/enterprise.md).
 
+## Claim ingestion (enterprise E3)
+
+An enterprise platform is a claim factory: tickets, PR reviews, incident
+postmortems, ADRs. `perdura_ingest.py` turns one structured item from any
+of those streams into the exact strict-JSON delta an LLM worker produces,
+then merges it through the same conductor path — no privileged side door,
+every invariant (validation, attribution, supersede-never-delete) holds for
+machine-ingested claims too:
+
+```bash
+python perdura.py ingest items.json --adapter {adr,incident,ticket,pr}
+# attach to an existing open question instead of opening a new one:
+python perdura.py ingest items.json --adapter ticket --question n_xxxxxxxx
+```
+
+`items.json` is a single object or a list (batch ingestion), shaped to the
+adapter's expected keys (see the docstrings in `perdura_ingest.py`).
+Attribution is stamped `adapter:<source>` (e.g. `adapter:incident`), so
+two things fall out for free: per-domain track records
+(`perdura.py track`) score each stream's reliability over time like any
+worker, and the collision detector (`--audit-every`) finds lexically-close,
+unlinked claims **across streams** — an ADR's claim and an incident's claim
+about the same area — the cross-stream collision audits E3 calls for, with
+no new machinery.
+
+**Live connector:** `perdura_connectors.py` fetches merged PRs (and their
+review comments) straight from the GitHub API and ingests them through the
+`pr_review_delta` adapter above — no pre-fetched dict required:
+
+```bash
+python perdura.py sync-github --repo owner/name --token $GITHUB_TOKEN
+# re-run any time: a cursor file (<graph>.github-cursor.json) tracks the
+# highest PR number already synced, so re-running only ingests what's new
+```
+
+The HTTP transport is an injectable `fetch` parameter, so
+`tests/test_connectors.py` covers the mapping and cursor logic offline,
+with no token or network call.
+
 ## Roadmap
 
 | Phase | Scope | Status |
@@ -243,6 +301,8 @@ perdura_memoric.py    Memoric binary encoder/decoder (Phase 0)
 perdura_store.py      Pluggable persistence: JSON file / SQLite WAL / Postgres (E0, E2)
 perdura_sso.py        SSO bearer tokens — JWT verified against an IdP's JWKS (E2)
 perdura_service.py    Authenticated HTTP service — the three planes, multi-tenant (E1, E2)
+perdura_ingest.py     PR/ADR/incident/ticket ingestion adapters -> merge_delta (E3)
+perdura_connectors.py Live GitHub PR connector -> pr_review_delta (E3)
 perdura_retrieval.py  Pluggable retrieval layer (Phase 1.5)
 perdura_track.py      Per-model/per-domain track records (Phase 2)
 perdura_router.py     The epistemic router — contention-driven escalation (Phase 3)
@@ -258,9 +318,15 @@ tests/                Offline invariant suite (pytest) — runs in CI
 The conductor invariants are pinned by an offline pytest suite — merge
 validation, bounded briefings, attribution hiding, supersede-never-delete,
 contention, the storage round-trip (JSON, SQLite, Postgres), router budgets
-(global and per-domain), track-record scoring, SSO token verification, and
-the E1/E2 service API. It needs no API keys or model server (workers import
-their SDKs lazily), so it runs anywhere:
+(global and per-domain), track-record scoring, SSO token verification, the
+E1/E2 service API (including the live `/viz` route), the E3 ingestion
+adapters (`tests/test_ingest.py`) and live GitHub connector
+(`tests/test_connectors.py`), the escalation A/B harness's `--real`
+plumbing (`tests/test_escalation_ab.py`, mock workers standing in for both
+slots), and `PostgresStore`'s connection-pool sharing
+(`tests/test_postgres_pool.py`, a fake pool class — no live Postgres
+needed). It needs no API keys or model server (workers import their SDKs
+lazily), so it runs anywhere:
 
 ```bash
 pip install -e ".[test,enterprise]"

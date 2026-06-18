@@ -86,6 +86,7 @@ def test_briefing_hides_attribution(service):
 def test_worker_forbidden_from_operator_routes(service):
     assert call(service.base, "GET", "/track", token=WTOK)[0] == 403
     assert call(service.base, "GET", "/graph", token=WTOK)[0] == 403
+    assert call(service.base, "GET", "/viz", token=WTOK)[0] == 403
 
 
 def test_operator_sees_track_and_attribution(service):
@@ -94,6 +95,17 @@ def test_operator_sees_track_and_attribution(service):
     assert code == 200
     authors = {n["by"] for n in body["nodes"]}
     assert "alice" in authors and "bob" in authors   # attributed view
+
+
+def test_operator_viz_renders_live_html_without_attribution(service):
+    req = urllib.request.Request(service.base + "/viz", method="GET")
+    req.add_header("Authorization", "Bearer " + OTOK)
+    with urllib.request.urlopen(req) as r:
+        assert r.status == 200
+        assert r.headers["Content-Type"].startswith("text/html")
+        html = r.read().decode()
+    assert "perdura" in html and "const DATA" in html
+    assert "alice" not in html and "bob" not in html   # unattributed, like /briefing
 
 
 def test_delta_merges_through_conductor(service):
