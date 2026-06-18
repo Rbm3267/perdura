@@ -18,7 +18,7 @@ dependencies = [
 [project.optional-dependencies]
 server = ["fastmcp>=2.0"]
 retrieval = ["chromadb>=1.0"]
-enterprise = ["psycopg[binary]>=3.1", "pyjwt[crypto]>=2.8"]
+enterprise = ["psycopg[binary]>=3.1", "psycopg_pool>=3.1", "pyjwt[crypto]>=2.8"]
 test = ["pytest>=8.0"]
 
 [tool.pytest.ini_options]

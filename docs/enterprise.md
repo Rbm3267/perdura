@@ -122,6 +122,15 @@ role shape, including fail-closed behavior (no tenant set → no rows, not all
 rows). The write lock is a Postgres advisory lock keyed by tenant, so writers
 serialize across hosts, not just within one box.
 
+`PostgresStore` pools connections (`psycopg_pool.ConnectionPool`, one pool
+per database DSN, shared across every tenant on it) rather than opening a
+fresh connection per load/save/config call — `perdura_service.py`
+constructs a new store per HTTP request, so pooling lives at the class
+level, above any one store instance, or it would just move the same
+per-request connection cost one layer up. The advisory lock in `lock()`
+keeps its own dedicated connection outside the pool, since it's held for
+an entire reload-merge-save cycle, not a single query.
+
 ## 5. Security and compliance — the accidental enterprise features
 
 Existing conductor invariants, re-read through a procurement lens:

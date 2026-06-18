@@ -141,3 +141,10 @@ Full detail in ROADMAP.md; docs/memoric-binary.md is the Phase 0 RFC.
   `--real` mode to produce meaningful metrics for claude/gemini/qwen/mock
   alike; tests/test_escalation_ab.py proves this with MockWorker standing
   in for both the local and frontier slots
+- `PostgresStore` pools connections (`psycopg_pool.ConnectionPool`, one
+  pool per DSN, class-level so it's shared across every tenant on that
+  database) instead of opening one per load/save/config call — needed
+  because `perdura_service.py` builds a new store per HTTP request, so
+  pooling has to live above the instance. `lock()`'s advisory-lock
+  connection deliberately stays outside the pool: it's held for an entire
+  reload-merge-save cycle, not one query

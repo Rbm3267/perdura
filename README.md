@@ -97,7 +97,11 @@ The graph is the only state, so persistence is pluggable
   graph-per-tenant, with row-level security FORCEd as a hard isolation
   backstop (proven against a non-superuser role — RLS is invisible to
   superusers regardless of FORCE) and a tenant-keyed Postgres advisory lock
-  serializing writers across hosts.
+  serializing writers across hosts. Connections are pooled
+  (`psycopg_pool`, one pool per database shared across every tenant) so a
+  service handling many short-lived HTTP requests (`perdura_service.py`
+  builds a new store per request) reuses connections instead of paying a
+  fresh handshake on every load/save/config call.
 
 `python perdura.py redact <node-id>` is the operator-only compliance
 escape hatch (GDPR erasure vs supersede-never-delete): the text payload is
@@ -317,9 +321,11 @@ contention, the storage round-trip (JSON, SQLite, Postgres), router budgets
 (global and per-domain), track-record scoring, SSO token verification, the
 E1/E2 service API (including the live `/viz` route), the E3 ingestion
 adapters (`tests/test_ingest.py`) and live GitHub connector
-(`tests/test_connectors.py`), and the escalation A/B harness's `--real`
+(`tests/test_connectors.py`), the escalation A/B harness's `--real`
 plumbing (`tests/test_escalation_ab.py`, mock workers standing in for both
-slots). It needs no API keys or model server (workers import their SDKs
+slots), and `PostgresStore`'s connection-pool sharing
+(`tests/test_postgres_pool.py`, a fake pool class — no live Postgres
+needed). It needs no API keys or model server (workers import their SDKs
 lazily), so it runs anywhere:
 
 ```bash

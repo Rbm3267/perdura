@@ -214,6 +214,14 @@ fiction. <code>tests/test_postgres_store.py</code> proves isolation against that
 role shape, including fail-closed behavior (no tenant set → no rows, not all
 rows). The write lock is a Postgres advisory lock keyed by tenant, so writers
 serialize across hosts, not just within one box.</p>
+<p><code>PostgresStore</code> pools connections (<code>psycopg_pool.ConnectionPool</code>, one pool
+per database DSN, shared across every tenant on it) rather than opening a
+fresh connection per load/save/config call — <code>perdura_service.py</code>
+constructs a new store per HTTP request, so pooling lives at the class
+level, above any one store instance, or it would just move the same
+per-request connection cost one layer up. The advisory lock in <code>lock()</code>
+keeps its own dedicated connection outside the pool, since it's held for
+an entire reload-merge-save cycle, not a single query.</p>
 <h2>5. Security and compliance — the accidental enterprise features</h2>
 <p>Existing conductor invariants, re-read through a procurement lens:</p>
 <ul>
