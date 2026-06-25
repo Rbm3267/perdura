@@ -12,6 +12,8 @@ Setup:
     export ANTHROPIC_API_KEY=...  GEMINI_API_KEY=...
     # local labor: LM Studio serving qwen3-14b (default), or Ollama via
     # --qwen-url http://localhost:11434/v1 --qwen-model qwen3:14b
+    # LM Studio's native API instead of its OpenAI-compatible one:
+    # --workers lmstudio [--lmstudio-url http://host:1234]
 
 Usage:
     python perdura.py new "How should multi-agent memory be architected?"
@@ -29,6 +31,7 @@ import os
 import re
 import sys
 import time
+import urllib.request
 import uuid
 from contextlib import contextmanager
 from dataclasses import dataclass, asdict, field
@@ -61,6 +64,7 @@ DEFAULT_CLAUDE_MODEL = "claude-sonnet-4-6"
 DEFAULT_GEMINI_MODEL = "gemini-2.5-flash"
 DEFAULT_QWEN_MODEL = "qwen3-14b"
 DEFAULT_QWEN_URL = "http://localhost:1234/v1"
+DEFAULT_LMSTUDIO_URL = "http://localhost:1234"
 
 # Conductor tuning
 NEAR_DUP_HAMMING = 8   # simhash distance at/below which claims are linked (#2)
@@ -531,6 +535,60 @@ class QwenWorker:
         return r.choices[0].message.content
 
 
+def _lmstudio_post(url, payload, headers):
+    """POST `url`, return the parsed JSON body. Raises urllib.error.HTTPError
+    on a non-2xx response — same shape as perdura_connectors.py's
+    _default_fetch, so a down server or a bad key fails loudly."""
+    req = urllib.request.Request(
+        url, data=json.dumps(payload).encode(), headers=headers, method="POST")
+    with urllib.request.urlopen(req, timeout=120) as resp:
+        return json.loads(resp.read())
+
+
+class LMStudioWorker:
+    """Local model via LM Studio's native REST API (POST /api/v1/chat) —
+    an alternative transport to QwenWorker's OpenAI-compatible
+    /v1/chat/completions, same underlying local model either way.
+
+    The native endpoint returns a typed `output` array (message /
+    tool_call / reasoning / invalid_tool_call items) instead of OpenAI's
+    choices[0].message, so a model's reasoning arrives as its own item
+    type rather than interleaved <think> text. generate() concatenates
+    only the "message" items; reasoning and tool-call output aren't part
+    of the delta reply parse_delta expects.
+
+    `store` is sent explicitly as false: the API defaults it to true,
+    which would have LM Studio retain a response_id server-side — at odds
+    with "no per-worker state anywhere" (this section's header comment).
+
+    Stdlib only (urllib), matching perdura_connectors.py's convention:
+    the HTTP call is injectable (`post=`) so tests drive it with a fake
+    transport and never touch the network.
+    """
+    name = "lmstudio"
+
+    def __init__(self, model=DEFAULT_QWEN_MODEL, base_url=DEFAULT_LMSTUDIO_URL,
+                api_key=None, post=None):
+        self.model = model
+        self.base_url = base_url.rstrip("/")
+        self.api_key = (api_key if api_key is not None
+                        else os.environ.get("LM_STUDIO_API_KEY"))
+        self.post = post or _lmstudio_post
+
+    def generate(self, prompt):
+        headers = {"Content-Type": "application/json"}
+        if self.api_key:
+            headers["Authorization"] = f"Bearer {self.api_key}"
+        body = self.post(f"{self.base_url}/api/v1/chat",
+                         {"model": self.model, "input": prompt, "store": False},
+                         headers)
+        output = body.get("output") if isinstance(body, dict) else None
+        if not isinstance(output, list):
+            return ""
+        return "".join(item.get("content", "") for item in output
+                       if isinstance(item, dict) and item.get("type") == "message")
+
+
 class MockWorker:
     """Offline worker for testing the loop without API keys."""
     name = "mock"
@@ -559,10 +617,11 @@ class MockWorker:
 
 
 WORKER_FACTORIES = {
-    "claude": lambda a: ClaudeWorker(a.claude_model),
-    "gemini": lambda a: GeminiWorker(a.gemini_model),
-    "qwen":   lambda a: QwenWorker(a.qwen_model, a.qwen_url),
-    "mock":   lambda a: MockWorker(),
+    "claude":   lambda a: ClaudeWorker(a.claude_model),
+    "gemini":   lambda a: GeminiWorker(a.gemini_model),
+    "qwen":     lambda a: QwenWorker(a.qwen_model, a.qwen_url),
+    "lmstudio": lambda a: LMStudioWorker(a.lmstudio_model, a.lmstudio_url),
+    "mock":     lambda a: MockWorker(),
 }
 
 
@@ -735,7 +794,7 @@ def main():
                    help="port for the Station dashboard (for `ui`)")
     p.add_argument("--turns", type=int, default=6)
     p.add_argument("--workers", default="qwen,claude,gemini",
-                   help="comma list: qwen,claude,gemini,mock")
+                   help="comma list: qwen,claude,gemini,lmstudio,mock")
     p.add_argument("--claude-model", default=DEFAULT_CLAUDE_MODEL)
     p.add_argument("--gemini-model", default=DEFAULT_GEMINI_MODEL)
     p.add_argument("--qwen-model", default=DEFAULT_QWEN_MODEL,
@@ -744,6 +803,14 @@ def main():
     p.add_argument("--qwen-url", default=DEFAULT_QWEN_URL,
                    help="OpenAI-compatible base URL (LM Studio default; "
                         "Ollama: http://localhost:11434/v1)")
+    p.add_argument("--lmstudio-model", default=DEFAULT_QWEN_MODEL,
+                   help="local model id, for --workers lmstudio (LM "
+                        "Studio's native API, not the OpenAI-compatible "
+                        "one --qwen-url targets)")
+    p.add_argument("--lmstudio-url", default=DEFAULT_LMSTUDIO_URL,
+                   help="LM Studio server base URL for --workers lmstudio "
+                        "(POST <url>/api/v1/chat); reads $LM_STUDIO_API_KEY "
+                        "if the server requires a bearer token")
     p.add_argument("--memoric-weight", type=float, default=0.0,
                    help="contention blend (1-w)*edges + w*memoric scatter. "
                         "Default 0.0 (edge-only) until Phase 0 validation "
