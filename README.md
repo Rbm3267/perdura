@@ -251,14 +251,26 @@ PERDURA_WORKER_TOKEN=… PERDURA_OPERATOR_TOKEN=… \
 
 | Route | Method | Token |
 |---|---|---|
+| `/health`, `/ready` | GET | none — liveness and readiness probes |
 | `/briefing`, `/questions`, `/contention` | GET | worker or operator |
 | `/deltas` | POST | worker or operator |
-| `/track`, `/graph` (attributed), `/viz` (live mind map) | GET | operator only |
+| `/track`, `/graph` (attributed), `/viz` (live mind map), `/usage` | GET | operator only |
 
 `/viz` renders the same collision-aware mind map as `perdura.py viz`, live
 from the current graph — operator-only because, unlike `/briefing`, it
 exposes the *entire* graph's text, not a bounded 2-hop neighborhood (it
-still strips attribution).
+still strips attribution). `/ready` pings the configured store (a real
+`SELECT 1` for SQLite/Postgres, directory writability for a JSON file) and
+returns 503 if it can't be reached — distinct from `/health`'s always-200
+liveness check. `/usage` returns in-memory request/byte/status/delta
+counters since the process started — a foundation for billing visibility,
+not billing-grade infrastructure.
+
+Every request is logged structurally (`PERDURA_LOG_LEVEL`, default `INFO`)
+and optionally rate-limited per credential (`PERDURA_RATE_LIMIT_PER_MINUTE`
+/ `--rate-limit-per-minute`, off by default; violations get `429` with
+`Retry-After`). Full route-by-route reference, including request/response
+shapes and every env var: [docs/api.md](docs/api.md).
 
 Worker tokens board, contribute, and read contention but never see
 authorship; `/track` and the attributed `/graph` return 403 for them. The
@@ -268,8 +280,9 @@ current threshold.
 
 **Multi-tenant (E2):** start with `--pg-dsn` instead of `--graph` and every
 route above gains a `/graphs/{tenant_id}` prefix, backed by one Postgres
-database with row-level-security tenant isolation. A third role, **admin**,
-gets a control-plane route for per-domain router budgets:
+database with row-level-security tenant isolation — except `/health` and
+`/ready`, which describe the process, not a tenant, in either mode. A third
+role, **admin**, gets a control-plane route for per-domain router budgets:
 
 ```bash
 pip install -e ".[enterprise]"
@@ -292,6 +305,21 @@ RLS is the backstop behind that HTTP-layer check, not a substitute for it.
 
 Full deployment plan, including the explicit record of the E2 gate decision:
 [docs/enterprise.md](docs/enterprise.md).
+
+**Docker:** a multi-stage `Dockerfile` (non-root) and a `docker-compose.yml`
+demo the full E2 path end to end — `perdura_service.py --pg-dsn` against a
+real Postgres, gated by `/ready`:
+
+```bash
+docker compose up --build
+curl -H "Authorization: Bearer demo-worker-token" \
+     http://localhost:8900/graphs/demo/questions
+```
+
+The compose file's static tokens are demo/break-glass only; a real
+deployment should configure `PERDURA_OIDC_*` instead. The same image runs
+the CLI or the MCP station unmodified by overriding `command:` — nothing
+in the `Dockerfile` is service-specific except the default entrypoint.
 
 ## Claim ingestion (enterprise E3)
 
@@ -351,6 +379,7 @@ docs/overview.html    Visual overview — architecture as a transit map
 docs/phase0-validation.md  Phase 0 validation results (synthetic + real arms)
 docs/phase3-ab-results.md  Real escalation A/B results (6-run pool) — periodic now default
 docs/enterprise.md    Enterprise deployment plan (integration planes, tiers)
+docs/api.md           perdura_service.py HTTP API reference (routes, auth, env vars)
 perdura_memoric.py    Memoric binary encoder/decoder (Phase 0)
 perdura_store.py      Pluggable persistence: JSON file / SQLite WAL / Postgres (E0, E2)
 perdura_sso.py        SSO bearer tokens — JWT verified against an IdP's JWKS (E2)
@@ -363,6 +392,8 @@ perdura_router.py     The epistemic router — periodic/contention/random/cheap 
 perdura_viz.py        Force-directed mind-map renderer (Phase 1.5)
 perdura_station.py    The Station — live local dashboard (perdura.py ui)
 perdura_server.py     MCP station — any MCP client can board as a worker
+Dockerfile, docker-compose.yml   Container image + E2 (Postgres) deployment demo
+CHANGELOG.md          Version history
 experiments/          Validation experiments, synthetic session, probes
 tests/                Offline invariant suite (pytest) — runs in CI
 ```
@@ -373,8 +404,10 @@ The conductor invariants are pinned by an offline pytest suite — merge
 validation, bounded briefings, attribution hiding, supersede-never-delete,
 contention, the storage round-trip (JSON, SQLite, Postgres), router budgets
 (global and per-domain), track-record scoring, SSO token verification, the
-E1/E2 service API (including the live `/viz` route), the E3 ingestion
-adapters (`tests/test_ingest.py`) and live GitHub connector
+E1/E2 service API (including the live `/viz` route), the observability
+endpoints (`tests/test_service_ops.py` — structured logging, rate
+limiting, `/ready`, `/usage`), the E3 ingestion adapters
+(`tests/test_ingest.py`) and live GitHub connector
 (`tests/test_connectors.py`), the escalation A/B harness's `--real`
 plumbing (`tests/test_escalation_ab.py`, mock workers standing in for both
 slots), and `PostgresStore`'s connection-pool sharing

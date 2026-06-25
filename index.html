@@ -796,6 +796,18 @@
            has been pivoted to the policy the data actually supports.
            <a href="enterprise.html">The full deployment plan →</a></p>
       </div>
+      <div class="t-item now reveal">
+        <h4>Productization pass <span class="t-tag">v0.2.0 · OBSERVABILITY + DOCKER</span></h4>
+        <p>The operational layer an operator actually needs to run this: structured request
+           logging, per-credential rate limiting, a real <code>/ready</code> probe (pings the
+           configured store, not just a 200), and an operator-only <code>/usage</code> meter —
+           a foundation for billing visibility, not billing-grade infrastructure. A multi-stage
+           <code>Dockerfile</code> and a Postgres-backed <code>docker-compose.yml</code> demo
+           the E2 path end to end. Alongside it, an explicit scoping call: local-model support
+           (LM Studio/Ollama) is shelved, not abandoned — most prospective deployments run
+           frontier models only, so further local-model engineering waits for real usage to
+           justify it.</p>
+      </div>
     </div>
   </div>
 </section>
@@ -836,6 +848,7 @@
         <a href="validation.html">Phase 0 results</a>
         <a href="phase3-ab-results.html">Escalation A/B results</a>
         <a href="enterprise.html">Enterprise plan</a>
+        <a href="api.html">API reference</a>
         <a href="#access">Request access</a>
       </div>
     </div>

@@ -62,7 +62,7 @@
 </style></head><body>
 <nav><div class="nav-inner">
   <a class="wordmark" href="index.html">perdura<span class="dot">.</span></a>
-  <div class="links"><a href="design.html">Design</a> <a href="memoric-binary.html">Memoric</a> <a href="roadmap.html">Roadmap</a> <a href="validation.html">Phase</a> <a href="phase3-ab-results.html">Escalation</a> <a href="enterprise.html">Enterprise</a> <a href="index.html#access">Request access</a></div>
+  <div class="links"><a href="design.html">Design</a> <a href="memoric-binary.html">Memoric</a> <a href="roadmap.html">Roadmap</a> <a href="validation.html">Phase</a> <a href="phase3-ab-results.html">Escalation</a> <a href="enterprise.html">Enterprise</a> <a href="api.html">API</a> <a href="index.html#access">Request access</a></div>
 </div></nav>
 <main><div class="doc-kicker">Documentation</div>
 <h1>Perdura Roadmap — Updated with Phase 0</h1>
@@ -320,6 +320,21 @@ never displaces the research focus.</p>
   <code>pr_review_delta</code> adapter from the real API instead of a pre-fetched
   dict, with a cursor file for idempotent re-sync; the HTTP transport is
   injectable so its tests stay offline.</li>
+<li><strong>E4 — operational hardening</strong> ✅ (2026-06-25, v0.2.0): the gap between
+  "the API works" and "an operator would trust this in production."
+  Structured request logging (<code>PERDURA_LOG_LEVEL</code>), per-credential rate
+  limiting (<code>PERDURA_RATE_LIMIT_PER_MINUTE</code> / <code>--rate-limit-per-minute</code>),
+  a <code>/ready</code> endpoint backed by a real store probe (<code>ping()</code> on every
+  <code>Store</code> implementation) distinct from <code>/health</code>'s always-200 liveness
+  check, and an operator-only <code>/usage</code> meter (in-memory per-tenant
+  request/byte/status/delta counts — a foundation for billing visibility,
+  not billing-grade infrastructure). A multi-stage <code>Dockerfile</code> and a
+  Postgres-backed <code>docker-compose.yml</code> demo the E2 path end to end. Full
+  route reference: <code>docs/api.md</code>. Alongside this, an explicit product
+  scoping decision: local-model support (LM Studio/Ollama) is shelved, not
+  abandoned — most prospective deployments run frontier models only, so
+  further local-model engineering waits for real usage to justify it
+  (<code>CLAUDE.md</code>, "Key decisions already made").</li>
 </ul>
 <hr />
 <h2>Phase 4: Multi-Model Collaborative Routing (Optional)</h2>

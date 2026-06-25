@@ -96,6 +96,11 @@ class JSONFileStore:
     def lock(self):
         return _file_lock(self.path + ".lock")
 
+    def ping(self) -> bool:
+        """Cheap readiness probe: can a save actually land here?"""
+        d = os.path.dirname(os.path.abspath(self.path)) or "."
+        return os.path.isdir(d) and os.access(d, os.W_OK)
+
 
 class SQLiteStore:
     """Rows are the serialized dataclass dicts, keyed by id — the schema
@@ -159,6 +164,18 @@ class SQLiteStore:
 
     def lock(self):
         return _file_lock(self.path + ".lock")
+
+    def ping(self) -> bool:
+        """Cheap readiness probe: open a connection and round-trip a query."""
+        try:
+            con = self._connect()
+            try:
+                con.execute("SELECT 1")
+                return True
+            finally:
+                con.close()
+        except Exception:
+            return False
 
 
 class PostgresStore:
@@ -323,6 +340,16 @@ class PostgresStore:
                 con.execute("SELECT pg_advisory_unlock(%s, %s)", (key1, key2))
             finally:
                 con.close()
+
+    def ping(self) -> bool:
+        """Cheap readiness probe: pool checkout + round-trip query, no
+        tenant-scoped data touched."""
+        try:
+            with self._connect() as con:
+                con.execute("SELECT 1")
+            return True
+        except Exception:
+            return False
 
     # -- tenant config (E2 control plane) ------------------------------------
     def get_tenant_config(self) -> dict:

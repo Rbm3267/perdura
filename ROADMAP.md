@@ -286,6 +286,21 @@ never displaces the research focus.
   `pr_review_delta` adapter from the real API instead of a pre-fetched
   dict, with a cursor file for idempotent re-sync; the HTTP transport is
   injectable so its tests stay offline.
+- **E4 — operational hardening** ✅ (2026-06-25, v0.2.0): the gap between
+  "the API works" and "an operator would trust this in production."
+  Structured request logging (`PERDURA_LOG_LEVEL`), per-credential rate
+  limiting (`PERDURA_RATE_LIMIT_PER_MINUTE` / `--rate-limit-per-minute`),
+  a `/ready` endpoint backed by a real store probe (`ping()` on every
+  `Store` implementation) distinct from `/health`'s always-200 liveness
+  check, and an operator-only `/usage` meter (in-memory per-tenant
+  request/byte/status/delta counts — a foundation for billing visibility,
+  not billing-grade infrastructure). A multi-stage `Dockerfile` and a
+  Postgres-backed `docker-compose.yml` demo the E2 path end to end. Full
+  route reference: `docs/api.md`. Alongside this, an explicit product
+  scoping decision: local-model support (LM Studio/Ollama) is shelved, not
+  abandoned — most prospective deployments run frontier models only, so
+  further local-model engineering waits for real usage to justify it
+  (`CLAUDE.md`, "Key decisions already made").
 
 -----
 

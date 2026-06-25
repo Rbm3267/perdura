@@ -1,0 +1,55 @@
+# Demonstrates the documented E2 (multi-tenant) deployment path end to end:
+# perdura_service.py --pg-dsn against a real Postgres, gated by /ready.
+#
+# Static tokens here are demo/break-glass only -- a real deployment should
+# set PERDURA_OIDC_* (perdura_sso.SSOConfig.from_env()) instead.
+#
+#   docker compose up --build
+#   curl -H "Authorization: Bearer demo-worker-token" \
+#        http://localhost:8900/graphs/demo/questions
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: perdura
+      POSTGRES_PASSWORD: perdura
+      POSTGRES_DB: perdura
+    volumes:
+      - perdura-postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U perdura"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  perdura-service:
+    build: .
+    command:
+      - --pg-dsn
+      - postgresql://perdura:perdura@postgres:5432/perdura
+      - --host
+      - 0.0.0.0
+      - --port
+      - "8900"
+    environment:
+      PERDURA_STATIC_TOKENS: >-
+        {"demo-worker-token":{"role":"worker","tenant":"demo"},
+         "demo-operator-token":{"role":"operator","tenant":"demo"},
+         "demo-admin-token":{"role":"admin","tenant":"demo"}}
+      PERDURA_LOG_LEVEL: INFO
+      PERDURA_RATE_LIMIT_PER_MINUTE: "0"
+    ports:
+      - "8900:8900"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "python", "-c",
+             "import urllib.request as u,sys; sys.exit(0 if u.urlopen('http://localhost:8900/ready', timeout=3).status == 200 else 1)"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  perdura-postgres-data:
