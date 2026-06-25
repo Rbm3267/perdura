@@ -51,6 +51,7 @@ python perdura.py show
 
 All-local labor: `python perdura.py run --turns 10 --workers qwen`
 Ollama instead of LM Studio: `--qwen-url http://localhost:11434/v1 --qwen-model qwen3:14b`
+LM Studio's native API instead of the OpenAI-compatible one: `--workers lmstudio --lmstudio-url http://host:1234`
 Manufacture contention (devil's-advocate every 3rd turn): `--adversarial-every 3`
 Visualize the graph: `python perdura.py viz` → `perdura_mindmap.html` (draws `collision_candidates()` as dotted lines — lexically-close, unlinked claim pairs from different authors)
 Per-model reliability scorecard: `python perdura.py track`
