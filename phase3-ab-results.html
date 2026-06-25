@@ -1,0 +1,452 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Perdura — Escalation A/B Results</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,400;0,9..144,600;0,9..144,700;1,9..144,400&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<script defer src="/_vercel/speed-insights/script.js"></script>
+<script defer src="/_vercel/insights/script.js"></script>
+<style>
+  :root { --ink:#0a0e1f; --ink-2:#0e1430; --ink-3:#131a3d; --paper:#f0f3fa;
+    --muted:#97a3c4; --faint:#5b6688; --cyan:#2dd9ff; --amber:#ffb454;
+    --line:rgba(151,163,196,0.16); }
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body { background:var(--ink); color:var(--paper);
+    font-family:"IBM Plex Sans",-apple-system,sans-serif; font-size:16.5px;
+    line-height:1.7; -webkit-font-smoothing:antialiased; }
+  ::selection { background:var(--cyan); color:var(--ink); }
+  nav { position:sticky; top:0; z-index:50; background:rgba(10,14,31,0.85);
+    backdrop-filter:blur(12px); border-bottom:1px solid var(--line); }
+  .nav-inner { max-width:880px; margin:0 auto; padding:0 28px; height:60px;
+    display:flex; align-items:center; justify-content:space-between; }
+  .wordmark { font-family:"Fraunces",serif; font-weight:700; font-size:1.25rem;
+    color:var(--paper); text-decoration:none; }
+  .wordmark .dot { color:var(--cyan); }
+  nav .links a { color:var(--muted); text-decoration:none; font-size:0.88rem;
+    margin-left:20px; }
+  nav .links a:hover { color:var(--cyan); }
+  main { max-width:880px; margin:0 auto; padding:64px 28px 96px; }
+  .doc-kicker { font-family:"IBM Plex Mono",monospace; font-size:0.78rem;
+    letter-spacing:0.18em; text-transform:uppercase; color:var(--cyan);
+    margin-bottom:10px; }
+  h1,h2,h3,h4 { font-family:"Fraunces",Georgia,serif; font-weight:600;
+    line-height:1.2; margin:2.2em 0 0.6em; }
+  h1 { font-size:2.3rem; margin-top:0; }
+  h2 { font-size:1.6rem; border-bottom:1px solid var(--line);
+    padding-bottom:0.35em; }
+  h3 { font-size:1.25rem; } h4 { font-size:1.05rem; }
+  p, ul, ol { margin:0.9em 0; color:var(--muted); }
+  li { margin:0.35em 0; } ul, ol { padding-left:1.4em; }
+  strong { color:var(--paper); } em { color:var(--paper); }
+  a { color:var(--cyan); }
+  blockquote { border-left:3px solid var(--amber); padding:0.4em 1.1em;
+    margin:1.2em 0; background:var(--ink-2); border-radius:0 8px 8px 0; }
+  code { font-family:"IBM Plex Mono",monospace; font-size:0.85em;
+    color:var(--cyan); background:var(--ink-3); padding:2px 6px;
+    border-radius:4px; }
+  pre { background:var(--ink-2); border:1px solid var(--line);
+    border-radius:10px; padding:18px 20px; overflow-x:auto; margin:1.2em 0; }
+  pre code { background:none; padding:0; color:var(--paper);
+    font-size:0.84rem; line-height:1.6; }
+  table { border-collapse:collapse; width:100%; margin:1.2em 0;
+    font-size:0.92rem; }
+  th, td { border:1px solid var(--line); padding:9px 13px; text-align:left;
+    color:var(--muted); }
+  th { color:var(--paper); background:var(--ink-2);
+    font-family:"IBM Plex Mono",monospace; font-size:0.8rem; }
+  hr { border:none; border-top:1px solid var(--line); margin:2.4em 0; }
+  footer { max-width:880px; margin:0 auto; padding:0 28px 56px;
+    font-family:"IBM Plex Mono",monospace; font-size:0.78rem;
+    color:var(--faint); }
+</style></head><body>
+<nav><div class="nav-inner">
+  <a class="wordmark" href="index.html">perdura<span class="dot">.</span></a>
+  <div class="links"><a href="design.html">Design</a> <a href="memoric-binary.html">Memoric</a> <a href="roadmap.html">Roadmap</a> <a href="validation.html">Phase</a> <a href="phase3-ab-results.html">Escalation</a> <a href="enterprise.html">Enterprise</a> <a href="index.html#access">Request access</a></div>
+</div></nav>
+<main><div class="doc-kicker">Documentation</div>
+<h1>Phase 3 Escalation A/B — Real-Worker Results</h1>
+<p><strong>Date:</strong> 2026-06-25 · <strong>Arms:</strong> real frontier workers (Claude, Gemini) vs
+scripted local tier (<code>--local mock</code>) · <strong>Status: RUN — verdict thin but
+consistent, and it cuts against the routing thesis as measured.</strong></p>
+<p>This is the decisive Phase 3 experiment CLAUDE.md's "Key decisions" and
+<code>docs/enterprise.md</code> §7 have been flagging as open since E2: does
+contention-triggered escalation put frontier spend where it changes
+outcomes more than periodic or random escalation, at equal cost? It has
+now actually run, multiple times, with real Claude and Gemini calls. This
+document is the record.</p>
+<h2>What was and wasn't real</h2>
+<p><code>experiments/escalation_ab.py --real</code> runs the same four-arm protocol as
+the synthetic positive control (<code>contention</code> / <code>periodic</code> / <code>random</code> /
+<code>cheap</code>, same seeded graph, same metrics) but with real <code>ClaudeWorker</code> /
+<code>GeminiWorker</code> instances on the escalation path instead of a scripted
+challenger. <strong>The local tier was still <code>--local mock</code></strong> — no Qwen or other
+local model server was reachable in this sandbox (ports 1234/11434 both
+unreachable), so every non-escalating turn was scripted filler, not a real
+cheap-tier judgment. This run tests one half of the thesis cleanly (does
+contention-routed <em>frontier</em> spend beat scheduled/random frontier spend at
+equal cost) and says nothing about the other half (is local-by-default
+actually good enough most of the time) — that needs a real local model,
+not yet available in any environment this has been built in.</p>
+<p>Router cost units: <code>claude=3.0</code>, <code>gemini=1.0</code>, <code>qwen=mock=0.0</code>
+(<code>perdura_router.py DEFAULT_COSTS</code>). Escalation threshold <code>0.15</code>
+(<code>DEFAULT_ESCALATE_AT</code>). With no track record at session start, reliability
+ties default to the cheaper option, so <strong>Gemini absorbed nearly every real
+escalation</strong>; Claude was only exercised by an explicit <code>--frontier claude</code>
+run.</p>
+<h2>Runs, in order</h2>
+<table>
+<thead>
+<tr>
+<th>#</th>
+<th>Config</th>
+<th>Real calls</th>
+<th>Outcome</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>1</td>
+<td><code>--frontier claude,gemini</code>, turns=12/budget=4</td>
+<td>12 Gemini attempts, <strong>all 401</strong> (wrong key type — OAuth token, not a Developer API key)</td>
+<td><strong>Discarded.</strong> Zero real deltas merged in any arm; flips=0 everywhere reflects nothing happening, not a result.</td>
+</tr>
+<tr>
+<td>2</td>
+<td><code>--frontier claude</code> only, turns=12/budget=4</td>
+<td>3 real Claude calls, 0 errors</td>
+<td>Clean but n=1 escalation/arm (budget 4 ÷ cost 3, integer floor) — a single coin flip per arm, reported below for completeness only.</td>
+</tr>
+<tr>
+<td>3</td>
+<td><code>--frontier claude,gemini</code>, turns=12/budget=4</td>
+<td>12 real Gemini calls, 0 errors (Claude never selected — cost tiebreak)</td>
+<td><strong>Clean, n=4 escalations/arm.</strong></td>
+</tr>
+<tr>
+<td>4</td>
+<td><code>--frontier claude,gemini</code>, turns=36/budget=12</td>
+<td>17 Gemini attempts, <strong>11 failed HTTP 429</strong> (free-tier quota)</td>
+<td><strong>Discarded.</strong> Over half the "real" calls silently failed; flip counts reflect rate-limit timing, not model behavior.</td>
+</tr>
+<tr>
+<td>5</td>
+<td><code>--frontier claude,gemini</code>, turns=36/budget=12 (paid tier)</td>
+<td>15 real Gemini calls, 0 errors (Claude never selected)</td>
+<td><strong>Clean, n=4 escalations for contention/periodic; n=7 for random</strong> (random's own coin flips landed high this run — breaks cost parity against random, not against periodic).</td>
+</tr>
+</tbody>
+</table>
+<h3>Results tables (clean runs only)</h3>
+<p><strong>Run 2 — Claude only, n=1 escalation/arm:</strong></p>
+<table>
+<thead>
+<tr>
+<th>arm</th>
+<th>spend</th>
+<th>escal.</th>
+<th>flips</th>
+<th>cont@esc</th>
+<th>final cont.</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>contention</td>
+<td>3</td>
+<td>1</td>
+<td>0</td>
+<td>0.400</td>
+<td>0.053</td>
+</tr>
+<tr>
+<td>periodic</td>
+<td>3</td>
+<td>1</td>
+<td>1</td>
+<td>0.062</td>
+<td>0.102</td>
+</tr>
+<tr>
+<td>random</td>
+<td>3</td>
+<td>1</td>
+<td>2</td>
+<td>0.267</td>
+<td>0.161</td>
+</tr>
+<tr>
+<td>cheap</td>
+<td>0</td>
+<td>0</td>
+<td>0</td>
+<td>0.0</td>
+<td>0.053</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Run 3 — Gemini, turns=12/budget=4, n=4 escalations/arm:</strong></p>
+<table>
+<thead>
+<tr>
+<th>arm</th>
+<th>spend</th>
+<th>escal.</th>
+<th>flips</th>
+<th>cont@esc</th>
+<th>final cont.</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>contention</td>
+<td>4</td>
+<td>4</td>
+<td>1</td>
+<td>0.4333</td>
+<td>0.089</td>
+</tr>
+<tr>
+<td>periodic</td>
+<td>4</td>
+<td>4</td>
+<td>4</td>
+<td>0.1693</td>
+<td>0.135</td>
+</tr>
+<tr>
+<td>random</td>
+<td>4</td>
+<td>4</td>
+<td>3</td>
+<td>0.1872</td>
+<td>0.208</td>
+</tr>
+<tr>
+<td>cheap</td>
+<td>0</td>
+<td>0</td>
+<td>0</td>
+<td>0.0</td>
+<td>0.053</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Run 5 — Gemini paid tier, turns=36/budget=12:</strong></p>
+<table>
+<thead>
+<tr>
+<th>arm</th>
+<th>spend</th>
+<th>escal.</th>
+<th>flips</th>
+<th>cont@esc</th>
+<th>final cont.</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>contention</td>
+<td>4</td>
+<td>4</td>
+<td>1</td>
+<td>0.3553</td>
+<td>0.042</td>
+</tr>
+<tr>
+<td>periodic</td>
+<td>4</td>
+<td>4</td>
+<td>3</td>
+<td>0.0818</td>
+<td>0.076</td>
+</tr>
+<tr>
+<td>random</td>
+<td>7</td>
+<td>7</td>
+<td>1</td>
+<td>0.1469</td>
+<td>0.040</td>
+</tr>
+<tr>
+<td>cheap</td>
+<td>0</td>
+<td>0</td>
+<td>0</td>
+<td>0.0</td>
+<td>0.021</td>
+</tr>
+</tbody>
+</table>
+<p>(Random spent 7 vs. contention's 4 in run 5 — not an equal-cost
+comparison. Periodic vs. contention <em>is</em> equal cost in every clean run.)</p>
+<h2>Findings</h2>
+<h3>1. Targeting precision works exactly as designed</h3>
+<p>In every clean run, mean contention at the moment of escalation
+(<code>cont@esc</code>) is highest for the contention arm — 2–7× periodic's, and
+higher than random's in two of three runs:</p>
+<table>
+<thead>
+<tr>
+<th>run</th>
+<th>contention</th>
+<th>periodic</th>
+<th>random</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>2 (n=1)</td>
+<td>0.400</td>
+<td>0.062</td>
+<td>0.267</td>
+</tr>
+<tr>
+<td>3 (n=4)</td>
+<td>0.433</td>
+<td>0.169</td>
+<td>0.187</td>
+</tr>
+<tr>
+<td>5 (n=4/4/7)</td>
+<td>0.355</td>
+<td>0.082</td>
+<td>0.147</td>
+</tr>
+</tbody>
+</table>
+<p>The router's actual job — find the hottest live disagreement and send
+frontier spend there — is not in question. It does that.</p>
+<h3>2. At equal cost, contention-routing produced fewer outcome flips, three runs in a row</h3>
+<table>
+<thead>
+<tr>
+<th>run</th>
+<th>contention flips</th>
+<th>periodic flips (equal cost)</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>2, n=1</td>
+<td>0</td>
+<td>1</td>
+</tr>
+<tr>
+<td>3, n=4</td>
+<td>1</td>
+<td>4</td>
+</tr>
+<tr>
+<td>5, n=4</td>
+<td>1</td>
+<td>3</td>
+</tr>
+</tbody>
+</table>
+<p>Same direction every time, two different Gemini-key configurations, one
+Claude-only configuration. Taken at face value, that is mildly <em>against</em>
+the thesis the router exists to prove, not for it. The samples are small
+(1–4 escalations per arm per run), but the direction has not flipped once
+across three independent real-worker runs.</p>
+<h3>3. The dilution confound: more budget did not give contention more chances</h3>
+<p>Contention's escalation count was <strong>4 in both run 3 (budget=4) and run 5
+(budget=12)</strong> — 3× the budget did not produce 3× the escalations. This
+seeded graph's contention ratio decays through simple dilution: every turn
+adds nodes/edges, which shrinks the contention ratio whether or not
+anything is being resolved. Once it drops under the 0.15 threshold, the
+contention policy structurally cannot fire again on this graph — more
+budget only helps if the signal itself stays live. Periodic and random
+aren't gated this way, so they kept spending up to budget regardless. This
+means simply re-running longer on this same seeded graph will not grow
+contention's sample size; a bigger contention-arm sample needs either a
+richer seed graph that keeps generating organic disagreement, or repeated
+runs with fresh seeds/RNG draws.</p>
+<h3>4. An open alternate reading: "flips" may undercount what contention-routing actually does</h3>
+<p>In run 3, the contention arm finished with the <em>lowest</em> final contention
+(0.089) of the three escalating arms (periodic 0.135, random 0.208) —
+consistent with it spending its frontier calls <em>settling</em> the one hot
+dispute rather than spawning fresh ones, which a raw flip count (new
+contradicts/supersession edges) does not credit. Run 5 is more ambiguous
+(contention 0.042 vs. random 0.040, periodic 0.076) — not a clean repeat
+of the pattern. This is a real measurement question, not a rescue of the
+headline number: it needs a metric that credits dispute <em>resolution</em>, not
+just dispute <em>creation</em>, before this reading can be treated as more than
+a hypothesis for the next run to test.</p>
+<h2>What this run does not settle</h2>
+<ul>
+<li><strong>The local tier was never real.</strong> <code>--local mock</code> stood in for Qwen in
+  every run. "Cheap-by-default is good enough most of the time" — the
+  other half of claim 3 — has no real-worker evidence yet either way.</li>
+<li><strong>One seed graph, thin n.</strong> All clean runs share the same seeded graph
+  (one contested question, one calm one) and 1–4 escalations per arm.
+  This is a real, consistent signal, not noise — but it is not a large-n
+  result.</li>
+<li><strong>Gemini did almost all the real work.</strong> Claude was only exercised in
+  isolation (run 2, n=1) because the router's cost tiebreak (no track
+  record yet → reliability ties → cheaper Gemini wins) selects Gemini by
+  default whenever both are eligible.</li>
+</ul>
+<h2>Verdict</h2>
+<table>
+<thead>
+<tr>
+<th></th>
+<th></th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Targeting precision (cont@esc)</td>
+<td><strong>Confirmed</strong> — contention-routing finds the hottest live disagreement, every clean run</td>
+</tr>
+<tr>
+<td>Outcome flips at equal cost</td>
+<td><strong>Against the thesis, 3/3 clean runs</strong> — contention-routing trails periodic every time</td>
+</tr>
+<tr>
+<td>Dilution confound</td>
+<td><strong>Real</strong> — this seed graph caps contention's escalation count regardless of budget; longer runs don't grow its sample</td>
+</tr>
+<tr>
+<td>Alternate "resolution not creation" reading</td>
+<td><strong>Open</strong> — supported once (run 3), ambiguous once (run 5); needs a dedicated metric, not assumed</td>
+</tr>
+<tr>
+<td>Local-tier-is-good-enough (other half of claim 3)</td>
+<td><strong>Untested</strong> — <code>--local mock</code> throughout; needs a real cheap model</td>
+</tr>
+<tr>
+<td>Gate for E2+ (<code>docs/enterprise.md</code> §7)</td>
+<td><strong>Run, not passed as stated.</strong> The required A/B has now executed for real; on the metric it specifies (outcome flips at equal cost), contention-routing did not win. The override that let E2/E3 ship ahead of this gate is no longer covering an untested claim — it is covering a claim that has been tested and, so far, has not supported the routing thesis.</td>
+</tr>
+</tbody>
+</table>
+<p>This narrows the open question to one specific, falsifiable mechanism
+inside claim 3 (contention-driven escalation vs. scheduled/random
+escalation at equal cost). It says nothing about claims 1 (inverted
+persistence) or 2 (epistemic track records), and the merge/attribution
+machinery ran perfectly across every run, real-key failures included — no
+delta was ever lost or mis-merged because of the auth and rate-limit
+errors above; the conductor logged them and continued. What it does mean:
+the specific economic bet that justifies "spend only where it disagrees
+with itself" now has real, consistent, if thin, evidence against it, and
+the project record should say so plainly rather than continue treating it
+as merely unverified.</p>
+<h2>Reproducing</h2>
+<pre><code class="language-bash"># clean two-frontier run (what produced runs 3 and 5 above)
+python experiments/escalation_ab.py --real --local mock --frontier claude,gemini
+python experiments/escalation_ab.py --real --local mock --frontier claude,gemini --turns 36 --budget 12
+
+# isolate Claude (avoids the cost-tiebreak always picking Gemini)
+python experiments/escalation_ab.py --real --local mock --frontier claude --turns 12 --budget 4
+</code></pre>
+<p>Needs <code>ANTHROPIC_API_KEY</code> and/or <code>GEMINI_API_KEY</code> (paid tier for Gemini —
+the free tier's 5 req/min, ~20/day cap corrupts any run past a handful of
+escalations, as run 4 above shows). No Qwen/local model server has been
+available in any environment this has run in, so <code>--local mock</code> remains
+the only option for the non-escalating tier.</p>
+</main>
+<footer>© 2026 Perdura · perdura.network · MIT licensed · open research — content will change</footer>
+</body></html>

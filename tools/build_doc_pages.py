@@ -19,6 +19,7 @@ PAGES = [
     ("docs/memoric-binary.md", "memoric-binary.html", "Memoric Binary RFC"),
     ("ROADMAP.md", "roadmap.html", "Roadmap"),
     ("docs/phase0-validation.md", "validation.html", "Phase 0 Validation"),
+    ("docs/phase3-ab-results.md", "phase3-ab-results.html", "Escalation A/B Results"),
     ("docs/enterprise.md", "enterprise.html", "Enterprise Plan"),
 ]
 
