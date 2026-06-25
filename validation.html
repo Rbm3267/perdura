@@ -295,6 +295,41 @@ contention — heterogeneous workers (local Qwen vs frontier models,
 research question #3) on contested seeds, with adversarial turns reserved
 for outcome generation, and experiment 1 scored only against
 contradictions arising on non-adversarial turns. <code>memoric_weight</code> stays 0.</p>
+<h2>Infra fix (2026-06-25): boarding_mode provenance</h2>
+<p>"Experiment 1 scored only against contradictions arising on non-adversarial
+turns" above was a scoring requirement with no way to meet it: nothing on
+disk recorded <em>how</em> a node or edge boarded, only the worker name and
+timestamp — neither of which reliably separates protocols in a mixed-mode
+run (organic turns interleaved with <code>--adversarial-every</code> critic turns and,
+now, <code>--audit-every</code> stance-auditor turns).</p>
+<p><code>Node</code> and <code>Edge</code> (<code>perdura.py</code>) now carry a <code>boarding_mode</code> field —
+<code>organic</code> (default), <code>adversarial</code>, or <code>audit</code> — stamped by the conductor
+in <code>merge_delta</code> from the boarding path that produced the delta in
+<code>run_turns</code>. The default keeps every pre-existing graph file loading
+unchanged (old dicts simply lack the key; the dataclass default backfills
+<code>organic</code>).</p>
+<p>This closes the gap for the two consumers that needed the split:</p>
+<ul>
+<li><code>experiments/memoric_eval.py</code> experiment 1 now scores <code>auc_replay</code>
+  against contradicts edges tagged <code>organic</code> or <code>audit</code> only. The old
+  unfiltered number is still reported, as <code>auc_replay_including_adversarial</code>,
+  for comparison.</li>
+<li><code>experiments/collision_probe.py</code> (the inversion-finding probe) now
+  splits contradicting pairs into organic+audit vs adversarial and reports
+  the per-metric AUCs and collision-band recall for each set separately,
+  alongside the pooled <code>all</code> figure. The 2026-06-12 calibration session
+  that produced the original collision-band numbers ran under
+  <code>--adversarial-every</code>, so those numbers describe exogenous contradiction;
+  whether the same band recalls <em>organic</em> disagreement was previously
+  unmeasured by construction, not just unfiltered.</li>
+</ul>
+<p>This is an infrastructure fix, not a new data point: graphs recorded before
+this change have no <code>boarding_mode</code> on disk, so the organic/adversarial
+split can't be recovered retroactively for the 2026-06-11 session above —
+its headline numbers (AUC 0.54/0.33, order preservation 0.56) stand as
+reported. What changes is what the <em>next</em> real-session run (organic,
+heterogeneous-worker contention, per "Path to lock" above) will be able to
+measure cleanly.</p>
 <h2>Verdict</h2>
 <table>
 <thead>
@@ -327,6 +362,10 @@ contradictions arising on non-adversarial turns. <code>memoric_weight</code> sta
 <tr>
 <td>Exogeneity finding</td>
 <td><strong>Adversarial contention can't validate hidden-disagreement detection</strong> — organic contention (heterogeneous workers) required</td>
+</tr>
+<tr>
+<td>Exogeneity fix</td>
+<td><strong>Shipped (2026-06-25)</strong> — boarding_mode on every node/edge; exp 1 and the inversion probe score organic+audit separately from adversarial. Infra only — doesn't retroactively change the 2026-06-11 numbers above</td>
 </tr>
 <tr>
 <td>Track records (Phase 2)</td>

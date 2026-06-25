@@ -82,6 +82,14 @@ class Node:
     created_at: float = 0.0
     status: str = "open"          # questions: open/resolved
     superseded_by: str = None     # temporal record, never delete
+    # Which boarding protocol produced this node: organic (default),
+    # adversarial (--adversarial-every critic), or audit (--audit-every
+    # stance auditor — never actually emits nodes, but kept symmetric with
+    # Edge). Lets analysis exclude exogenously-manufactured signal
+    # (docs/phase0-validation.md's exogeneity finding) without guessing
+    # from worker name or timing. Old graphs predate the field and load
+    # with the "organic" default via dataclass field defaults.
+    boarding_mode: str = "organic"
 
 
 @dataclass
@@ -92,6 +100,7 @@ class Edge:
     dst: str
     created_by: str = ""
     created_at: float = 0.0
+    boarding_mode: str = "organic"
 
 
 class Graph:
@@ -128,7 +137,7 @@ class Graph:
 
     # -- mutation (conductor-only) ------------------------------------------
     def add_node(self, type, text, created_by, confidence=0.5,
-                 domain_tags=None, status="open"):
+                 domain_tags=None, status="open", boarding_mode="organic"):
         nid = f"n_{uuid.uuid4().hex[:8]}"
         try:
             confidence = float(confidence)
@@ -138,13 +147,15 @@ class Graph:
             id=nid, type=type, text=text.strip(),
             domain_tags=domain_tags or [], created_by=created_by,
             confidence=max(0.0, min(1.0, confidence)),
-            created_at=time.time(), status=status)
+            created_at=time.time(), status=status,
+            boarding_mode=boarding_mode)
         return nid
 
-    def add_edge(self, type, src, dst, created_by):
+    def add_edge(self, type, src, dst, created_by, boarding_mode="organic"):
         eid = f"e_{uuid.uuid4().hex[:8]}"
         self.edges[eid] = Edge(id=eid, type=type, src=src, dst=dst,
-                               created_by=created_by, created_at=time.time())
+                               created_by=created_by, created_at=time.time(),
+                               boarding_mode=boarding_mode)
         return eid
 
     def supersede(self, old_id, new_id):
@@ -403,7 +414,7 @@ Previous reply:
 """
 
 
-def merge_delta(graph: Graph, delta: dict, worker: str):
+def merge_delta(graph: Graph, delta: dict, worker: str, boarding_mode="organic"):
     """Conductor: validate, attribute, merge. Returns (accepted, rejected)."""
     accepted, rejected = 0, 0
     ref_map = {}
@@ -421,7 +432,8 @@ def merge_delta(graph: Graph, delta: dict, worker: str):
         nid = graph.add_node(
             type=n["type"], text=n["text"], created_by=worker,
             confidence=n.get("confidence", 0.5),
-            domain_tags=n.get("domain_tags", []))
+            domain_tags=n.get("domain_tags", []),
+            boarding_mode=boarding_mode)
         ref = n.get("ref")
         ref_map[ref if isinstance(ref, str) else nid] = nid
         accepted += 1
@@ -437,7 +449,7 @@ def merge_delta(graph: Graph, delta: dict, worker: str):
             continue
         src, dst = resolve(e.get("src")), resolve(e.get("dst"))
         if e.get("type") in EDGE_TYPES and src and dst and src != dst:
-            graph.add_edge(e["type"], src, dst, worker)
+            graph.add_edge(e["type"], src, dst, worker, boarding_mode=boarding_mode)
             accepted += 1
         else:
             rejected += 1
@@ -476,7 +488,8 @@ def merge_delta(graph: Graph, delta: dict, worker: str):
                 if d < best_d:
                     best, best_d = oid, d
             if best and best_d <= NEAR_DUP_HAMMING and (nid, best) not in linked:
-                graph.add_edge("refines", nid, best, "conductor")
+                graph.add_edge("refines", nid, best, "conductor",
+                              boarding_mode=boarding_mode)
 
     graph.log.append({"ts": time.time(), "worker": worker,
                       "accepted": accepted, "rejected": rejected})
@@ -647,7 +660,7 @@ def run_turns(graph: Graph, workers: list, turns: int, retriever=None,
                 print(f"\n[turn {t+1}] {worker.name} boards as stance "
                       f"auditor ({len(pairs)} collision pairs)")
                 briefing = build_audit_briefing(pairs)
-                _board(graph, worker, briefing)
+                _board(graph, worker, briefing, boarding_mode="audit")
                 continue
 
         questions = graph.open_questions()
@@ -680,10 +693,11 @@ def run_turns(graph: Graph, workers: list, turns: int, retriever=None,
         briefing = build_briefing(graph, q, retriever,
                                   mask_confidence=mask_confidence,
                                   adversarial=adversarial)
-        _board(graph, worker, briefing)
+        _board(graph, worker, briefing,
+              boarding_mode="adversarial" if adversarial else "organic")
 
 
-def _board(graph: Graph, worker, briefing):
+def _board(graph: Graph, worker, briefing, boarding_mode="organic"):
     """Generate, parse (with one repair round), merge under lock."""
     try:
         raw = worker.generate(briefing)
@@ -702,7 +716,8 @@ def _board(graph: Graph, worker, briefing):
         with graph_write_lock(graph.path):
             fresh = Graph(graph.path)
             fresh.memoric_weight = graph.memoric_weight
-            acc, rej = merge_delta(fresh, delta, worker.name)
+            acc, rej = merge_delta(fresh, delta, worker.name,
+                                   boarding_mode=boarding_mode)
             fresh.save()
         graph.nodes, graph.edges, graph.log = (
             fresh.nodes, fresh.edges, fresh.log)

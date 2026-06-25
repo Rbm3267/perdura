@@ -149,6 +149,12 @@ multi-model sessions and a synthetic ground-truth arm have actually shown:
 - **Anchoring is real.** High-confidence claims get challenged less
   (0.227 vs 0.333 challenge rate) even with authorship hidden;
   `--mask-confidence` exists to test the fix.
+- **Exogeneity is now machine-checkable.** Every `Node`/`Edge` carries a
+  `boarding_mode` (organic/adversarial/audit) stamped by the conductor at
+  merge time, so `memoric_eval.py`'s experiment 1 and
+  `collision_probe.py`'s inversion-finding numbers score organic+audit
+  disagreement separately from manufactured `--adversarial-every`
+  contradictions instead of pooling them.
 
 **The decisive experiment has run.** Does contention-triggered escalation
 flip outcomes more often than random or periodic escalation at equal

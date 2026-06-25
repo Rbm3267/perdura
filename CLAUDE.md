@@ -47,7 +47,13 @@ Full detail in ROADMAP.md; docs/memoric-binary.md is the Phase 0 RFC.
   countered by --adversarial-every; INVERSION FINDING: contradicting claims
   are lexically CLOSER than random pairs, so distance locates disagreement
   but can't measure it — collision_candidates() + stance-audit boarding
-  (--audit-every) is the repair; spec NOT locked (docs/phase0-validation.md)
+  (--audit-every) is the repair; EXOGENEITY FIX (2026-06-25): Node/Edge now
+  carry boarding_mode (organic/adversarial/audit, default organic so old
+  graphs load unchanged), stamped by the conductor at merge time; exp 1
+  (memoric_eval.py) and the inversion probe (collision_probe.py) now score
+  organic+audit contradictions separately from manufactured
+  --adversarial-every ones instead of pooling them; spec NOT locked
+  (docs/phase0-validation.md)
 - Phase 1   ✅ Graph + delta loop, Claude/Gemini/Qwen, round-robin, CLI + MCP station
 - Phase 1.5 STARTED — pluggable retrieval (perdura_retrieval.py;
   --retriever graph|hybrid|chroma, graph = required baseline arm) and

@@ -656,6 +656,11 @@
       <div class="inv-row"><b>Anchoring is real</b>
         <p>High-confidence claims get challenged less (0.227 vs 0.333) even with
            authorship hidden. Confidence masking exists to test the fix.</p></div>
+      <div class="inv-row"><b>Exogeneity is now machine-checkable</b>
+        <p>Every node and edge now carries a boarding_mode (organic/adversarial/audit)
+           stamped by the conductor at merge time, so experiment 1 and the inversion
+           probe score organic+audit disagreement separately from manufactured
+           adversarial contradictions instead of pooling them.</p></div>
     </div>
 
     <p class="section-lede" style="margin-top: 36px;">
@@ -697,9 +702,11 @@
            validate hidden-disagreement detection; and contradicting claims sit lexically
            <em>closer</em> together than random pairs, not farther — the inversion finding.
            Distance locates disagreement but can't measure it, so the repair is a collision
-           detector plus a stance auditor judging agree-vs-oppose. The spec locks, and the
-           blend earns its place in the default routing signal, once validation clears its
-           bars on organic, heterogeneous-worker contention.</p>
+           detector plus a stance auditor judging agree-vs-oppose. A boarding_mode field on
+           every node and edge now lets scoring separate organic+audit disagreement from
+           manufactured adversarial contradictions. The spec locks, and the blend earns its
+           place in the default routing signal, once validation clears its bars on organic,
+           heterogeneous-worker contention.</p>
       </div>
       <div class="t-item now reveal">
         <h4>Phase 1.5 — Retrieval + viz <span class="t-tag">IN PROGRESS</span></h4>
