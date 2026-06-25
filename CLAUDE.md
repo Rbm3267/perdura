@@ -36,6 +36,9 @@ perdura_connectors.py   Live GitHub PR connector -> pr_review_delta (E3)
 docs/design.md         Full design doc and rationale
 docs/overview.html     Transit-map architecture visual
 docs/enterprise.md     Enterprise deployment plan (track E0–E3)
+docs/phase3-ab-results.md  Real escalation A/B results (2026-06-25) — gate
+                        tested, contention-routing trailed periodic on
+                        outcome flips in all 3 clean runs
 experiments/debate.py  Precursor multi-model debate loop
 
 ## Phase roadmap
@@ -55,13 +58,20 @@ Full detail in ROADMAP.md; docs/memoric-binary.md is the Phase 0 RFC.
   track, operator-only MCP tool); reliability = Laplace-smoothed claim
   outcomes (promoted/corroborated vs challenged/superseded), derived
   on demand like memoric binary
-- Phase 3   KERNEL SHIPPED — perdura_router.py (--route, hard budgets,
-  escalation by track-record reliability/cost) + escalation_ab.py harness
-  (synthetic positive control passes; now has a --real mode that runs the
-  same four-arm protocol against real ClaudeWorker/GeminiWorker/QwenWorker
-  instead of the scripted pair; thesis verdict still needs that run to
-  actually happen with real API keys/a local model server — neither
-  exists in any sandboxed dev environment this has been built in)
+- Phase 3   KERNEL SHIPPED, REAL A/B RUN (2026-06-25) — perdura_router.py
+  (--route, hard budgets, escalation by track-record reliability/cost) +
+  escalation_ab.py harness, synthetic positive control passes. The --real
+  mode has now run three clean times against real Claude/Gemini calls
+  (--local mock standing in for an unavailable local model): targeting
+  precision confirmed (contention-routing finds the hottest live
+  disagreement every run), but on outcome flips at equal cost —
+  contention-routing's actual bet — it trailed periodic escalation all
+  three times (0v1, 1v4, 1v3). Thin n, one real confound found (contention
+  dilutes with graph size regardless of budget, capping the contention
+  arm's sample), one open alternate reading (flip-counting may not credit
+  dispute resolution) not yet rescuing the number. Local-tier half of the
+  thesis still untested (no real cheap model available). Full record:
+  docs/phase3-ab-results.md.
 - Enterprise E2 SHIPPED (gate overridden, 2026-06-17) — Postgres
   multi-tenant store (RLS-isolated, advisory-lock writers), perdura_sso.py
   (JWT/JWKS), perdura_service.py /graphs/{tenant_id}/... + admin role +
@@ -106,20 +116,37 @@ Full detail in ROADMAP.md; docs/memoric-binary.md is the Phase 0 RFC.
 - **The E2 gate was knowingly overridden, not skipped.** docs/enterprise.md
   §7 states the gate for E2+: the Phase 3 escalation A/B (contention-routed
   vs periodic vs random at equal cost) must show contention-routing wins,
-  or stop at E1. That A/B has never run for real — only the synthetic
-  positive control in escalation_ab.py has. The operator explicitly chose
-  (2026-06-17, via direct instruction) to build the full E2 multi-tenant
-  control plane ahead of that gate anyway. Do not silently re-impose the
-  gate on E2 work already shipped; any claim about contention-routing's
-  real-world cost-effectiveness remains open until the real A/B runs
+  or stop at E1. At the time E2 was built that A/B had never run for real
+  — only the synthetic positive control in escalation_ab.py had. The
+  operator explicitly chose (2026-06-17, via direct instruction) to build
+  the full E2 multi-tenant control plane ahead of that gate anyway. Do not
+  silently re-impose the gate on E2 work already shipped.
 - **The E3 gate override extends the E2 one.** docs/enterprise.md §7 said
   the gate "still applies to E3" when E2 shipped. When E3 (ingestion
   adapters, perdura_ingest.py) was built next, the operator explicitly
   extended the same override rather than let the contradiction stand
-  silently. Any claim about contention-routing's real-world
-  cost-effectiveness still waits on the real escalation A/B — building E3
-  doesn't change that, it only means the claim-supply layer no longer
-  waits on it either.
+  silently.
+- **The real escalation A/B has since run (2026-06-25) — and the result
+  is unfavorable, not absent.** `docs/phase3-ab-results.md` is the full
+  record: three clean real-worker runs (Claude and/or Gemini, `--local
+  mock`), all in the same direction. Contention-routing's targeting
+  precision is confirmed (2–7× periodic's mean contention at the moment of
+  escalation, every run). But on the gate's actual metric — outcome flips
+  at equal cost — contention-routing trailed periodic in all three (0 vs
+  1, 1 vs 4, 1 vs 3 flips). This is thin evidence (1–4 escalations/arm/run)
+  and confounded by a real finding (this seed graph's contention dilutes
+  with size regardless of budget, capping the contention arm's own sample
+  no matter how long the run goes) and one open alternate reading (raw
+  flip-counting may undercount dispute *resolution*, not just creation —
+  supported once, ambiguous once). None of that rescues the headline
+  direction. Do not describe contention-routing's real-world
+  cost-effectiveness as "untested" or "still open" going forward — it has
+  been tested, and the project record (ROADMAP.md, docs/enterprise.md
+  §1/§7, docs/phase3-ab-results.md) says plainly that the test currently
+  cuts against the thesis. The local-tier half of claim 3 (cheap-by-default
+  is good enough most of the time) remains genuinely untested — `--local
+  mock` stood in for a real cheap model in every run, since none has been
+  reachable in any environment this has been built in.
 - Postgres RLS is invisible to a superuser regardless of `FORCE ROW LEVEL
   SECURITY` — the application's Postgres credential must be a
   non-superuser, `NOBYPASSRLS` role or tenant isolation is fiction. The

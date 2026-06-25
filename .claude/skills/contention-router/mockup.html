@@ -1,0 +1,239 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Contention Router — concept mockup</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,600;0,9..144,700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --ink: #0a0e1f; --ink-2: #0e1430; --ink-3: #131a3d;
+    --paper: #f0f3fa; --muted: #97a3c4; --faint: #5b6688;
+    --cyan: #2dd9ff; --cyan-dim: #1a9fc0;
+    --amber: #ffb454; --rose: #ff5d8f; --green: #3ddc97;
+    --line: rgba(151, 163, 196, 0.16);
+    --serif: "Fraunces", Georgia, serif;
+    --sans: "IBM Plex Sans", -apple-system, sans-serif;
+    --mono: "IBM Plex Mono", ui-monospace, monospace;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    background: var(--ink); color: var(--paper);
+    font-family: var(--sans); font-size: 15px; line-height: 1.55;
+    -webkit-font-smoothing: antialiased;
+  }
+  .app { display: grid; grid-template-columns: 1fr 300px; max-width: 1180px; margin: 0 auto; min-height: 100vh; }
+  @media (max-width: 880px) { .app { grid-template-columns: 1fr; } }
+
+  /* ── top bar ── */
+  .topbar {
+    grid-column: 1 / -1; display: flex; align-items: center; justify-content: space-between;
+    padding: 18px 28px; border-bottom: 1px solid var(--line);
+    background: rgba(10,14,31,0.9);
+  }
+  .brand { display: flex; align-items: center; gap: 10px; }
+  .brand .mark { width: 22px; height: 22px; border-radius: 6px; background: linear-gradient(135deg, var(--cyan), var(--green)); }
+  .brand h1 { font-family: var(--serif); font-weight: 700; font-size: 1.05rem; }
+  .brand .tag { color: var(--muted); font-size: 0.78rem; margin-left: 6px; }
+  .badge {
+    font-family: var(--mono); font-size: 0.72rem; color: var(--ink); background: var(--cyan);
+    padding: 4px 10px; border-radius: 999px; font-weight: 600;
+  }
+
+  main { padding: 28px; }
+  aside {
+    border-left: 1px solid var(--line); padding: 24px 20px; background: rgba(255,255,255,0.015);
+  }
+
+  .task-box {
+    border: 1px solid var(--line); border-radius: 10px; padding: 16px 18px; background: var(--ink-2);
+    margin-bottom: 22px;
+  }
+  .task-box .label { font-family: var(--mono); font-size: 0.72rem; color: var(--muted); text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 6px; }
+  .task-box .q { font-size: 1.05rem; font-weight: 500; }
+
+  .step-label {
+    font-family: var(--mono); font-size: 0.72rem; color: var(--cyan-dim);
+    text-transform: uppercase; letter-spacing: 0.08em; margin: 26px 0 10px;
+    display: flex; align-items: center; gap: 8px;
+  }
+  .step-label::before { content: ""; width: 16px; height: 1px; background: var(--cyan-dim); }
+
+  .takes { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
+  @media (max-width: 700px) { .takes { grid-template-columns: 1fr; } }
+  .take {
+    border: 1px solid var(--line); border-radius: 10px; padding: 14px; background: var(--ink-2);
+    position: relative;
+  }
+  .take .who { font-family: var(--mono); font-size: 0.72rem; color: var(--muted); margin-bottom: 8px; display: flex; justify-content: space-between; }
+  .take .reasoning { font-size: 0.85rem; color: var(--paper); opacity: 0.85; margin-bottom: 10px; }
+  .verdict {
+    display: inline-flex; align-items: center; gap: 6px; font-family: var(--mono); font-size: 0.78rem;
+    font-weight: 600; padding: 4px 10px; border-radius: 6px;
+  }
+  .verdict.safe { background: rgba(61, 220, 151, 0.14); color: var(--green); }
+  .verdict.unsafe { background: rgba(255, 93, 143, 0.14); color: var(--rose); }
+  .verdict .dot { width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
+
+  .contention-bar {
+    border: 1px solid var(--line); border-radius: 10px; padding: 16px 18px; background: var(--ink-2);
+    display: flex; align-items: center; gap: 18px;
+  }
+  .contention-bar .meter { flex: 1; height: 8px; border-radius: 99px; background: rgba(255,255,255,0.06); overflow: hidden; position: relative; }
+  .contention-bar .fill { position: absolute; inset: 0; width: 62%; background: linear-gradient(90deg, var(--amber), var(--rose)); border-radius: 99px; }
+  .contention-bar .threshold { position: absolute; top: -3px; bottom: -3px; left: 40%; width: 2px; background: var(--paper); opacity: 0.5; }
+  .contention-bar .readout { font-family: var(--mono); font-size: 0.82rem; white-space: nowrap; }
+  .contention-bar .readout b { color: var(--amber); }
+
+  .escalate-arrow { display: flex; align-items: center; justify-content: center; padding: 14px 0; color: var(--faint); font-family: var(--mono); font-size: 0.78rem; gap: 8px; }
+  .escalate-arrow .line { flex: 0 0 1px; width: 1px; height: 18px; background: var(--faint); }
+
+  .frontier-card {
+    border: 1px solid var(--cyan-dim); border-radius: 10px; padding: 18px; background: rgba(45, 217, 255, 0.05);
+  }
+  .frontier-card .who { font-family: var(--mono); font-size: 0.78rem; color: var(--cyan); margin-bottom: 8px; display: flex; justify-content: space-between; align-items: center; }
+  .frontier-card .final { font-size: 0.95rem; margin-bottom: 10px; }
+  .frontier-card .reason { font-size: 0.85rem; color: var(--muted); }
+
+  .cost-strip {
+    margin-top: 22px; display: flex; gap: 14px; flex-wrap: wrap;
+  }
+  .cost-pill {
+    flex: 1; min-width: 150px; border: 1px solid var(--line); border-radius: 10px; padding: 12px 14px; background: var(--ink-2);
+  }
+  .cost-pill .n { font-family: var(--mono); font-size: 1.3rem; font-weight: 600; }
+  .cost-pill .l { font-size: 0.74rem; color: var(--muted); margin-top: 2px; }
+  .cost-pill.win .n { color: var(--green); }
+
+  /* ── sidebar ── */
+  aside h2 { font-family: var(--mono); font-size: 0.72rem; color: var(--muted); text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 14px; }
+  .log-row {
+    display: flex; align-items: flex-start; gap: 10px; padding: 10px 0; border-bottom: 1px solid var(--line);
+  }
+  .log-row:last-child { border-bottom: none; }
+  .log-dot { width: 8px; height: 8px; border-radius: 50%; margin-top: 5px; flex-shrink: 0; }
+  .log-dot.cheap { background: var(--green); }
+  .log-dot.escalated { background: var(--rose); }
+  .log-row .t { font-size: 0.82rem; }
+  .log-row .meta { font-family: var(--mono); font-size: 0.7rem; color: var(--faint); margin-top: 2px; }
+
+  .legend { display: flex; gap: 16px; margin-top: 16px; font-family: var(--mono); font-size: 0.7rem; color: var(--muted); }
+  .legend span { display: flex; align-items: center; gap: 5px; }
+  .legend .d { width: 7px; height: 7px; border-radius: 50%; }
+
+  .rate-box { margin-top: 26px; border: 1px solid var(--line); border-radius: 10px; padding: 14px; }
+  .rate-box .pct { font-family: var(--mono); font-size: 1.6rem; font-weight: 600; color: var(--cyan); }
+  .rate-box .l { font-size: 0.76rem; color: var(--muted); margin-top: 4px; }
+</style>
+</head>
+<body>
+<div class="app">
+
+  <div class="topbar">
+    <div class="brand">
+      <div class="mark"></div>
+      <h1>Contention Router</h1>
+      <span class="tag">— spend frontier only where cheap takes disagree</span>
+    </div>
+    <span class="badge">CONCEPT MOCKUP — NOT BUILT</span>
+  </div>
+
+  <main>
+    <div class="task-box">
+      <div class="label">Task</div>
+      <div class="q">"Is this migration safe under concurrent writes?" — adding a NOT NULL column with a backfill default to a 50M-row table.</div>
+    </div>
+
+    <div class="step-label">Step 1 — 3 independent cheap takes (haiku, parallel, no shared context)</div>
+    <div class="takes">
+      <div class="take">
+        <div class="who"><span>haiku · take 1</span><span>0.3s</span></div>
+        <div class="reasoning">Backfill runs as a single transaction; long lock window on a 50M-row table blocks concurrent writers.</div>
+        <span class="verdict unsafe"><span class="dot"></span>unsafe</span>
+      </div>
+      <div class="take">
+        <div class="who"><span>haiku · take 2</span><span>0.2s</span></div>
+        <div class="reasoning">Default is applied as metadata-only in this engine version; no full table rewrite needed.</div>
+        <span class="verdict safe"><span class="dot"></span>safe</span>
+      </div>
+      <div class="take">
+        <div class="who"><span>haiku · take 3</span><span>0.3s</span></div>
+        <div class="reasoning">Batched backfill with short-lived locks per batch; concurrent writers see brief stalls, not blocking.</div>
+        <span class="verdict unsafe"><span class="dot"></span>unsafe</span>
+      </div>
+    </div>
+
+    <div class="step-label">Step 2 — contention from verdict agreement, not text similarity</div>
+    <div class="contention-bar">
+      <div class="readout">2–1 split</div>
+      <div class="meter"><div class="fill"></div><div class="threshold"></div></div>
+      <div class="readout">contention <b>0.62</b> ≥ threshold 0.40</div>
+    </div>
+
+    <div class="escalate-arrow">
+      <div class="line"></div>
+      escalating — takes disagree on the verdict, not just the reasoning
+      <div class="line"></div>
+    </div>
+
+    <div class="step-label">Step 3 — frontier adjudicates the disagreement (opus, sees all 3 verdicts)</div>
+    <div class="frontier-card">
+      <div class="who"><span>opus · adjudicator</span><span class="badge" style="background:var(--cyan-dim)">FINAL</span></div>
+      <div class="final">Verdict: <strong style="color:var(--rose)">unsafe as written</strong> — majority was right, take 2's "metadata-only" claim doesn't hold once a default value is backfilled, not just declared.</div>
+      <div class="reason">Sided 2-of-3, but explicitly addressed why the dissenting take was wrong rather than ignoring it.</div>
+    </div>
+
+    <div class="cost-strip">
+      <div class="cost-pill"><div class="n">4</div><div class="l">model calls this task (3 haiku + 1 opus)</div></div>
+      <div class="cost-pill win"><div class="n">$0.04</div><div class="l">actual spend</div></div>
+      <div class="cost-pill"><div class="n">$0.15</div><div class="l">always-opus baseline for this task</div></div>
+      <div class="cost-pill win"><div class="n">73%</div><div class="l">saved — escalated because of disagreement, not skipped</div></div>
+    </div>
+  </main>
+
+  <aside>
+    <h2>Session log</h2>
+    <div class="log-row">
+      <div class="log-dot escalated"></div>
+      <div>
+        <div class="t">Migration safety — concurrent writes</div>
+        <div class="meta">2–1 split · escalated · unsafe</div>
+      </div>
+    </div>
+    <div class="log-row">
+      <div class="log-dot cheap"></div>
+      <div>
+        <div class="t">Retry logic: exponential backoff vs fixed</div>
+        <div class="meta">3–0 unanimous · cheap-only · backoff</div>
+      </div>
+    </div>
+    <div class="log-row">
+      <div class="log-dot cheap"></div>
+      <div>
+        <div class="t">Is this null check redundant?</div>
+        <div class="meta">3–0 unanimous · cheap-only · redundant</div>
+      </div>
+    </div>
+    <div class="log-row">
+      <div class="log-dot escalated"></div>
+      <div>
+        <div class="t">Root cause: timeout or pool exhaustion?</div>
+        <div class="meta">3-way split · escalated · pool exhaustion</div>
+      </div>
+    </div>
+    <div class="legend">
+      <span><span class="d" style="background:var(--green)"></span>cheap-only</span>
+      <span><span class="d" style="background:var(--rose)"></span>escalated</span>
+    </div>
+
+    <div class="rate-box">
+      <div class="pct">25%</div>
+      <div class="l">of calls this session escalated to frontier — the rest resolved on unanimous or majority cheap agreement</div>
+    </div>
+  </aside>
+
+</div>
+</body>
+</html>

@@ -132,7 +132,7 @@ accumulate real outcome data and calibrate the rubric weights.
 
 -----
 
-## Phase 3: Epistemic Router (KERNEL SHIPPED)
+## Phase 3: Epistemic Router (KERNEL SHIPPED — real A/B run, result against)
 
 **Status (2026-06-17):** the routing kernel shipped (`perdura_router.py`,
 `perdura.py run --route contention|periodic|random|cheap --budget N`):
@@ -142,14 +142,26 @@ hard session budgets with local fallback, and a per-decision ledger. The
 decisive A/B harness shipped too (`experiments/escalation_ab.py`) with a
 synthetic positive control: at equal spend and equal flips, mean contention
 at escalation separates the arms (0.48 contention-routed vs 0.31 random vs
-0.14 periodic) — frontier spend lands on actual disagreement. The harness
-now has a `--real` mode (same four arms, same metrics, real
-`ClaudeWorker`/`GeminiWorker`/`QwenWorker` instead of the scripted
-Pad/Challenger pair) so the real run is one command away
-(`escalation_ab.py --real --local qwen --frontier claude,gemini`) — but
-**the thesis verdict still requires actually running it**: no environment
-this codebase has been built in (including this one) has held the API
-keys or a local model server needed to execute it for real.
+0.14 periodic) — frontier spend lands on actual disagreement.
+
+**Update (2026-06-25):** the `--real` mode has now actually run, multiple
+times, against real Claude/Gemini calls (`--local mock` standing in for an
+unavailable local model). Full record: `docs/phase3-ab-results.md`.
+Targeting precision holds on real data (contention-routing finds the
+hottest live disagreement every clean run, 2–7× periodic's mean contention
+at escalation). But on the metric the thesis was supposed to win on —
+outcome flips at equal cost — contention-routing trailed periodic in all
+three clean real-worker runs (0 vs 1, 1 vs 4, 1 vs 3 flips). A real
+confound was found (this seed graph's contention dilutes with graph size
+regardless of budget, capping the contention arm's sample at ~4
+escalations no matter how long the run goes), and a real open question
+(raw flip-counting may not credit *resolving* a dispute, only creating new
+ones — supported once, ambiguous once). Neither rescues the headline
+number; both are honestly unresolved. The local-tier half of the thesis
+("cheap-by-default is good enough most of the time") remains completely
+untested — no real cheap model has been available in any environment this
+has been built in. See `docs/phase3-ab-results.md` for the full data and
+verdict table.
 
 **Goal:** Implement cost-driven routing: escalate to frontier/specialist models only where contention is high.
 
@@ -211,10 +223,14 @@ never displaces the research focus.
   `GET`/`PUT /graphs/{tenant_id}/config` for per-domain router budgets. The
   documented gate (Phase 3 escalation A/B must show contention-routing wins
   at equal cost) was **not** satisfied — only the synthetic positive
-  control has run. The operator explicitly chose to override the gate and
+  control had run. The operator explicitly chose to override the gate and
   build E2 ahead of it; see `docs/enterprise.md` §1/§7 for the full record.
-  The real A/B remains required before any claim about contention-routing's
-  real-world cost-effectiveness.
+  **Update (2026-06-25):** the real A/B has since run
+  (`docs/phase3-ab-results.md`) — three clean runs, all against the
+  thesis on outcome flips at equal cost, though n is thin and one real
+  confound (contention dilution) was found. The override is no longer
+  covering an untested claim; it is covering a claim that has been tested
+  and has not, so far, supported the routing thesis.
 - **E3 — ingestion adapters** ✅ (2026-06-17, gate overridden):
   `perdura_ingest.py` — `adr_delta`/`incident_delta`/`ticket_delta`/
   `pr_review_delta` map a structured item (already-fetched, no live API
@@ -228,6 +244,8 @@ never displaces the research focus.
   its own per-domain track record. The Phase 3 escalation A/B gate (above)
   was not satisfied when this was built either — the operator explicitly
   extended the E2 override to cover E3 too; see `docs/enterprise.md` §1/§7.
+  The real A/B has since run (2026-06-25) — see the E2 entry above and
+  `docs/phase3-ab-results.md`.
   Follow-up (same date): `perdura_connectors.py` adds a live GitHub PR
   connector (`perdura.py sync-github --repo owner/name`) feeding the same
   `pr_review_delta` adapter from the real API instead of a pre-fetched

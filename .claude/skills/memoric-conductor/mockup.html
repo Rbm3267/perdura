@@ -1,0 +1,187 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Memoric Conductor — concept mockup</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,600;0,9..144,700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --ink: #0a0e1f; --ink-2: #0e1430; --ink-3: #131a3d;
+    --paper: #f0f3fa; --muted: #97a3c4; --faint: #5b6688;
+    --cyan: #2dd9ff; --cyan-dim: #1a9fc0;
+    --amber: #ffb454; --rose: #ff5d8f; --green: #3ddc97;
+    --line: rgba(151, 163, 196, 0.16);
+    --serif: "Fraunces", Georgia, serif;
+    --sans: "IBM Plex Sans", -apple-system, sans-serif;
+    --mono: "IBM Plex Mono", ui-monospace, monospace;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    background: var(--ink); color: var(--paper);
+    font-family: var(--sans); font-size: 15px; line-height: 1.55;
+    -webkit-font-smoothing: antialiased;
+  }
+  .app { max-width: 1180px; margin: 0 auto; padding-bottom: 60px; }
+
+  .topbar {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 18px 28px; border-bottom: 1px solid var(--line);
+    background: rgba(10,14,31,0.9);
+  }
+  .brand { display: flex; align-items: center; gap: 10px; }
+  .brand .mark { width: 22px; height: 22px; border-radius: 6px; background: linear-gradient(135deg, var(--amber), var(--cyan)); }
+  .brand h1 { font-family: var(--serif); font-weight: 700; font-size: 1.05rem; }
+  .brand .tag { color: var(--muted); font-size: 0.78rem; margin-left: 6px; }
+  .badge {
+    font-family: var(--mono); font-size: 0.72rem; color: var(--ink); background: var(--cyan);
+    padding: 4px 10px; border-radius: 999px; font-weight: 600;
+  }
+
+  main { padding: 28px; }
+
+  .step-label {
+    font-family: var(--mono); font-size: 0.72rem; color: var(--cyan-dim);
+    text-transform: uppercase; letter-spacing: 0.08em; margin: 0 0 12px;
+    display: flex; align-items: center; gap: 8px;
+  }
+  .step-label::before { content: ""; width: 16px; height: 1px; background: var(--cyan-dim); }
+
+  /* ── the train ── */
+  .track {
+    position: relative; padding: 36px 10px 26px; border-bottom: 3px dashed var(--line);
+    overflow-x: auto;
+  }
+  .train { display: flex; align-items: flex-end; gap: 6px; min-width: max-content; }
+  .loco {
+    width: 86px; height: 64px; border-radius: 8px 14px 8px 8px;
+    background: linear-gradient(160deg, var(--cyan-dim), var(--ink-3));
+    border: 1px solid var(--cyan); display: flex; flex-direction: column;
+    align-items: center; justify-content: center; flex-shrink: 0; position: relative;
+  }
+  .loco .label { font-family: var(--mono); font-size: 0.62rem; color: var(--cyan); text-align: center; line-height: 1.3; }
+  .loco::after { content: ""; position: absolute; bottom: -10px; left: 14px; right: 14px; height: 6px; background: var(--ink-3); border-radius: 3px; }
+
+  .car {
+    width: 78px; height: 58px; border-radius: 6px; flex-shrink: 0; position: relative;
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    border: 1px solid var(--line); font-family: var(--mono);
+  }
+  .car::after { content: ""; position: absolute; bottom: -10px; left: 10px; right: 10px; height: 6px; background: var(--ink-3); border-radius: 3px; }
+  .car.local { background: rgba(45, 217, 255, 0.08); border-color: var(--cyan-dim); }
+  .car.frontier { background: rgba(255, 180, 84, 0.1); border-color: var(--amber); }
+  .car.superseded { opacity: 0.35; background: repeating-linear-gradient(45deg, rgba(255,255,255,0.03), rgba(255,255,255,0.03) 4px, transparent 4px, transparent 8px); }
+  .car .tag { font-size: 0.6rem; color: var(--muted); }
+  .car .dom { font-size: 0.66rem; font-weight: 600; margin: 2px 0; }
+  .car.local .dom { color: var(--cyan); }
+  .car.frontier .dom { color: var(--amber); }
+  .car .cost { font-size: 0.58rem; color: var(--faint); }
+  .car .x { position: absolute; top: 2px; right: 4px; font-size: 0.6rem; color: var(--rose); }
+
+  .coupler { width: 10px; height: 2px; background: var(--faint); margin-bottom: 26px; flex-shrink: 0; }
+
+  /* ── decision panel ── */
+  .decision {
+    margin-top: 28px; border: 1px solid var(--line); border-radius: 10px; padding: 18px;
+    background: var(--ink-2); display: grid; grid-template-columns: 1.2fr 1fr; gap: 20px;
+  }
+  @media (max-width: 760px) { .decision { grid-template-columns: 1fr; } }
+  .decision .q { font-family: var(--mono); font-size: 0.72rem; color: var(--muted); text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 6px; }
+  .decision .task { font-size: 1rem; margin-bottom: 14px; }
+  .kv { display: flex; justify-content: space-between; font-family: var(--mono); font-size: 0.8rem; padding: 5px 0; border-bottom: 1px solid var(--line); }
+  .kv b { color: var(--paper); }
+  .verdict-line {
+    margin-top: 12px; padding: 10px 12px; border-radius: 8px; font-family: var(--mono); font-size: 0.85rem;
+  }
+  .verdict-line.frontier { background: rgba(255,180,84,0.12); color: var(--amber); }
+
+  .track-table { width: 100%; border-collapse: collapse; font-family: var(--mono); font-size: 0.78rem; }
+  .track-table th { text-align: left; color: var(--muted); font-weight: 500; padding: 6px 8px; border-bottom: 1px solid var(--line); }
+  .track-table td { padding: 6px 8px; border-bottom: 1px solid var(--line); }
+  .track-table .tier-local { color: var(--cyan); }
+  .track-table .tier-frontier { color: var(--amber); }
+
+  .budgets { display: flex; gap: 14px; margin-top: 22px; flex-wrap: wrap; }
+  .budget-pill { flex: 1; min-width: 180px; border: 1px solid var(--line); border-radius: 10px; padding: 12px 14px; background: var(--ink-2); }
+  .budget-pill .l { font-family: var(--mono); font-size: 0.7rem; color: var(--muted); text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 8px; display: flex; justify-content: space-between; }
+  .budget-pill .meter { height: 6px; border-radius: 99px; background: rgba(255,255,255,0.06); overflow: hidden; }
+  .budget-pill .fill { height: 100%; border-radius: 99px; }
+</style>
+</head>
+<body>
+<div class="app">
+
+  <div class="topbar">
+    <div class="brand">
+      <div class="mark"></div>
+      <h1>Memoric Conductor</h1>
+      <span class="tag">— the local model rides every car, frontier only joins where history says so</span>
+    </div>
+    <span class="badge">CONCEPT MOCKUP — NOT BUILT</span>
+  </div>
+
+  <main>
+    <div class="step-label">The train — train.jsonl, append-only, oldest → newest</div>
+    <div class="track">
+      <div class="train">
+        <div class="loco"><div class="label">haiku<br>conductor</div></div>
+        <div class="coupler"></div>
+        <div class="car local"><span class="x">×</span><span class="tag">frontend</span><span class="dom">generate</span><span class="cost">$0.00</span></div>
+        <div class="coupler"></div>
+        <div class="car local superseded"><span class="tag">frontend</span><span class="dom">generate</span><span class="cost">$0.00</span></div>
+        <div class="coupler"></div>
+        <div class="car local"><span class="tag">frontend</span><span class="dom">generate</span><span class="cost">$0.00</span></div>
+        <div class="coupler"></div>
+        <div class="car frontier"><span class="tag">security</span><span class="dom">review</span><span class="cost">$0.09</span></div>
+        <div class="coupler"></div>
+        <div class="car local"><span class="tag">data</span><span class="dom">debug</span><span class="cost">$0.00</span></div>
+        <div class="coupler"></div>
+        <div class="car frontier"><span class="tag">security</span><span class="dom">review</span><span class="cost">$0.09</span></div>
+        <div class="coupler"></div>
+        <div class="car local" style="border-style:dashed; opacity:0.5;"><span class="tag">— next —</span><span class="dom">?</span></div>
+      </div>
+    </div>
+
+    <div class="decision">
+      <div>
+        <div class="q">Incoming subtask</div>
+        <div class="task">"Check this new auth middleware for a bypass before we merge."</div>
+        <div class="kv"><span>domain / type</span><b>security / review</b></div>
+        <div class="kv"><span>confidence needed</span><b>0.9</b></div>
+        <div class="kv"><span>domain spend so far</span><b>$0.18 / $1.00</b></div>
+        <div class="kv"><span>rule (deterministic, not LLM)</span><b>frontier beats local by &gt;0.15 reliability/cost → escalate</b></div>
+        <div class="verdict-line frontier">→ tier: <b>frontier</b> · reason: track-record · dispatching opus for this subtask only</div>
+      </div>
+      <div>
+        <div class="q" style="margin-bottom:10px;">Track record so far (ledger.py report)</div>
+        <table class="track-table">
+          <tr><th>domain/type</th><th>tier</th><th>n</th><th>reliability</th><th>avg cost</th></tr>
+          <tr><td>frontend/generate</td><td class="tier-local">local</td><td>3</td><td>0.80</td><td>$0.00</td></tr>
+          <tr><td>security/review</td><td class="tier-frontier">frontier</td><td>1</td><td>0.67</td><td>$0.09</td></tr>
+          <tr><td>data/debug</td><td class="tier-local">local</td><td>1</td><td>0.67</td><td>$0.00</td></tr>
+        </table>
+      </div>
+    </div>
+
+    <div class="step-label" style="margin-top:30px;">Per-domain budget (throttles escalation regardless of track record)</div>
+    <div class="budgets">
+      <div class="budget-pill">
+        <div class="l"><span>frontend</span><span>$0.00 / $1.00</span></div>
+        <div class="meter"><div class="fill" style="width:0%; background:var(--green);"></div></div>
+      </div>
+      <div class="budget-pill">
+        <div class="l"><span>security</span><span>$0.18 / $1.00</span></div>
+        <div class="meter"><div class="fill" style="width:18%; background:var(--amber);"></div></div>
+      </div>
+      <div class="budget-pill">
+        <div class="l"><span>data</span><span>$0.00 / $1.00</span></div>
+        <div class="meter"><div class="fill" style="width:0%; background:var(--green);"></div></div>
+      </div>
+    </div>
+  </main>
+
+</div>
+</body>
+</html>

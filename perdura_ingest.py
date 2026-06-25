@@ -75,13 +75,19 @@ def adr_delta(adr: dict, question_id: str = None) -> dict:
                   "domain_tags": domain_tags})
     edges.append({"type": "answers", "src": "d", "dst": dst})
 
-    for i, ctx in enumerate(adr.get("context", [])):
+    context = adr.get("context", [])
+    if isinstance(context, str):
+        context = [context]
+    for i, ctx in enumerate(context):
         ref = f"ctx{i}"
         nodes.append({"ref": ref, "type": "claim", "text": ctx,
                       "confidence": 0.6, "domain_tags": domain_tags})
         edges.append({"type": "depends_on", "src": "d", "dst": ref})
 
-    for i, cons in enumerate(adr.get("consequences", [])):
+    consequences = adr.get("consequences", [])
+    if isinstance(consequences, str):
+        consequences = [consequences]
+    for i, cons in enumerate(consequences):
         ref = f"ev{i}"
         nodes.append({"ref": ref, "type": "evidence", "text": cons,
                       "confidence": 0.7, "domain_tags": domain_tags})
@@ -111,13 +117,19 @@ def incident_delta(incident: dict, question_id: str = None) -> dict:
                   "confidence": 0.8, "domain_tags": domain_tags})
     edges.append({"type": "answers", "src": "rc", "dst": dst})
 
-    for i, factor in enumerate(incident.get("contributing_factors", [])):
+    factors = incident.get("contributing_factors", [])
+    if isinstance(factors, str):
+        factors = [factors]
+    for i, factor in enumerate(factors):
         ref = f"cf{i}"
         nodes.append({"ref": ref, "type": "evidence", "text": factor,
                       "confidence": 0.6, "domain_tags": domain_tags})
         edges.append({"type": "supports", "src": ref, "dst": "rc"})
 
-    for i, item in enumerate(incident.get("action_items", [])):
+    items = incident.get("action_items", [])
+    if isinstance(items, str):
+        items = [items]
+    for i, item in enumerate(items):
         ref = f"ai{i}"
         nodes.append({"ref": ref, "type": "claim", "text": item,
                       "confidence": 0.7, "domain_tags": domain_tags})
@@ -175,9 +187,14 @@ def pr_review_delta(pr: dict, question_id: str = None) -> dict:
                   "confidence": 0.5, "domain_tags": domain_tags})
     edges.append({"type": "answers", "src": "c", "dst": dst})
 
-    for i, comment in enumerate(pr.get("comments", [])):
+    comments = pr.get("comments", [])
+    if isinstance(comments, str):
+        comments = [{"body": comments}]
+    else:
+        comments = [{"body": c} if isinstance(c, str) else c for c in comments]
+    for i, comment in enumerate(comments):
         ref = f"cm{i}"
-        nodes.append({"ref": ref, "type": "evidence", "text": comment["body"],
+        nodes.append({"ref": ref, "type": "evidence", "text": comment.get("body", ""),
                       "confidence": 0.5, "domain_tags": domain_tags})
         edges.append({"type": "supports", "src": ref, "dst": "c"})
 

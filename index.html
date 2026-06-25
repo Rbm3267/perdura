@@ -659,13 +659,17 @@
     </div>
 
     <p class="section-lede" style="margin-top: 36px;">
-      <strong>The decisive experiment ahead:</strong> does contention-triggered
+      <strong>The decisive experiment has run.</strong> Does contention-triggered
       escalation flip outcomes more often than random or periodic escalation at
-      equal cost? Yes proves the thesis. No falsifies it cheaply. Either is a result.
-      The harness now has a real-worker mode, one command away
-      (<code>escalation_ab.py --real --frontier claude,gemini</code>) — the verdict
-      is still open because no environment this has been built in, including this
-      one, has held the API keys or local model server needed to run it.
+      equal cost? Three clean real-worker runs
+      (<code>escalation_ab.py --real --frontier claude,gemini</code>) say: targeting
+      precision holds (contention-routing finds the hottest live disagreement every
+      time, 2–7× periodic's mean contention at escalation) — but on outcome flips at
+      equal cost, the metric the bet actually rides on, contention-routing trailed
+      periodic escalation all three times (0v1, 1v4, 1v3). Thin sample, one real
+      confound found (contention dilutes with graph size regardless of budget), one
+      open alternate reading not yet rescuing the number. Full data:
+      <a href="phase3-ab-results.html">docs/phase3-ab-results.md →</a>
     </p>
   </div>
 </section>
@@ -712,14 +716,17 @@
            workers. Now accumulating real outcome data. Proves claim 02.</p>
       </div>
       <div class="t-item now reveal">
-        <h4>Phase 3 — The epistemic router <span class="t-tag">KERNEL SHIPPED</span></h4>
+        <h4>Phase 3 — The epistemic router <span class="t-tag">KERNEL SHIPPED · REAL A/B RUN</span></h4>
         <p>The thesis made executable: local labor by default, frontier models summoned only
            where contention rises, chosen by live track-record reliability per unit cost,
-           under a hard budget. The A/B harness for the decisive experiment ships alongside —
-           its synthetic control already shows frontier spend landing on actual disagreement
-           (mean contention at escalation 0.48 vs 0.31 random vs 0.14 periodic, at equal cost).
-           The verdict — does contention-routed escalation flip outcomes more often than
-           periodic or random at equal cost? — awaits the real-worker run. Proves claim 03.</p>
+           under a hard budget. The A/B harness's synthetic control shows frontier spend
+           landing on actual disagreement (mean contention at escalation 0.48 vs 0.31 random
+           vs 0.14 periodic, at equal cost). The real-worker run has since happened, three
+           clean times against real Claude/Gemini calls: targeting precision holds, but on
+           outcome flips at equal cost — the metric that decides the bet — contention-routing
+           trailed periodic escalation every time. Thin sample, one real confound (contention
+           dilution), one open alternate reading, neither rescuing the headline direction.
+           <a href="phase3-ab-results.html">Full results →</a></p>
       </div>
       <div class="t-item now reveal">
         <h4>Enterprise track — engine, not experiment <span class="t-tag">E0–E3 SHIPPED</span></h4>
@@ -738,8 +745,9 @@
            connector now feeds the PR adapter from the real API instead of a pre-fetched dict.
            Both E2 and E3
            shipped ahead of their documented gate — the operator explicitly chose to override
-           it rather than have it skipped silently; the gate still stands for any claim about
-           contention-routing's real-world cost-effectiveness.
+           it rather than have it skipped silently. That gate has since run for real
+           (Phase 3, above) and currently reads against the routing thesis on its own metric —
+           the override is no longer covering an untested claim, it's covering a tested one.
            <a href="enterprise.html">The full deployment plan →</a></p>
       </div>
     </div>
@@ -780,6 +788,7 @@
         <a href="memoric-binary.html">Memoric RFC</a>
         <a href="roadmap.html">Roadmap</a>
         <a href="validation.html">Phase 0 results</a>
+        <a href="phase3-ab-results.html">Escalation A/B results</a>
         <a href="enterprise.html">Enterprise plan</a>
         <a href="#access">Request access</a>
       </div>

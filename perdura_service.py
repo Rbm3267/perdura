@@ -164,9 +164,18 @@ def make_handler(graph_path: str = None, tokens: dict = None,
             self.wfile.write(body)
 
         def _read_body(self):
-            """Returns the request body bytes, or None after sending 413 if
-            the (caller-controlled) Content-Length exceeds the cap."""
-            length = int(self.headers.get("Content-Length") or 0)
+            """Returns the request body bytes, or None after sending 400/413
+            if the (caller-controlled) Content-Length is malformed, negative,
+            or exceeds the cap. A non-integer or negative header is rejected
+            outright rather than passed to rfile.read(), which would raise
+            or block reading until EOF."""
+            try:
+                length = int(self.headers.get("Content-Length") or 0)
+                if length < 0:
+                    raise ValueError
+            except ValueError:
+                self._send(400, {"error": "invalid Content-Length"})
+                return None
             if length > _MAX_BODY_SIZE:
                 self._send(413, {"error": "request entity too large"})
                 return None

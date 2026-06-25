@@ -5,17 +5,29 @@ on top of the Phase 3 research bet: if contention-driven routing does not
 beat periodic/random escalation at equal cost, this document describes a
 nice decision-record graph, not a product. The research result is the moat.*
 
-*Gate note: the documented gate for E2+ below (§7) is the Phase 3 escalation
-A/B passing on real workers. That A/B has not been run for real — only the
-synthetic positive control in `escalation_ab.py` has. The operator made an
+*Gate note (updated 2026-06-25): the documented gate for E2+ below (§7) is
+the Phase 3 escalation A/B passing on real workers. That A/B has now run
+for real, multiple times — `docs/phase3-ab-results.md` is the full record.
+**It did not pass.** Targeting precision holds (contention-routing finds
+the hottest live disagreement, every clean run), but on the metric the
+gate specifies — outcome flips at equal cost — contention-routing trailed
+periodic escalation in all three clean real-worker runs. The sample is
+thin (1–4 escalations/arm/run) and one real confound was found (this seed
+graph's contention dilutes with size regardless of budget, capping the
+contention arm's own sample no matter how long the run goes), so this is
+not being treated as a closed, airtight falsification — but it is no
+longer an open question either. Before this run: the operator made an
 explicit, informed decision to build E2 anyway, ahead of the gate, rather
 than have it skipped silently — and made the same explicit decision again
 for E3, which §7 had called out as still gated even after the E2 override.
-This paragraph is that record. The gate still applies to anything claimed
-about contention-routing's real-world cost-effectiveness; it does not apply
-to "can this codebase serve a multi-tenant, SSO-authenticated, RLS-isolated
-control plane" (E2) or "can PR/ADR/incident/ticket streams propose deltas
-through the normal merge path, with cross-stream collision audits falling
+That history stands; what's changed is that the claim those overrides were
+covering has gone from *untested* to *tested and currently unfavorable*.
+The gate still applies to anything claimed about contention-routing's
+real-world cost-effectiveness — it now has a real answer to point to
+instead of an absence of one. It does not apply to "can this codebase
+serve a multi-tenant, SSO-authenticated, RLS-isolated control plane" (E2)
+or "can PR/ADR/incident/ticket streams propose deltas through the normal
+merge path, with cross-stream collision audits falling
 out of existing machinery" (E3) — both of which now answer for real.*
 
 ## 1. Why the concept transfers
@@ -243,7 +255,22 @@ focus is never displaced.
   periodic vs random at equal cost) must show contention-routing wins.
   If it does not, stop at E1 and say so honestly. **This gate was not
   satisfied when E2 or E3 was built** — only the synthetic positive
-  control in `escalation_ab.py` has run, never the real-worker A/B. The
+  control in `escalation_ab.py` had run, never the real-worker A/B. The
   operator explicitly chose to override the gate for both (see the status
-  note at the top of this document); any claim about contention-routing's
-  real-world cost-effectiveness still waits on the real A/B.
+  note at the top of this document).
+- **Real A/B result (2026-06-25):** the real-worker A/B has now run, three
+  clean times (`docs/phase3-ab-results.md`). Contention-routing's
+  targeting precision is confirmed — it consistently finds the
+  highest-contention moment to escalate. But on the gate's own metric,
+  outcome flips at equal cost, **contention-routing did not win**: it
+  trailed periodic escalation in all three clean runs (0 vs 1, 1 vs 4, 1
+  vs 3 flips). Saying so honestly, per the bullet above: the gate has now
+  been tested, not skipped, and the honest reading is that it currently
+  fails on this evidence — thin (1–4 escalations/arm/run) and confounded
+  by a real dilution effect in the seed graph that caps the contention
+  arm's own sample size regardless of run length, so not a closed case,
+  but a real and consistent signal against the bet, not for it. E2 and E3
+  are not being unshipped over a thin result — that would be a separate,
+  larger decision — but any claim about contention-routing's real-world
+  cost-effectiveness should now cite this result, not "the A/B hasn't run
+  yet."
