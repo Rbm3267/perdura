@@ -49,7 +49,7 @@ def load_records(path=LEDGER_PATH):
     if not os.path.exists(path):
         return []
     out = []
-    with open(path) as f:
+    with open(path, encoding="utf-8") as f:
         for line in f:
             line = line.strip()
             if line:
@@ -58,7 +58,7 @@ def load_records(path=LEDGER_PATH):
 
 
 def append_record(record: dict, path=LEDGER_PATH):
-    with open(path, "a") as f:
+    with open(path, "a", encoding="utf-8") as f:
         f.write(json.dumps(record) + "\n")
     return record
 

@@ -66,24 +66,39 @@ def _pr_to_item(pr: dict, comments: list, domain_tags: list = None) -> dict:
 def fetch_github_prs(repo: str, token: str = None, state: str = "closed",
                      since_number: int = 0, per_page: int = 20,
                      fetch=None) -> list:
-    """One page of `repo`'s PRs (newest first, GitHub's default sort)
-    with `number > since_number`, each paired with its review comments.
+    """All of `repo`'s PRs (newest first, GitHub's default sort) with
+    `number > since_number`, each paired with its review comments.
+
+    Pages until a PR at or below `since_number` is reached, or a page
+    comes back shorter than `per_page` (no more pages) -- stopping after
+    page one would permanently skip older un-synced PRs whenever more
+    than `per_page` PRs land between two sync runs, since the cursor only
+    ever advances to the newest number seen.
 
     Returns a list of (pr_number, item) pairs, item already shaped for
     `pr_review_delta`. Caller (`sync_github_prs`) tracks the new
     high-water mark; this function makes no assumption about persistence.
     """
     fetch = fetch or _default_fetch
-    prs = fetch(f"{GITHUB_API}/repos/{repo}/pulls"
-               f"?state={state}&per_page={per_page}&sort=created&direction=desc",
-               token)
     out = []
-    for pr in prs:
-        if pr["number"] <= since_number:
-            continue
-        comments = fetch(
-            f"{GITHUB_API}/repos/{repo}/pulls/{pr['number']}/comments", token)
-        out.append((pr["number"], _pr_to_item(pr, comments)))
+    page = 1
+    while True:
+        prs = fetch(f"{GITHUB_API}/repos/{repo}/pulls"
+                   f"?state={state}&per_page={per_page}&sort=created&direction=desc"
+                   f"&page={page}", token)
+        if not prs:
+            break
+        reached_cursor = False
+        for pr in prs:
+            if pr["number"] <= since_number:
+                reached_cursor = True
+                break
+            comments = fetch(
+                f"{GITHUB_API}/repos/{repo}/pulls/{pr['number']}/comments", token)
+            out.append((pr["number"], _pr_to_item(pr, comments)))
+        if reached_cursor or len(prs) < per_page:
+            break
+        page += 1
     return out
 
 

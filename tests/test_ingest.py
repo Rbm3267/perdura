@@ -145,6 +145,54 @@ def test_pr_review_delta_comments_become_evidence_and_merged_resolves(graph):
     assert graph.nodes[q].status == "resolved"
 
 
+def test_adr_delta_accepts_bare_strings_for_context_and_consequences(graph):
+    """A single context/consequence passed as a bare string (not wrapped in
+    a list) must become one node, not be iterated character by character."""
+    delta = adr_delta({
+        "title": "Use Postgres for the multi-tenant store",
+        "decision": "We will use Postgres with RLS for tenant isolation.",
+        "context": "Tenants must not see each other's data.",
+        "consequences": "Operators need a non-superuser app role.",
+    })
+    acc, rej = merge_delta(graph, delta, worker="adapter:adr")
+    assert rej == 0
+    claims = [n for n in graph.nodes.values() if n.type == "claim"]
+    evidence = [n for n in graph.nodes.values() if n.type == "evidence"]
+    assert len(claims) == 1 and claims[0].text == "Tenants must not see each other's data."
+    assert len(evidence) == 1 and evidence[0].text == "Operators need a non-superuser app role."
+
+
+def test_incident_delta_accepts_bare_strings_for_factors_and_action_items(graph):
+    delta = incident_delta({
+        "title": "Billing outage",
+        "root_cause": "Connection pool exhaustion caused the outage.",
+        "contributing_factors": "No backpressure on the queue.",
+        "action_items": "Add a hard cap on the connection pool.",
+    })
+    acc, rej = merge_delta(graph, delta, worker="adapter:incident")
+    assert rej == 0
+    evidence = [n for n in graph.nodes.values() if n.type == "evidence"]
+    assert len(evidence) == 1 and evidence[0].text == "No backpressure on the queue."
+    action_claims = [n for n in graph.nodes.values() if n.type == "claim"
+                     and n.text == "Add a hard cap on the connection pool."]
+    assert len(action_claims) == 1
+
+
+def test_pr_review_delta_accepts_bare_string_and_string_list_comments(graph):
+    """`comments` may arrive as a single string, or a list mixing plain
+    strings with {"body": ...} dicts -- both must map to evidence nodes
+    without a TypeError on `comment["body"]`."""
+    delta = pr_review_delta({
+        "title": "Add RLS policies",
+        "comments": "LGTM, verified against a non-superuser role.",
+    })
+    acc, rej = merge_delta(graph, delta, worker="adapter:pr")
+    assert rej == 0
+    evidence = [n for n in graph.nodes.values() if n.type == "evidence"]
+    assert len(evidence) == 1
+    assert evidence[0].text == "LGTM, verified against a non-superuser role."
+
+
 def test_cross_stream_collision_detected(graph):
     """The cross-department failure mode E3 targets: an incident's claimed
     root cause and an ADR's context claim, lexically close, never linked,

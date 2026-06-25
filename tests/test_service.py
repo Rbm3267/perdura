@@ -1,6 +1,7 @@
 """Enterprise E1 service API — bearer auth, the worker/operator boundary,
 and the three planes. Runs a real server on a loopback port."""
 
+import http.client
 import json
 import threading
 import urllib.error
@@ -134,3 +135,25 @@ def test_malformed_delta_is_400(service):
 
 def test_unknown_route_is_404(service):
     assert call(service.base, "GET", "/nope", token=OTOK)[0] == 404
+
+
+@pytest.mark.parametrize("bad_length", ["not-a-number", "-1"])
+def test_post_with_malformed_content_length_is_400(service, bad_length):
+    """A forged, non-integer or negative Content-Length must be rejected
+    before it's used to size rfile.read() -- a negative value passed
+    straight through can hang the read instead of raising."""
+    host, port = service.base.removeprefix("http://").split(":")
+    conn = http.client.HTTPConnection(host, int(port), timeout=5)
+    try:
+        body = b'{"delta": {}}'
+        conn.putrequest("POST", "/deltas")
+        conn.putheader("Authorization", "Bearer " + WTOK)
+        conn.putheader("Content-Type", "application/json")
+        conn.putheader("Content-Length", bad_length)
+        conn.endheaders()
+        conn.send(body)
+        resp = conn.getresponse()
+        assert resp.status == 400
+        resp.read()
+    finally:
+        conn.close()

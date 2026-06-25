@@ -14,15 +14,20 @@ PR_1 = {"number": 1, "title": "Add RLS policies", "body": "Adds FORCE RLS.",
         "merged_at": "2026-06-01T00:00:00Z", "labels": [{"name": "storage"}]}
 PR_2 = {"number": 2, "title": "Fix flaky test", "body": None,
         "merged_at": None, "labels": []}
+PR_3 = {"number": 3, "title": "Add audit log", "body": "Adds audit log table.",
+        "merged_at": "2026-06-05T00:00:00Z", "labels": []}
 COMMENTS_1 = [{"body": "LGTM, verified against a non-superuser role."}]
 COMMENTS_2 = []
+COMMENTS_3 = []
 
 
 def _fake_fetch(calls):
     def fetch(url, token=None):
         calls.append((url, token))
-        if url.endswith("/pulls?state=closed&per_page=20&sort=created&direction=desc"):
+        if url.endswith("/pulls?state=closed&per_page=20&sort=created&direction=desc&page=1"):
             return [PR_2, PR_1]   # newest first, like the real API
+        if url.endswith("&page=2"):
+            return []
         if url.endswith("/pulls/1/comments"):
             return COMMENTS_1
         if url.endswith("/pulls/2/comments"):
@@ -54,6 +59,37 @@ def test_fetch_github_prs_skips_already_synced_numbers():
                              fetch=_fake_fetch(calls))
     assert {n for n, _ in items} == {2}
     assert not any(url.endswith("/pulls/1/comments") for url, _ in calls)
+
+
+def test_fetch_github_prs_pages_through_multiple_pages():
+    """Regression test: more un-synced PRs than fit on one page must not be
+    silently dropped. fetch_github_prs used to request page 1 only, so the
+    cursor would jump straight to the newest PR's number and any older,
+    not-yet-synced PRs past page 1 were permanently skipped."""
+    calls = []
+
+    def fetch(url, token=None):
+        calls.append((url, token))
+        if url.endswith("&page=1"):
+            return [PR_3]
+        if url.endswith("&page=2"):
+            return [PR_2]
+        if url.endswith("&page=3"):
+            return [PR_1]
+        if url.endswith("&page=4"):
+            return []
+        if url.endswith("/pulls/3/comments"):
+            return COMMENTS_3
+        if url.endswith("/pulls/2/comments"):
+            return COMMENTS_2
+        if url.endswith("/pulls/1/comments"):
+            return COMMENTS_1
+        raise AssertionError(f"unexpected URL: {url}")
+
+    items = fetch_github_prs("acme/widgets", per_page=1, fetch=fetch)
+    assert {n for n, _ in items} == {1, 2, 3}
+    page_calls = [url for url, _ in calls if "/pulls?" in url]
+    assert len(page_calls) == 4
 
 
 def test_sync_github_prs_ingests_and_advances_cursor(tmp_path):
