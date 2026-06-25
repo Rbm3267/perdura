@@ -89,11 +89,17 @@ def experiment_1_hidden_disagreement(graph_json_path: str, merge_log: list) -> d
     Per docs/phase0-validation.md's exogeneity finding, --adversarial-every
     contradictions are manufactured by a critic that attacks wherever it
     boards, regardless of preceding scatter — by construction there is no
-    hidden-disagreement signal to predict there. Scoring is restricted to
-    contradicts edges NOT tagged boarding_mode "adversarial" (organic worker
-    turns and --audit-every stance-auditor classifications both count, since
-    neither is exogenous). auc_replay_including_adversarial reports the old
-    unfiltered metric for comparison.
+    hidden-disagreement signal to predict there. The replay *label* (does a
+    contradiction eventually arrive) is restricted to contradicts edges NOT
+    tagged boarding_mode "adversarial" (organic worker turns and
+    --audit-every stance-auditor classifications both count, since neither
+    is exogenous). The replay *cutoff* — when a question stops being
+    "hidden" — uses the earliest contradicts edge of ANY boarding mode:
+    once an adversarial edge has already made a question's disagreement
+    explicit, later checkpoints aren't predicting hidden disagreement
+    anymore even if the organic edge being scored hasn't landed yet.
+    auc_replay_including_adversarial reports the old fully-unfiltered metric
+    for comparison.
     """
     with open(graph_json_path, encoding="utf-8") as f:
         graph_data = json.load(f)
@@ -113,6 +119,12 @@ def experiment_1_hidden_disagreement(graph_json_path: str, merge_log: list) -> d
             if len(claims) < 2:
                 continue
 
+            any_contra_times = sorted(
+                e.get("created_at", 0) for e in edges
+                if e["type"] == "contradicts"
+                and e["src"] in related_ids and e["dst"] in related_ids)
+            first_any_contra = any_contra_times[0] if any_contra_times else None
+
             contra_times = sorted(
                 e.get("created_at", 0) for e in edges
                 if e["type"] == "contradicts"
@@ -126,8 +138,10 @@ def experiment_1_hidden_disagreement(graph_json_path: str, merge_log: list) -> d
 
             for k in range(2, len(claims) + 1):
                 t = claims[k - 1].get("created_at", 0)
-                if first_contra is not None and first_contra <= t:
-                    break  # contradiction is explicit from here on — nothing to predict
+                if first_any_contra is not None and first_any_contra <= t:
+                    break  # some contradiction (organic or adversarial) is
+                           # already explicit from here on — no longer
+                           # hidden, regardless of which kind is being scored
                 replay.append((embedding_scatter(mbs[:k], graph_start),
                                first_contra is not None))
         return replay, final
