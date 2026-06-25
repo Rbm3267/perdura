@@ -37,6 +37,14 @@ def test_generate_concatenates_multiple_message_items_and_skips_others():
     assert worker.generate("p") == "ab"
 
 
+def test_generate_tolerates_malformed_response_shapes():
+    for malformed in (None, {}, {"output": None}, {"output": "not-a-list"},
+                     {"output": [None, "not-a-dict", {"type": "message"}]},
+                     "not-a-dict"):
+        worker = LMStudioWorker(post=lambda url, payload, headers, m=malformed: m)
+        assert worker.generate("p") == ""
+
+
 def test_generate_omits_authorization_header_without_a_key(monkeypatch):
     monkeypatch.delenv("LM_STUDIO_API_KEY", raising=False)
 

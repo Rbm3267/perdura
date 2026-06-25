@@ -582,8 +582,11 @@ class LMStudioWorker:
         body = self.post(f"{self.base_url}/api/v1/chat",
                          {"model": self.model, "input": prompt, "store": False},
                          headers)
-        return "".join(item.get("content", "") for item in body.get("output", [])
-                       if item.get("type") == "message")
+        output = body.get("output") if isinstance(body, dict) else None
+        if not isinstance(output, list):
+            return ""
+        return "".join(item.get("content", "") for item in output
+                       if isinstance(item, dict) and item.get("type") == "message")
 
 
 class MockWorker:
