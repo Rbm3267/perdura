@@ -61,6 +61,7 @@ Manufacture contention (devil's-advocate every 3rd turn): `--adversarial-every 3
 Visualize the graph: `python perdura.py viz` → `perdura_mindmap.html` (draws `collision_candidates()` as dotted lines — lexically-close, unlinked claim pairs from different authors)
 Per-model reliability scorecard: `python perdura.py track`
 Surface latent disagreement (stance audit every 4th turn): `--audit-every 4`
+Onload a swapped-in worker with latent disagreement its own neighborhood would miss: `--memoric-briefings`
 **Live dashboard** (watch a session land in real time): `python perdura.py ui` → http://127.0.0.1:8800
 SQLite storage (multi-process, transactional — see below): `--graph perdura.db`
 **The router** (Phase 3 — local labor by default, frontier summoned on a schedule): `--route periodic --budget 6` (recommended; `--route contention` remains available as a research arm)
@@ -160,6 +161,25 @@ multi-model sessions and a synthetic ground-truth arm have actually shown:
   `collision_probe.py`'s inversion-finding numbers score organic+audit
   disagreement separately from manufactured `--adversarial-every`
   contradictions instead of pooling them.
+- **Experiment 1 passes on real data — and settles the hash question.** A
+  30-turn real session combining adversarial and audit boarding for the
+  first time clears the hidden-disagreement bar (AUC 0.944, simhash,
+  organic+audit-filtered) for the first time on real models. blake2b
+  scores 0.370 on the same data — worse than chance — confirming a
+  cryptographic hash has no locality to detect disagreement with.
+  Experiment 3 narrows to a near-miss (0.868, up from 0.56); experiment 2
+  stays blocked for the third real session running (zero decisions or
+  supersessions produced — a protocol gap, not thin data). The inversion
+  finding now holds on organic contention too (simhash AUC 0.395), not
+  just manufactured.
+- **Memoric binary now does something for claim 1, not just Phase 0.**
+  `--memoric-briefings` reuses the validated collision locator to append a
+  bounded "epistemically close, unlinked claims" section to every worker's
+  briefing — so a freshly-boarded or swapped-in model sees latent
+  disagreement its own 2-hop neighborhood would miss, without enlarging the
+  briefing budget or touching the still-gated `--memoric-weight` contention
+  signal. Off by default; opt in once a session needs fast onload over a
+  large graph.
 
 **The decisive experiment has run — and the router has been repointed by
 its result.** Does contention-triggered escalation flip outcomes more

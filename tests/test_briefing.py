@@ -53,3 +53,57 @@ def test_superseded_nodes_excluded(graph):
     graph.supersede(old, new)
     briefing = build_briefing(graph, graph.nodes[q])
     assert old not in briefing
+
+
+def test_memoric_briefing_off_by_default(seeded):
+    # default output must stay byte-identical to Phase 1 (issue: opt-in
+    # only, never changes the baseline arm)
+    default = build_briefing(seeded, seeded.nodes[seeded.q])
+    explicit_off = build_briefing(seeded, seeded.nodes[seeded.q],
+                                  memoric_briefing=False)
+    assert default == explicit_off
+    assert "collision" not in default
+
+
+def test_memoric_briefing_surfaces_unlinked_collision(graph):
+    # a claim lexically close to one already in the briefing, but written
+    # by a different worker on an unrelated question with no edge between
+    # them, should still surface once --memoric-briefings is on.
+    q1 = graph.add_node("question", "Should briefings stay fixed-size?",
+                        created_by="user", confidence=1.0)
+    anchor = graph.add_node(
+        "claim", "Worker briefing budgets must remain fixed and bounded "
+        "regardless of how large the graph grows over time.",
+        created_by="alice", confidence=0.8)
+    graph.add_edge("answers", anchor, q1, "alice")
+
+    q2 = graph.add_node("question", "Should retrieval scale with size?",
+                        created_by="user", confidence=1.0)
+    echo = graph.add_node(
+        "claim", "Worker briefing budgets must scale up and grow as large "
+        "as the graph grows over time, never staying fixed.",
+        created_by="bob", confidence=0.7)
+    graph.add_edge("answers", echo, q2, "bob")
+
+    without = build_briefing(graph, graph.nodes[q1])
+    assert echo not in without
+
+    with_echo = build_briefing(graph, graph.nodes[q1], memoric_briefing=True)
+    assert anchor in with_echo
+    assert echo in with_echo
+    assert "Epistemically close" in with_echo
+
+
+def test_memoric_briefing_stays_bounded(graph):
+    q = graph.add_node("question", "Big question?", created_by="user")
+    anchor = graph.add_node("claim", "the anchor claim text here",
+                            created_by="alice", confidence=0.9)
+    graph.add_edge("answers", anchor, q, "alice")
+    # flood the graph with collision-band claims attributed to a different
+    # worker, all unlinked, all outside the briefing's selected set
+    for i in range(40):
+        graph.add_node(
+            "claim", f"the anchor claim text here variant {i} " + "x" * 40,
+            created_by="bob", confidence=0.5)
+    briefing = build_briefing(graph, graph.nodes[q], memoric_briefing=True)
+    assert len(briefing) < BRIEFING_CHAR_BUDGET * 2

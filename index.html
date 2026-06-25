@@ -630,15 +630,15 @@
     <div class="kicker">05 · Findings</div>
     <h2>What the experiments have <em>actually shown</em>.</h2>
     <p class="section-lede">
-      The three claims are falsifiable, with numeric pass bars. Two live
+      The three claims are falsifiable, with numeric pass bars. Three live
       multi-model sessions and a synthetic ground-truth arm in — here's the
       honest ledger, including the results we didn't order.
     </p>
 
     <div class="invariants reveal">
       <div class="inv-row"><b>Pipeline holds</b>
-        <p>248/248 strict-JSON deltas from Claude + Gemini parsed, validated, and
-           merged across two live sessions. Zero rejected; provider outages survived.</p></div>
+        <p>426/426 strict-JSON deltas from Claude + Gemini parsed, validated, and
+           merged across three live sessions. Zero rejected; provider outages survived.</p></div>
       <div class="inv-row"><b>Consensus collapse</b>
         <p>Homogeneous frontier workers don't contend: 18 turns produced one
            contradicts edge. Adversarial boarding now manufactures contention on
@@ -664,6 +664,15 @@
            stamped by the conductor at merge time, so experiment 1 and the inversion
            probe score organic+audit disagreement separately from manufactured
            adversarial contradictions instead of pooling them.</p></div>
+      <div class="inv-row"><b>Experiment 1 passes — on real data, for the first time</b>
+        <p>A 30-turn session combining adversarial and audit boarding for the first
+           time clears the hidden-disagreement bar: AUC 0.944 (simhash,
+           organic+audit-filtered). blake2b scores 0.370 on the same checkpoints —
+           worse than chance — settling the hash question. Experiment 3 narrows to a
+           near-miss (0.868); experiment 2 stays blocked for the third real session
+           running (zero decisions or supersessions produced). The inversion finding
+           now holds on organic contention too (simhash AUC 0.395), not just
+           manufactured.</p></div>
     </div>
 
     <p class="section-lede" style="margin-top: 36px;">
@@ -702,23 +711,29 @@
            Proves the inverted-persistence loop end to end.</p>
       </div>
       <div class="t-item now reveal">
-        <h4>Phase 0 — Memoric binary <span class="t-tag">VALIDATING NOW</span></h4>
+        <h4>Phase 0 — Memoric binary <span class="t-tag">EXP 1 PASSES · 2 OF 3 BARS CLEARED</span></h4>
         <p>The 96-bit epistemic encoding and its three validation experiments. Experiment 1
-           (scatter predicts contradiction before the edge exists) passes; the first real
-           session surfaced <em>consensus collapse</em> — two frontier models agreeing rather
-           than contending — countered by adversarial boarding. Two findings since: adversarial
-           contradictions are <em>exogenous</em>, unpredictable by construction, so they can't
-           validate hidden-disagreement detection; and contradicting claims sit lexically
-           <em>closer</em> together than random pairs, not farther — the inversion finding.
-           Distance locates disagreement but can't measure it, so the repair is a collision
-           detector plus a stance auditor judging agree-vs-oppose. A boarding_mode field on
-           every node and edge now lets scoring separate organic+audit disagreement from
-           manufactured adversarial contradictions. The spec locks, and the blend earns its
-           place in the default routing signal, once validation clears its bars on organic,
-           heterogeneous-worker contention.</p>
+           (scatter predicts contradiction before the edge exists) passes on synthetic data;
+           the first real session surfaced <em>consensus collapse</em> — two frontier models
+           agreeing rather than contending — countered by adversarial boarding. Two findings
+           since: adversarial contradictions are <em>exogenous</em>, unpredictable by
+           construction, so they can't validate hidden-disagreement detection; and
+           contradicting claims sit lexically <em>closer</em> together than random pairs, not
+           farther — the inversion finding. Distance locates disagreement but can't measure
+           it, so the repair is a collision detector plus a stance auditor judging
+           agree-vs-oppose. A boarding_mode field on every node and edge now lets scoring
+           separate organic+audit disagreement from manufactured adversarial contradictions —
+           and on the first real run to use it, experiment 1 clears its bar on real data for
+           the first time (AUC 0.944, simhash, vs 0.370 for blake2b — worse than chance,
+           settling the hash question). Experiment 3 narrows to a near-miss (0.868); experiment 2 stays structurally
+           blocked (no decision/supersession outcomes in any real session yet). The spec
+           locks, and the blend earns its place in the default routing signal, once
+           experiment 3 clears 0.9 and experiment 2 has real outcome nodes to score — and
+           heterogeneous-worker contention (local model vs frontier) remains completely
+           untested in every environment this has run in.</p>
       </div>
       <div class="t-item now reveal">
-        <h4>Phase 1.5 — Retrieval + viz <span class="t-tag">IN PROGRESS</span></h4>
+        <h4>Phase 1.5 — Retrieval + viz <span class="t-tag">MEMORIC BRIEFINGS SHIPPED</span></h4>
         <p>Pluggable retrieval shipped — graph (baseline), hybrid (BM25 + dense + graph
            expansion), and a persistent ChromaDB index — behind one interface, so the
            briefing strategy is now an A/B knob. The living graph is visible two ways: a
@@ -726,8 +741,13 @@
            session land in real time (questions ranked by contention, the conversation feed,
            per-model track records). The mind map now draws unlinked, lexically-close claim
            pairs from different authors as dotted collision lines, and is servable live over
-           HTTP (operator-only) instead of only as a static file. Next: memoric binary in
-           briefings and learned dense embeddings.</p>
+           HTTP (operator-only) instead of only as a static file. Memoric binary now reaches
+           the briefing text itself: <code>--memoric-briefings</code> appends a bounded
+           collision-locator section to every worker's briefing, not just stance-audit turns —
+           a freshly-boarded or swapped-in model sees latent disagreement its own neighborhood
+           would miss, the concrete mechanism behind claim 1's onload/offload-without-losing-
+           context promise. Off by default; reuses the already-validated collision detector
+           rather than the still-gated contention blend. Next: learned dense embeddings.</p>
       </div>
       <div class="t-item now reveal">
         <h4>Phase 2 — Track records <span class="t-tag">ENGINE SHIPPED</span></h4>

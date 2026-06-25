@@ -60,14 +60,30 @@ Full detail in ROADMAP.md; docs/memoric-binary.md is the Phase 0 RFC.
   graphs load unchanged), stamped by the conductor at merge time; exp 1
   (memoric_eval.py) and the inversion probe (collision_probe.py) now score
   organic+audit contradictions separately from manufactured
-  --adversarial-every ones instead of pooling them; spec NOT locked
-  (docs/phase0-validation.md)
+  --adversarial-every ones instead of pooling them. FIRST REAL PASS
+  (2026-06-25): a 30-turn Claude+Gemini run (first to combine
+  --adversarial-every and --audit-every) clears exp 1 on real data for the
+  first time — AUC 0.944 simhash, organic+audit-filtered (blake2b 0.370,
+  worse than chance — settles open question 6 against blake2b). Exp 3
+  narrows to a near-miss (0.868, up from 0.56); exp 2 stays blocked for the
+  third real session running (0 decisions/supersessions — a structural
+  protocol gap, not thin data). The inversion finding now holds on organic
+  contention too (simhash AUC 0.395 vs 0.187 adversarial). Spec still NOT
+  locked (needs exp 1 *and* 3); heterogeneous workers (local model vs
+  frontier) remain completely untested in every environment this has run
+  in (docs/phase0-validation.md)
 - Phase 1   ✅ Graph + delta loop, Claude/Gemini/Qwen, round-robin, CLI + MCP station
 - Phase 1.5 STARTED — pluggable retrieval (perdura_retrieval.py;
   --retriever graph|hybrid|chroma, graph = required baseline arm) and
   mind-map viz (perdura.py viz), now drawing collision_candidates() as
   dotted lines and servable live (perdura_service.py GET /viz,
-  operator-only)
+  operator-only). SHIPPED 2026-06-25: --memoric-briefings appends a
+  bounded collision-locator section (lexically-close, unlinked claims) to
+  every worker's briefing, not just --audit-every turns — the concrete
+  mechanism for claim 1's "onload/offload models rapidly without losing
+  context"; reuses the already-validated collision_candidates(), does not
+  touch the still-gated --memoric-weight contention blend, off by default,
+  byte-identical output when unset (tests/test_briefing.py)
 - Phase 2   STARTED — track-record engine (perdura_track.py, perdura.py
   track, operator-only MCP tool); reliability = Laplace-smoothed claim
   outcomes (promoted/corroborated vs challenged/superseded), derived

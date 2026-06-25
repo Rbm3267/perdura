@@ -70,18 +70,32 @@
 <p>Perdura is a persistent knowledge graph where LLMs are ephemeral workers. The roadmap now includes Phase 0 — foundational research on <strong>memoric binary</strong>, a native epistemic encoding that enables early contention detection and per-model track records in vector space.</p>
 <hr />
 <h2>Phase 0: Memoric Binary (NOW)</h2>
-<p><strong>Validation status (2026-06-10):</strong> synthetic arm — experiment 1 (hidden
+<p><strong>Validation status (2026-06-25):</strong> synthetic arm — experiment 1 (hidden
 disagreement, temporal replay) passes; exp 3 near-miss (0.87); exp 2 needs
 real data. First real-session arm hit <em>consensus collapse</em> (two frontier
 models agree, 1 contradicts edge in 18 turns); fixed by adversarial
 boarding (<code>--adversarial-every N</code>), validated to lift contention 0→0.13 on
-real models. The spec-locking run is heterogeneous workers + adversarial
-boarding. Second real arm (contested seeds + adversarial): contention
+real models. Second real arm (contested seeds + adversarial): contention
 supply solved (12 contradicts edges), but adversarial contradictions are
 <em>exogenous</em> — unpredictable by scatter by construction — so exps 1/3 score
-at chance on them. Lock requires organic contention from heterogeneous
-workers (local Qwen). Spec not locked. Full results:
-docs/phase0-validation.md.</p>
+at chance on them. <strong>Inversion finding:</strong> contradicting claims are
+lexically <em>closer</em> than random pairs, not farther — distance locates
+disagreement but can't measure it; <code>collision_candidates()</code> + stance-audit
+boarding (<code>--audit-every N</code>) is the repair. <strong>Exogeneity fix (2026-06-25):</strong>
+every <code>Node</code>/<code>Edge</code> now carries <code>boarding_mode</code> (organic/adversarial/audit),
+so exp 1 and the inversion probe (<code>collision_probe.py</code>) score organic+audit
+contradictions separately from manufactured ones. <strong>Third real arm
+(2026-06-25, first to combine <code>--adversarial-every</code> and <code>--audit-every</code>):</strong>
+experiment 1 passes on real data for the first time — AUC 0.944 (simhash,
+organic+audit-filtered) vs 0.370 for blake2b (worse than chance, settling
+open question 6 against it). Exp 3 narrows to a near-miss (0.868, up from
+0.56). Exp 2 stays blocked for the third real session running (0
+decisions/supersessions) — a structural protocol gap, not thin data. The
+inversion finding now holds on organic contention too (simhash AUC 0.395),
+not just adversarial (0.187). Spec still not locked (needs exp 1 <em>and</em> 3);
+heterogeneous workers (local Qwen vs frontier) remain completely
+untested — no local model has been reachable in any environment this has
+run in. Full results: docs/phase0-validation.md.</p>
 <p><strong>Goal:</strong> Design, implement, and validate a 96-bit epistemic encoding that captures semantic content, node type, confidence, domain tags, temporal context, and supersession lineage.</p>
 <p><strong>Deliverables:</strong></p>
 <ul>
@@ -126,16 +140,26 @@ local dashboard, the Station (<code>perdura.py ui</code>): real-time graph with
 feed, and track records. The mind map now draws <code>collision_candidates()</code>
 as dotted lines (lexically-close, unlinked claim pairs from different
 authors) and is servable live over HTTP (<code>GET /viz</code>, operator-only,
-<code>perdura_service.py</code>), not just as a static file. Remaining: memoric
-binary in briefings, learned dense embeddings, retrieval A/B on real
-sessions (research question #1).</p>
+<code>perdura_service.py</code>), not just as a static file. <strong>Update (2026-06-25):</strong>
+memoric binary now reaches the actual briefing text — <code>--memoric-briefings</code>
+appends a bounded section of lexically-close, unlinked claims (the
+validated collision locator, <code>collision_candidates()</code>) to every worker's
+briefing, not just <code>--audit-every</code> turns, so a freshly-boarded or
+swapped-in model sees latent disagreement its retriever's neighborhood
+would miss within the same bounded budget — the concrete mechanism behind
+claim 1's "onload without losing context." Off by default; additive only,
+byte-identical output when unset (tests/test_briefing.py). Remaining:
+learned dense embeddings, retrieval A/B on real sessions (research
+question #1).</p>
 <p><strong>Goal:</strong> Integrate memoric binary into the graph storage and briefing assembly.</p>
 <p><strong>Scope:</strong></p>
 <ul>
 <li>Memoric binary per node — <strong>derived on demand</strong> via <code>encode_node</code>, never
   persisted (decision: docs/memoric-binary.md §6.1; persistence only ever
   as a versioned cache if ChromaDB integration needs it)</li>
-<li>Assemble briefings with memoric binary included</li>
+<li>Assemble briefings with memoric binary included — ✅ shipped
+  (<code>--memoric-briefings</code>, 2026-06-25): collision-band echoes appended to
+  every briefing, separate from the still-gated contention blend below</li>
 <li>Contention blend <code>(1-w)*edge_signal + w*embedding_scatter</code> — implemented;
   <strong>default w=0 (edge-only) until Phase 0 experiments 1+3 pass</strong> (issue #11;
   the brief 2026-06-10 flip to 0.5 was reverted). Opt in with
@@ -148,7 +172,8 @@ sessions (research question #1).</p>
 <li>Updated <code>perdura.py</code> with memoric binary computation</li>
 <li>Retrieval index integration</li>
 <li>Graph visualization (web or graphviz)</li>
-<li>Updated briefing format to include memoric binary</li>
+<li>Updated briefing format to include memoric binary — ✅ shipped
+  (<code>--memoric-briefings</code>)</li>
 </ul>
 <p><strong>Timeline:</strong> 2–3 weeks post-Phase 0 validation</p>
 <hr />

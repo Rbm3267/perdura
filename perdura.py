@@ -322,8 +322,28 @@ Existing edges among them:
 """
 
 
+def _collision_echoes(graph, shown, limit=4):
+    """Claims outside this briefing's selected set that lexically collide
+    (validated disagreement-locator, docs/phase0-validation.md) with one
+    already inside it — lets a freshly-boarded worker see latent
+    disagreement its retriever's neighborhood alone would miss, within the
+    same bounded budget (claim 1: onload without losing context)."""
+    from perdura_memoric import collision_candidates
+    pairs = collision_candidates(graph, limit=limit * 6)
+    out = []
+    for a, b in pairs:
+        if (a.id in shown) == (b.id in shown):
+            continue
+        anchor, echo = (a, b) if a.id in shown else (b, a)
+        out.append((anchor, echo))
+        if len(out) >= limit:
+            break
+    return out
+
+
 def build_briefing(graph: Graph, question: Node, retriever=None,
-                   mask_confidence=False, adversarial=False):
+                   mask_confidence=False, adversarial=False,
+                   memoric_briefing=False):
     # Phase 1.5: candidate selection is pluggable. Default reproduces the
     # Phase 1 behavior exactly (2-hop neighborhood + open questions).
     if retriever is None:
@@ -362,11 +382,33 @@ def build_briefing(graph: Graph, question: Node, retriever=None,
                 break
             edge_lines.append(line)
             eused += len(line)
-    return DELTA_PROMPT.format(
+    prompt = DELTA_PROMPT.format(
         adversarial=ADVERSARIAL_PREAMBLE if adversarial else "",
         question=f"{question.id}: {question.text}",
         nodes="\n".join(lines) or "(none yet)",
         edges="\n".join(edge_lines) or "(none yet)")
+    if memoric_briefing:
+        # Additive, opt-in (--memoric-briefings): default output stays
+        # byte-identical to Phase 1. Separate from --memoric-weight, which
+        # stays gated on exp 1 AND exp 3 passing (exp 3 is still a
+        # near-miss) — this only reuses the already-validated collision
+        # locator to widen what a worker sees, not the contention signal.
+        echo_lines, eused, budget = [], 0, BRIEFING_CHAR_BUDGET // 6
+        for anchor, echo in _collision_echoes(graph, shown):
+            text = " ".join((echo.text or "").split())
+            line = f"{echo.id} | close to {anchor.id} | {text}"
+            if eused + len(line) > budget:
+                break
+            echo_lines.append(line)
+            eused += len(line)
+        if echo_lines:
+            prompt += (
+                "\n\nEpistemically close, unlinked claims elsewhere in the "
+                "graph (lexical collision against a claim above — same "
+                "topic, possibly opposite stance; judge independently, may "
+                "be agreement, disagreement, or coincidence):\n"
+                + "\n".join(echo_lines))
+    return prompt
 
 
 def parse_delta(raw: str):
@@ -644,7 +686,7 @@ WORKER_FACTORIES = {
 
 def run_turns(graph: Graph, workers: list, turns: int, retriever=None,
               mask_confidence=False, adversarial_every=0, audit_every=0,
-              router=None):
+              router=None, memoric_briefing=False):
     """Worker boarding loop. Round-robin by default; with a router (Phase 3)
     each turn's worker is chosen by contention, track records, and budget."""
     for t in range(turns):
@@ -692,7 +734,8 @@ def run_turns(graph: Graph, workers: list, turns: int, retriever=None,
               f"{q.text[:60]}...")
         briefing = build_briefing(graph, q, retriever,
                                   mask_confidence=mask_confidence,
-                                  adversarial=adversarial)
+                                  adversarial=adversarial,
+                                  memoric_briefing=memoric_briefing)
         _board(graph, worker, briefing,
               boarding_mode="adversarial" if adversarial else "organic")
 
@@ -842,6 +885,16 @@ def main():
                         "to manufacture contention (0 = off). Counters the "
                         "consensus collapse seen with homogeneous workers — "
                         "see docs/phase0-validation.md")
+    p.add_argument("--memoric-briefings", action="store_true",
+                   help="append a bounded section of lexically-close, "
+                        "unlinked claims (collision_candidates) to every "
+                        "briefing, not just --audit-every turns — lets a "
+                        "freshly-boarded/swapped worker see latent "
+                        "disagreement its retriever's neighborhood would "
+                        "miss (claim 1: onload without losing context). "
+                        "Validated by exp 1 (docs/phase0-validation.md); "
+                        "does not change --memoric-weight's still-gated "
+                        "contention signal. Off by default")
     p.add_argument("--retriever", choices=["graph", "hybrid", "chroma"],
                    default="graph",
                    help="briefing candidate selection (Phase 1.5): graph = "
@@ -929,7 +982,8 @@ def main():
                   mask_confidence=args.mask_confidence,
                   adversarial_every=args.adversarial_every,
                   audit_every=args.audit_every,
-                  router=router)
+                  router=router,
+                  memoric_briefing=args.memoric_briefings)
         if router:
             print("\n" + router.summary())
         show(graph)
