@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Perdura — Spend Where the Graph Disagrees With Itself</title>
-<meta name="description" content="Perdura routes LLM spend by per-subgraph epistemic state: cheap local models by default, frontier models summoned only where contradiction density rises in a persistent, attributed knowledge graph.">
+<meta name="description" content="Perdura routes LLM spend by per-subgraph epistemic state: cheap local models by default, frontier models summoned to bound spend in a persistent, attributed knowledge graph — by default on a validated schedule, with contention-triggered escalation as a research arm.">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,400;0,9..144,600;0,9..144,700;1,9..144,400;1,9..144,600&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
@@ -295,8 +295,9 @@
     <h1>Spend money where the graph <em>disagrees</em> with itself.</h1>
     <p class="lede">
       Perdura routes reasoning spend by <strong>per-subgraph epistemic state</strong>:
-      cheap local models are the default labor, frontier models are summoned only
-      where contradiction density rises in a persistent, attributed knowledge graph.
+      cheap local models are the default labor, frontier models are summoned to bound
+      spend in a persistent, attributed knowledge graph — by default on a validated
+      periodic cadence, with contention-triggered escalation kept as a research arm.
       Models board, contribute, and disembark — <strong>the memory is the system of
       record</strong>. Falsifiable claims, numeric pass bars, honest findings below.
     </p>
@@ -375,7 +376,9 @@
         <div class="num">03</div>
         <h3>Contention-driven economics</h3>
         <p>Cheap local models are the default labor force. Frontier and specialist models are
-           summoned only where contradiction density rises in the graph.</p>
+           summoned to bound spend — by default on a validated periodic cadence; a real 6-run
+           A/B found contention-triggered escalation never beats it on outcome flips at equal
+           cost, so it now ships as a research arm instead of the default trigger.</p>
       </div>
     </div>
   </div>
@@ -520,11 +523,11 @@
 
           <circle cx="400" cy="268" r="11" fill="#0a0e1f" stroke="#2dd9ff" stroke-width="3"/>
           <text x="400" y="302" text-anchor="middle" fill="#f0f3fa" font-size="12" font-weight="600">Claude</text>
-          <text x="400" y="320" text-anchor="middle" fill="#ffb454" font-size="9.5">summoned on contention</text>
+          <text x="400" y="320" text-anchor="middle" fill="#ffb454" font-size="9.5">summoned to bound spend</text>
 
           <circle cx="620" cy="268" r="11" fill="#0a0e1f" stroke="#2dd9ff" stroke-width="3"/>
           <text x="620" y="302" text-anchor="middle" fill="#f0f3fa" font-size="12" font-weight="600">Gemini</text>
-          <text x="620" y="320" text-anchor="middle" fill="#ffb454" font-size="9.5">summoned on contention</text>
+          <text x="620" y="320" text-anchor="middle" fill="#ffb454" font-size="9.5">summoned to bound spend</text>
 
           <circle cx="830" cy="268" r="11" fill="#0a0e1f" stroke="#ff5d8f" stroke-width="3"/>
           <text x="830" y="302" text-anchor="middle" fill="#f0f3fa" font-size="12" font-weight="600">Any MCP client</text>
@@ -627,15 +630,15 @@
     <div class="kicker">05 · Findings</div>
     <h2>What the experiments have <em>actually shown</em>.</h2>
     <p class="section-lede">
-      The three claims are falsifiable, with numeric pass bars. Two live
+      The three claims are falsifiable, with numeric pass bars. Three live
       multi-model sessions and a synthetic ground-truth arm in — here's the
       honest ledger, including the results we didn't order.
     </p>
 
     <div class="invariants reveal">
       <div class="inv-row"><b>Pipeline holds</b>
-        <p>248/248 strict-JSON deltas from Claude + Gemini parsed, validated, and
-           merged across two live sessions. Zero rejected; provider outages survived.</p></div>
+        <p>426/426 strict-JSON deltas from Claude + Gemini parsed, validated, and
+           merged across three live sessions. Zero rejected; provider outages survived.</p></div>
       <div class="inv-row"><b>Consensus collapse</b>
         <p>Homogeneous frontier workers don't contend: 18 turns produced one
            contradicts edge. Adversarial boarding now manufactures contention on
@@ -656,19 +659,39 @@
       <div class="inv-row"><b>Anchoring is real</b>
         <p>High-confidence claims get challenged less (0.227 vs 0.333) even with
            authorship hidden. Confidence masking exists to test the fix.</p></div>
+      <div class="inv-row"><b>Exogeneity is now machine-checkable</b>
+        <p>Every node and edge now carries a boarding_mode (organic/adversarial/audit)
+           stamped by the conductor at merge time, so experiment 1 and the inversion
+           probe score organic+audit disagreement separately from manufactured
+           adversarial contradictions instead of pooling them.</p></div>
+      <div class="inv-row"><b>Experiment 1 passes — on real data, for the first time</b>
+        <p>A 30-turn session combining adversarial and audit boarding for the first
+           time clears the hidden-disagreement bar: AUC 0.944 (simhash,
+           organic+audit-filtered). blake2b scores 0.370 on the same checkpoints —
+           worse than chance — settling the hash question. Experiment 3 narrows to a
+           near-miss (0.868); experiment 2 stays blocked for the third real session
+           running (zero decisions or supersessions produced). The inversion finding
+           now holds on organic contention too (simhash AUC 0.395), not just
+           manufactured.</p></div>
     </div>
 
     <p class="section-lede" style="margin-top: 36px;">
-      <strong>The decisive experiment has run.</strong> Does contention-triggered
-      escalation flip outcomes more often than random or periodic escalation at
-      equal cost? Three clean real-worker runs
+      <strong>The decisive experiment has run — and the router has been repointed
+      by its result.</strong> Does contention-triggered escalation flip outcomes
+      more often than random or periodic escalation at equal cost? Six clean
+      real-worker runs
       (<code>escalation_ab.py --real --frontier claude,gemini</code>) say: targeting
-      precision holds (contention-routing finds the hottest live disagreement every
-      time, 2–7× periodic's mean contention at escalation) — but on outcome flips at
-      equal cost, the metric the bet actually rides on, contention-routing trailed
-      periodic escalation all three times (0v1, 1v4, 1v3). Thin sample, one real
-      confound found (contention dilutes with graph size regardless of budget), one
-      open alternate reading not yet rescuing the number. Full data:
+      precision holds and strengthens with pooling (contention-routing finds the
+      hottest live disagreement in 6/6 runs; pooled mean contention at escalation
+      0.348 vs 0.226 random vs 0.154 periodic) — but on outcome flips at equal cost,
+      the metric the bet actually rides on, contention-routing has not beaten
+      periodic escalation once across all six runs (5 losses, 1 tie; pooled 5 vs 20
+      flips over 21 equal-cost escalations). A real confound (contention dilutes
+      with graph size regardless of budget) and one open alternate reading hold up
+      but don't rescue the number, and pooling six runs makes the direction more
+      settled, not less. <strong><code>perdura_router.py</code>'s default policy is
+      now <code>periodic</code></strong>; <code>--route contention</code> stays
+      fully supported as a research arm. Full data:
       <a href="phase3-ab-results.html">docs/phase3-ab-results.md →</a>
     </p>
   </div>
@@ -688,21 +711,29 @@
            Proves the inverted-persistence loop end to end.</p>
       </div>
       <div class="t-item now reveal">
-        <h4>Phase 0 — Memoric binary <span class="t-tag">VALIDATING NOW</span></h4>
+        <h4>Phase 0 — Memoric binary <span class="t-tag">EXP 1 PASSES · 2 OF 3 BARS CLEARED</span></h4>
         <p>The 96-bit epistemic encoding and its three validation experiments. Experiment 1
-           (scatter predicts contradiction before the edge exists) passes; the first real
-           session surfaced <em>consensus collapse</em> — two frontier models agreeing rather
-           than contending — countered by adversarial boarding. Two findings since: adversarial
-           contradictions are <em>exogenous</em>, unpredictable by construction, so they can't
-           validate hidden-disagreement detection; and contradicting claims sit lexically
-           <em>closer</em> together than random pairs, not farther — the inversion finding.
-           Distance locates disagreement but can't measure it, so the repair is a collision
-           detector plus a stance auditor judging agree-vs-oppose. The spec locks, and the
-           blend earns its place in the default routing signal, once validation clears its
-           bars on organic, heterogeneous-worker contention.</p>
+           (scatter predicts contradiction before the edge exists) passes on synthetic data;
+           the first real session surfaced <em>consensus collapse</em> — two frontier models
+           agreeing rather than contending — countered by adversarial boarding. Two findings
+           since: adversarial contradictions are <em>exogenous</em>, unpredictable by
+           construction, so they can't validate hidden-disagreement detection; and
+           contradicting claims sit lexically <em>closer</em> together than random pairs, not
+           farther — the inversion finding. Distance locates disagreement but can't measure
+           it, so the repair is a collision detector plus a stance auditor judging
+           agree-vs-oppose. A boarding_mode field on every node and edge now lets scoring
+           separate organic+audit disagreement from manufactured adversarial contradictions —
+           and on the first real run to use it, experiment 1 clears its bar on real data for
+           the first time (AUC 0.944, simhash, vs 0.370 for blake2b — worse than chance,
+           settling the hash question). Experiment 3 narrows to a near-miss (0.868); experiment 2 stays structurally
+           blocked (no decision/supersession outcomes in any real session yet). The spec
+           locks, and the blend earns its place in the default routing signal, once
+           experiment 3 clears 0.9 and experiment 2 has real outcome nodes to score — and
+           heterogeneous-worker contention (local model vs frontier) remains completely
+           untested in every environment this has run in.</p>
       </div>
       <div class="t-item now reveal">
-        <h4>Phase 1.5 — Retrieval + viz <span class="t-tag">IN PROGRESS</span></h4>
+        <h4>Phase 1.5 — Retrieval + viz <span class="t-tag">MEMORIC BRIEFINGS SHIPPED</span></h4>
         <p>Pluggable retrieval shipped — graph (baseline), hybrid (BM25 + dense + graph
            expansion), and a persistent ChromaDB index — behind one interface, so the
            briefing strategy is now an A/B knob. The living graph is visible two ways: a
@@ -710,8 +741,13 @@
            session land in real time (questions ranked by contention, the conversation feed,
            per-model track records). The mind map now draws unlinked, lexically-close claim
            pairs from different authors as dotted collision lines, and is servable live over
-           HTTP (operator-only) instead of only as a static file. Next: memoric binary in
-           briefings and learned dense embeddings.</p>
+           HTTP (operator-only) instead of only as a static file. Memoric binary now reaches
+           the briefing text itself: <code>--memoric-briefings</code> appends a bounded
+           collision-locator section to every worker's briefing, not just stance-audit turns —
+           a freshly-boarded or swapped-in model sees latent disagreement its own neighborhood
+           would miss, the concrete mechanism behind claim 1's onload/offload-without-losing-
+           context promise. Off by default; reuses the already-validated collision detector
+           rather than the still-gated contention blend. Next: learned dense embeddings.</p>
       </div>
       <div class="t-item now reveal">
         <h4>Phase 2 — Track records <span class="t-tag">ENGINE SHIPPED</span></h4>
@@ -721,16 +757,19 @@
            workers. Now accumulating real outcome data. Proves claim 02.</p>
       </div>
       <div class="t-item now reveal">
-        <h4>Phase 3 — The epistemic router <span class="t-tag">KERNEL SHIPPED · REAL A/B RUN</span></h4>
-        <p>The thesis made executable: local labor by default, frontier models summoned only
-           where contention rises, chosen by live track-record reliability per unit cost,
-           under a hard budget. The A/B harness's synthetic control shows frontier spend
-           landing on actual disagreement (mean contention at escalation 0.48 vs 0.31 random
-           vs 0.14 periodic, at equal cost). The real-worker run has since happened, three
-           clean times against real Claude/Gemini calls: targeting precision holds, but on
-           outcome flips at equal cost — the metric that decides the bet — contention-routing
-           trailed periodic escalation every time. Thin sample, one real confound (contention
-           dilution), one open alternate reading, neither rescuing the headline direction.
+        <h4>Phase 3 — The epistemic router <span class="t-tag">KERNEL SHIPPED · 6-RUN A/B · DEFAULT PIVOTED</span></h4>
+        <p>The thesis made executable: local labor by default, frontier models summoned to
+           bound spend, chosen by live track-record reliability per unit cost, under a hard
+           budget. The A/B harness's synthetic control shows frontier spend landing on actual
+           disagreement (mean contention at escalation 0.48 vs 0.31 random vs 0.14 periodic,
+           at equal cost). The real-worker run has since happened six clean times against
+           real Claude/Gemini calls: targeting precision holds and strengthens with pooling,
+           but on outcome flips at equal cost — the metric that decides the bet —
+           contention-routing has not beaten periodic escalation once (5 losses, 1 tie across
+           6 runs). One real confound (contention dilution) and one open alternate reading
+           hold up but don't rescue the headline direction. The router's default policy has
+           been pivoted from <code>contention</code> to <code>periodic</code> as a result;
+           <code>--route contention</code> remains a fully supported research arm.
            <a href="phase3-ab-results.html">Full results →</a></p>
       </div>
       <div class="t-item now reveal">
@@ -750,9 +789,11 @@
            connector now feeds the PR adapter from the real API instead of a pre-fetched dict.
            Both E2 and E3
            shipped ahead of their documented gate — the operator explicitly chose to override
-           it rather than have it skipped silently. That gate has since run for real
-           (Phase 3, above) and currently reads against the routing thesis on its own metric —
-           the override is no longer covering an untested claim, it's covering a tested one.
+           it rather than have it skipped silently. That gate has since run for real, six
+           clean times (Phase 3, above), and reads against the routing thesis on its own
+           metric, pooled across all six runs — the override is no longer covering an
+           untested claim, it's covering a tested one, and the router's recommended default
+           has been pivoted to the policy the data actually supports.
            <a href="enterprise.html">The full deployment plan →</a></p>
       </div>
     </div>

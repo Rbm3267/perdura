@@ -10,8 +10,16 @@ learned about them — spending money only where it disagrees with itself.
 2. **Epistemic track records** — every node is attributed. Over time the graph
    learns which models are reliable in which domains.
 3. **Contention-driven economics** — cheap local models are the default;
-   frontier and specialist models are summoned only where contradiction
-   density rises in the graph.
+   frontier and specialist models are summoned to bound spend. The
+   *default* escalation trigger is now a validated periodic cadence, not
+   contradiction density: the real 6-run A/B (docs/phase3-ab-results.md)
+   found contention-triggered escalation never beats periodic on outcome
+   flips at equal cost (5 losses, 1 tie). Contention-triggered escalation
+   (`--route contention`) stays fully supported as a research arm — its
+   targeting precision is confirmed (it reliably finds the hottest live
+   disagreement) — but it is no longer the recommended default. Pivoted
+   2026-06-25; do not revert without a new real-worker result that
+   reverses the 6/6 direction.
 
 ## Node types
 question · claim · evidence · decision · rejected
@@ -47,31 +55,57 @@ Full detail in ROADMAP.md; docs/memoric-binary.md is the Phase 0 RFC.
   countered by --adversarial-every; INVERSION FINDING: contradicting claims
   are lexically CLOSER than random pairs, so distance locates disagreement
   but can't measure it — collision_candidates() + stance-audit boarding
-  (--audit-every) is the repair; spec NOT locked (docs/phase0-validation.md)
+  (--audit-every) is the repair; EXOGENEITY FIX (2026-06-25): Node/Edge now
+  carry boarding_mode (organic/adversarial/audit, default organic so old
+  graphs load unchanged), stamped by the conductor at merge time; exp 1
+  (memoric_eval.py) and the inversion probe (collision_probe.py) now score
+  organic+audit contradictions separately from manufactured
+  --adversarial-every ones instead of pooling them. FIRST REAL PASS
+  (2026-06-25): a 30-turn Claude+Gemini run (first to combine
+  --adversarial-every and --audit-every) clears exp 1 on real data for the
+  first time — AUC 0.944 simhash, organic+audit-filtered (blake2b 0.370,
+  worse than chance — settles open question 6 against blake2b). Exp 3
+  narrows to a near-miss (0.868, up from 0.56); exp 2 stays blocked for the
+  third real session running (0 decisions/supersessions — a structural
+  protocol gap, not thin data). The inversion finding now holds on organic
+  contention too (simhash AUC 0.395 vs 0.187 adversarial). Spec still NOT
+  locked (needs exp 1 *and* 3); heterogeneous workers (local model vs
+  frontier) remain completely untested in every environment this has run
+  in (docs/phase0-validation.md)
 - Phase 1   ✅ Graph + delta loop, Claude/Gemini/Qwen, round-robin, CLI + MCP station
 - Phase 1.5 STARTED — pluggable retrieval (perdura_retrieval.py;
   --retriever graph|hybrid|chroma, graph = required baseline arm) and
   mind-map viz (perdura.py viz), now drawing collision_candidates() as
   dotted lines and servable live (perdura_service.py GET /viz,
-  operator-only)
+  operator-only). SHIPPED 2026-06-25: --memoric-briefings appends a
+  bounded collision-locator section (lexically-close, unlinked claims) to
+  every worker's briefing, not just --audit-every turns — the concrete
+  mechanism for claim 1's "onload/offload models rapidly without losing
+  context"; reuses the already-validated collision_candidates(), does not
+  touch the still-gated --memoric-weight contention blend, off by default,
+  byte-identical output when unset (tests/test_briefing.py)
 - Phase 2   STARTED — track-record engine (perdura_track.py, perdura.py
   track, operator-only MCP tool); reliability = Laplace-smoothed claim
   outcomes (promoted/corroborated vs challenged/superseded), derived
   on demand like memoric binary
-- Phase 3   KERNEL SHIPPED, REAL A/B RUN (2026-06-25) — perdura_router.py
-  (--route, hard budgets, escalation by track-record reliability/cost) +
-  escalation_ab.py harness, synthetic positive control passes. The --real
-  mode has now run three clean times against real Claude/Gemini calls
-  (--local mock standing in for an unavailable local model): targeting
-  precision confirmed (contention-routing finds the hottest live
-  disagreement every run), but on outcome flips at equal cost —
-  contention-routing's actual bet — it trailed periodic escalation all
-  three times (0v1, 1v4, 1v3). Thin n, one real confound found (contention
-  dilutes with graph size regardless of budget, capping the contention
-  arm's sample), one open alternate reading (flip-counting may not credit
-  dispute resolution) not yet rescuing the number. Local-tier half of the
-  thesis still untested (no real cheap model available). Full record:
-  docs/phase3-ab-results.md.
+- Phase 3   KERNEL SHIPPED, REAL A/B RUN, 6-RUN POOL (2026-06-25) —
+  perdura_router.py (--route, hard budgets, escalation by track-record
+  reliability/cost) + escalation_ab.py harness, synthetic positive control
+  passes. The --real mode has now run six clean times against real
+  Claude/Gemini calls (--local mock standing in for an unavailable local
+  model): targeting precision confirmed and strengthened by pooling
+  (contention beats periodic in 6/6 runs, random in 5/6; pooled weighted
+  mean cont@esc 0.348 vs 0.154 vs 0.226), but on outcome flips at equal
+  cost — contention-routing's actual bet — it has never once beaten
+  periodic (5 losses, 1 tie; pooled 5 vs 20 flips over 21 equal-cost
+  escalations). The dilution confound (contention dilutes with graph size
+  regardless of budget, capping the contention arm's per-run sample) is
+  reconfirmed by runs 6-8 repeating run 3's exact escalation count. The
+  "resolution not creation" alternate reading now holds modestly at the
+  pooled level (contention arm's mean final contention is lowest of the
+  three escalating arms) but isn't yet separable from dilution. Local-tier
+  half of the thesis still untested (no real cheap model available). Full
+  record: docs/phase3-ab-results.md.
 - Enterprise E2 SHIPPED (gate overridden, 2026-06-17) — Postgres
   multi-tenant store (RLS-isolated, advisory-lock writers), perdura_sso.py
   (JWT/JWKS), perdura_service.py /graphs/{tenant_id}/... + admin role +
@@ -126,24 +160,32 @@ Full detail in ROADMAP.md; docs/memoric-binary.md is the Phase 0 RFC.
   adapters, perdura_ingest.py) was built next, the operator explicitly
   extended the same override rather than let the contradiction stand
   silently.
-- **The real escalation A/B has since run (2026-06-25) — and the result
-  is unfavorable, not absent.** `docs/phase3-ab-results.md` is the full
-  record: three clean real-worker runs (Claude and/or Gemini, `--local
-  mock`), all in the same direction. Contention-routing's targeting
-  precision is confirmed (2–7× periodic's mean contention at the moment of
-  escalation, every run). But on the gate's actual metric — outcome flips
-  at equal cost — contention-routing trailed periodic in all three (0 vs
-  1, 1 vs 4, 1 vs 3 flips). This is thin evidence (1–4 escalations/arm/run)
-  and confounded by a real finding (this seed graph's contention dilutes
-  with size regardless of budget, capping the contention arm's own sample
-  no matter how long the run goes) and one open alternate reading (raw
-  flip-counting may undercount dispute *resolution*, not just creation —
-  supported once, ambiguous once). None of that rescues the headline
+- **The real escalation A/B has since run (2026-06-25), six clean times —
+  and the result is unfavorable, not absent.** `docs/phase3-ab-results.md`
+  is the full record: six clean real-worker runs (Claude and/or Gemini,
+  `--local mock`), all in the same direction. Contention-routing's
+  targeting precision is confirmed and *strengthened* by the larger
+  sample (pooled, escalation-weighted mean contention at escalation 0.348
+  vs 0.154 periodic vs 0.226 random — contention wins in 6/6 runs against
+  periodic, 5/6 against random). But on the gate's actual metric —
+  outcome flips at equal cost — contention-routing has not beaten periodic
+  once across all six runs (5 losses, 1 tie; pooled 5 vs 20 flips over 21
+  equal-cost escalations). This is no longer the thin 1–4-escalations/run
+  evidence of the first three runs — pooling six independent real-worker
+  runs gives 21–24 escalations per arm — and the direction has not
+  flipped once. It remains confounded by a real finding (this seed
+  graph's contention dilutes with size regardless of budget, capping the
+  contention arm's per-run sample — reconfirmed again by runs 6–8 landing
+  on the identical escalation count as run 3) and the alternate reading
+  (raw flip-counting may undercount dispute *resolution*, not just
+  creation) now holds modestly at the pooled level but isn't yet
+  separable from the dilution effect. None of that rescues the headline
   direction. Do not describe contention-routing's real-world
-  cost-effectiveness as "untested" or "still open" going forward — it has
-  been tested, and the project record (ROADMAP.md, docs/enterprise.md
-  §1/§7, docs/phase3-ab-results.md) says plainly that the test currently
-  cuts against the thesis. The local-tier half of claim 3 (cheap-by-default
+  cost-effectiveness as "untested," "still open," or "thin n" going
+  forward — it has been tested repeatedly on a meaningful pooled sample,
+  and the project record (ROADMAP.md, docs/enterprise.md §1/§7,
+  docs/phase3-ab-results.md) says plainly that the test currently cuts
+  against the thesis. The local-tier half of claim 3 (cheap-by-default
   is good enough most of the time) remains genuinely untested — `--local
   mock` stood in for a real cheap model in every run, since none has been
   reachable in any environment this has been built in.

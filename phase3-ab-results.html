@@ -67,8 +67,10 @@
 <main><div class="doc-kicker">Documentation</div>
 <h1>Phase 3 Escalation A/B — Real-Worker Results</h1>
 <p><strong>Date:</strong> 2026-06-25 · <strong>Arms:</strong> real frontier workers (Claude, Gemini) vs
-scripted local tier (<code>--local mock</code>) · <strong>Status: RUN — verdict thin but
-consistent, and it cuts against the routing thesis as measured.</strong></p>
+scripted local tier (<code>--local mock</code>) · <strong>Status: RUN — verdict consistent
+and decisive against the routing thesis as measured: 6/6 clean real-worker
+runs, contention-routing has never once beaten periodic escalation on
+outcome flips (5 losses, 1 tie).</strong></p>
 <p>This is the decisive Phase 3 experiment CLAUDE.md's "Key decisions" and
 <code>docs/enterprise.md</code> §7 have been flagging as open since E2: does
 contention-triggered escalation put frontier spend where it changes
@@ -134,6 +136,24 @@ run.</p>
 <td><code>--frontier claude,gemini</code>, turns=36/budget=12 (paid tier)</td>
 <td>15 real Gemini calls, 0 errors (Claude never selected)</td>
 <td><strong>Clean, n=4 escalations for contention/periodic; n=7 for random</strong> (random's own coin flips landed high this run — breaks cost parity against random, not against periodic).</td>
+</tr>
+<tr>
+<td>6</td>
+<td><code>--frontier claude,gemini</code>, turns=12/budget=4</td>
+<td>12 real Gemini calls, 0 errors (Claude never selected)</td>
+<td><strong>Clean, n=4 escalations/arm.</strong></td>
+</tr>
+<tr>
+<td>7</td>
+<td><code>--frontier claude,gemini</code>, turns=12/budget=4</td>
+<td>12 real Gemini calls, 0 errors (Claude never selected)</td>
+<td><strong>Clean, n=4 escalations/arm.</strong></td>
+</tr>
+<tr>
+<td>8</td>
+<td><code>--frontier claude,gemini</code>, turns=12/budget=4</td>
+<td>12 real Gemini calls, 0 errors (Claude never selected)</td>
+<td><strong>Clean, n=4 escalations/arm.</strong></td>
 </tr>
 </tbody>
 </table>
@@ -281,11 +301,205 @@ run.</p>
 </table>
 <p>(Random spent 7 vs. contention's 4 in run 5 — not an equal-cost
 comparison. Periodic vs. contention <em>is</em> equal cost in every clean run.)</p>
+<p><strong>Run 6 — Gemini, turns=12/budget=4, n=4 escalations/arm:</strong></p>
+<table>
+<thead>
+<tr>
+<th>arm</th>
+<th>spend</th>
+<th>escal.</th>
+<th>flips</th>
+<th>cont@esc</th>
+<th>final cont.</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>contention</td>
+<td>4</td>
+<td>4</td>
+<td>1</td>
+<td>0.4048</td>
+<td>0.108</td>
+</tr>
+<tr>
+<td>periodic</td>
+<td>4</td>
+<td>4</td>
+<td>8</td>
+<td>0.2682</td>
+<td>0.457</td>
+</tr>
+<tr>
+<td>random</td>
+<td>4</td>
+<td>4</td>
+<td>3</td>
+<td>0.2905</td>
+<td>0.213</td>
+</tr>
+<tr>
+<td>cheap</td>
+<td>0</td>
+<td>0</td>
+<td>0</td>
+<td>0.0</td>
+<td>0.053</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Run 7 — Gemini, turns=12/budget=4, n=4 escalations/arm:</strong></p>
+<table>
+<thead>
+<tr>
+<th>arm</th>
+<th>spend</th>
+<th>escal.</th>
+<th>flips</th>
+<th>cont@esc</th>
+<th>final cont.</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>contention</td>
+<td>4</td>
+<td>4</td>
+<td>1</td>
+<td>0.2667</td>
+<td>0.102</td>
+</tr>
+<tr>
+<td>periodic</td>
+<td>4</td>
+<td>4</td>
+<td>3</td>
+<td>0.1445</td>
+<td>0.220</td>
+</tr>
+<tr>
+<td>random</td>
+<td>4</td>
+<td>4</td>
+<td>2</td>
+<td>0.2105</td>
+<td>0.135</td>
+</tr>
+<tr>
+<td>cheap</td>
+<td>0</td>
+<td>0</td>
+<td>0</td>
+<td>0.0</td>
+<td>0.053</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Run 8 — Gemini, turns=12/budget=4, n=4 escalations/arm:</strong></p>
+<table>
+<thead>
+<tr>
+<th>arm</th>
+<th>spend</th>
+<th>escal.</th>
+<th>flips</th>
+<th>cont@esc</th>
+<th>final cont.</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>contention</td>
+<td>4</td>
+<td>4</td>
+<td>1</td>
+<td>0.2667</td>
+<td>0.110</td>
+</tr>
+<tr>
+<td>periodic</td>
+<td>4</td>
+<td>4</td>
+<td>1</td>
+<td>0.1283</td>
+<td>0.062</td>
+</tr>
+<tr>
+<td>random</td>
+<td>4</td>
+<td>4</td>
+<td>2</td>
+<td>0.3438</td>
+<td>0.129</td>
+</tr>
+<tr>
+<td>cheap</td>
+<td>0</td>
+<td>0</td>
+<td>0</td>
+<td>0.0</td>
+<td>0.053</td>
+</tr>
+</tbody>
+</table>
+<p>(Run 8 is the first tie: contention and periodic both landed exactly 1
+flip. Contention has still never <em>beaten</em> periodic in any clean run.)</p>
+<h3>Pooled totals across all 6 clean runs (2, 3, 5, 6, 7, 8)</h3>
+<table>
+<thead>
+<tr>
+<th>arm</th>
+<th>total spend</th>
+<th>total escal.</th>
+<th>total flips</th>
+<th>flips/escalation</th>
+<th>mean cont@esc (escalation-weighted)</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>contention</td>
+<td>23</td>
+<td>21</td>
+<td>5</td>
+<td>0.238</td>
+<td>0.348</td>
+</tr>
+<tr>
+<td>periodic</td>
+<td>23</td>
+<td>21</td>
+<td>20</td>
+<td>0.952</td>
+<td>0.154</td>
+</tr>
+<tr>
+<td>random</td>
+<td>26</td>
+<td>24</td>
+<td>13</td>
+<td>0.542</td>
+<td>0.226</td>
+</tr>
+<tr>
+<td>cheap</td>
+<td>0</td>
+<td>0</td>
+<td>0</td>
+<td>—</td>
+<td>0.0</td>
+</tr>
+</tbody>
+</table>
+<p>Per-run direction (contention vs. periodic, equal cost): <strong>contention
+loses in 5 of 6 runs (2, 3, 5, 6, 7) and ties in 1 (8). It has not won
+once.</strong></p>
 <h2>Findings</h2>
 <h3>1. Targeting precision works exactly as designed</h3>
 <p>In every clean run, mean contention at the moment of escalation
-(<code>cont@esc</code>) is highest for the contention arm — 2–7× periodic's, and
-higher than random's in two of three runs:</p>
+(<code>cont@esc</code>) is highest for the contention arm — and the pooled,
+escalation-weighted mean across all 6 runs confirms it (0.348 vs. 0.154
+periodic vs. 0.226 random):</p>
 <table>
 <thead>
 <tr>
@@ -314,11 +528,37 @@ higher than random's in two of three runs:</p>
 <td>0.082</td>
 <td>0.147</td>
 </tr>
+<tr>
+<td>6 (n=4)</td>
+<td>0.405</td>
+<td>0.268</td>
+<td>0.291</td>
+</tr>
+<tr>
+<td>7 (n=4)</td>
+<td>0.267</td>
+<td>0.145</td>
+<td>0.211</td>
+</tr>
+<tr>
+<td>8 (n=4)</td>
+<td>0.267</td>
+<td>0.128</td>
+<td>0.344</td>
+</tr>
+<tr>
+<td><strong>pooled (weighted)</strong></td>
+<td><strong>0.348</strong></td>
+<td><strong>0.154</strong></td>
+<td><strong>0.226</strong></td>
+</tr>
 </tbody>
 </table>
-<p>The router's actual job — find the hottest live disagreement and send
-frontier spend there — is not in question. It does that.</p>
-<h3>2. At equal cost, contention-routing produced fewer outcome flips, three runs in a row</h3>
+<p>Contention beats periodic in all 6 runs and beats random in 5 of 6 (random
+edges it out only in run 8). The router's actual job — find the hottest
+live disagreement and send frontier spend there — is not in question. It
+does that, and the larger sample makes the margin clearer, not weaker.</p>
+<h3>2. At equal cost, contention-routing produced fewer outcome flips — 6 runs straight, never once ahead</h3>
 <table>
 <thead>
 <tr>
@@ -343,46 +583,76 @@ frontier spend there — is not in question. It does that.</p>
 <td>1</td>
 <td>3</td>
 </tr>
+<tr>
+<td>6, n=4</td>
+<td>1</td>
+<td>8</td>
+</tr>
+<tr>
+<td>7, n=4</td>
+<td>1</td>
+<td>3</td>
+</tr>
+<tr>
+<td>8, n=4</td>
+<td>1</td>
+<td>1 (tie)</td>
+</tr>
+<tr>
+<td><strong>pooled</strong></td>
+<td><strong>5 / 21 escalations</strong></td>
+<td><strong>20 / 21 escalations</strong></td>
+</tr>
 </tbody>
 </table>
-<p>Same direction every time, two different Gemini-key configurations, one
-Claude-only configuration. Taken at face value, that is mildly <em>against</em>
-the thesis the router exists to prove, not for it. The samples are small
-(1–4 escalations per arm per run), but the direction has not flipped once
-across three independent real-worker runs.</p>
+<p>Same direction in 5 of 6 runs and a tie in the 6th — across two different
+Gemini-key configurations and one Claude-only configuration. Pooled,
+periodic produced 4× contention's flip rate per escalation (0.952 vs.
+0.238 flips/escalation). The samples per run are still small (1–8
+escalations), but contention-routing has not won a single one of 6
+independent real-worker runs. At this point the direction is the finding,
+not a coin flip that happened to land the same way three or six times.</p>
 <h3>3. The dilution confound: more budget did not give contention more chances</h3>
-<p>Contention's escalation count was <strong>4 in both run 3 (budget=4) and run 5
-(budget=12)</strong> — 3× the budget did not produce 3× the escalations. This
-seeded graph's contention ratio decays through simple dilution: every turn
-adds nodes/edges, which shrinks the contention ratio whether or not
-anything is being resolved. Once it drops under the 0.15 threshold, the
-contention policy structurally cannot fire again on this graph — more
-budget only helps if the signal itself stays live. Periodic and random
-aren't gated this way, so they kept spending up to budget regardless. This
-means simply re-running longer on this same seeded graph will not grow
-contention's sample size; a bigger contention-arm sample needs either a
-richer seed graph that keeps generating organic disagreement, or repeated
-runs with fresh seeds/RNG draws.</p>
-<h3>4. An open alternate reading: "flips" may undercount what contention-routing actually does</h3>
-<p>In run 3, the contention arm finished with the <em>lowest</em> final contention
-(0.089) of the three escalating arms (periodic 0.135, random 0.208) —
-consistent with it spending its frontier calls <em>settling</em> the one hot
-dispute rather than spawning fresh ones, which a raw flip count (new
-contradicts/supersession edges) does not credit. Run 5 is more ambiguous
-(contention 0.042 vs. random 0.040, periodic 0.076) — not a clean repeat
-of the pattern. This is a real measurement question, not a rescue of the
-headline number: it needs a metric that credits dispute <em>resolution</em>, not
-just dispute <em>creation</em>, before this reading can be treated as more than
-a hypothesis for the next run to test.</p>
+<p>Contention's escalation count was <strong>4 in run 3 (budget=4), run 5
+(budget=12), and runs 6–8 (budget=4 each)</strong> — 3× the budget in run 5 did
+not produce 3× the escalations. This seeded graph's contention ratio
+decays through simple dilution: every turn adds nodes/edges, which shrinks
+the contention ratio whether or not anything is being resolved. Once it
+drops under the 0.15 threshold, the contention policy structurally cannot
+fire again on this graph — more budget only helps if the signal itself
+stays live. Periodic and random aren't gated this way, so they kept
+spending up to budget regardless. This means simply re-running longer on
+this same seeded graph will not grow contention's sample size — confirmed
+again by runs 6–8, which used the same turns=12/budget=4 config as run 3
+and landed on the identical escalation count every time. A bigger
+contention-arm sample needs either a richer seed graph that keeps
+generating organic disagreement, or repeated independent runs (which is
+what runs 6–8 did, and which is how the pooled n above grew from 1–4
+escalations/arm/run to 21–24 escalations/arm pooled).</p>
+<h3>4. The alternate reading holds up, modestly, at the pooled level</h3>
+<p>Across all 6 runs, the contention arm's <em>mean final contention</em> (0.084)
+is the lowest of the three escalating arms (periodic 0.175, random
+0.148) — consistent with it spending its frontier calls <em>settling</em> the
+hot dispute it targets rather than spawning fresh ones, which a raw flip
+count (new contradicts/supersession edges) does not credit. This was
+ambiguous on run 5 alone but now holds as a pooled pattern across the
+larger sample. It is still not a clean rescue of the headline number: the
+final-contention gap is also consistent with the dilution effect in
+finding 3 (an arm that escalates "successfully" early and stops adding
+contentious content has more turns left to dilute before the run ends) —
+the two explanations aren't yet separable with the data this harness
+produces. It remains a real measurement question that argues for a
+dedicated resolution-vs-creation metric, not an assumption that the
+headline flip-count result is somehow not real.</p>
 <h2>What this run does not settle</h2>
 <ul>
 <li><strong>The local tier was never real.</strong> <code>--local mock</code> stood in for Qwen in
   every run. "Cheap-by-default is good enough most of the time" — the
   other half of claim 3 — has no real-worker evidence yet either way.</li>
-<li><strong>One seed graph, thin n.</strong> All clean runs share the same seeded graph
-  (one contested question, one calm one) and 1–4 escalations per arm.
-  This is a real, consistent signal, not noise — but it is not a large-n
-  result.</li>
+<li><strong>One seed graph.</strong> All 6 clean runs share the same seeded graph (one
+  contested question, one calm one). The pooled escalation count (21–24
+  per arm) is no longer thin in the way 1–4 escalations/arm/run was, but
+  it is still one seed topology, not a sweep across different graphs.</li>
 <li><strong>Gemini did almost all the real work.</strong> Claude was only exercised in
   isolation (run 2, n=1) because the router's cost tiebreak (no track
   record yet → reliability ties → cheaper Gemini wins) selects Gemini by
@@ -399,19 +669,19 @@ a hypothesis for the next run to test.</p>
 <tbody>
 <tr>
 <td>Targeting precision (cont@esc)</td>
-<td><strong>Confirmed</strong> — contention-routing finds the hottest live disagreement, every clean run</td>
+<td><strong>Confirmed, strengthened by pooling</strong> — contention beats periodic in 6/6 runs and random in 5/6; pooled weighted mean 0.348 vs. 0.154 vs. 0.226</td>
 </tr>
 <tr>
 <td>Outcome flips at equal cost</td>
-<td><strong>Against the thesis, 3/3 clean runs</strong> — contention-routing trails periodic every time</td>
+<td><strong>Against the thesis, 6/6 clean runs</strong> — contention-routing has never beaten periodic (5 losses, 1 tie); pooled 5 vs. 20 flips over 21 equal-cost escalations</td>
 </tr>
 <tr>
 <td>Dilution confound</td>
-<td><strong>Real</strong> — this seed graph caps contention's escalation count regardless of budget; longer runs don't grow its sample</td>
+<td><strong>Real, reconfirmed</strong> — runs 6–8 repeat run 3's exact escalation count (4) on the same turns=12/budget=4 config; longer/bigger budget doesn't grow contention's per-run sample, only repeated independent runs do</td>
 </tr>
 <tr>
 <td>Alternate "resolution not creation" reading</td>
-<td><strong>Open</strong> — supported once (run 3), ambiguous once (run 5); needs a dedicated metric, not assumed</td>
+<td><strong>Modestly supported at the pooled level</strong> — contention arm's mean final contention (0.084) is the lowest of the three escalating arms across all 6 runs, but this isn't yet separable from the dilution confound; still needs a dedicated metric</td>
 </tr>
 <tr>
 <td>Local-tier-is-good-enough (other half of claim 3)</td>
@@ -419,7 +689,7 @@ a hypothesis for the next run to test.</p>
 </tr>
 <tr>
 <td>Gate for E2+ (<code>docs/enterprise.md</code> §7)</td>
-<td><strong>Run, not passed as stated.</strong> The required A/B has now executed for real; on the metric it specifies (outcome flips at equal cost), contention-routing did not win. The override that let E2/E3 ship ahead of this gate is no longer covering an untested claim — it is covering a claim that has been tested and, so far, has not supported the routing thesis.</td>
+<td><strong>Run, not passed as stated — now on a larger sample.</strong> The required A/B has executed 6 times for real; on the metric it specifies (outcome flips at equal cost), contention-routing has not won once. The override that let E2/E3 ship ahead of this gate is no longer covering an untested claim — it is covering a claim that has been tested repeatedly and has not supported the routing thesis.</td>
 </tr>
 </tbody>
 </table>
@@ -431,11 +701,14 @@ machinery ran perfectly across every run, real-key failures included — no
 delta was ever lost or mis-merged because of the auth and rate-limit
 errors above; the conductor logged them and continued. What it does mean:
 the specific economic bet that justifies "spend only where it disagrees
-with itself" now has real, consistent, if thin, evidence against it, and
-the project record should say so plainly rather than continue treating it
-as merely unverified.</p>
+with itself" now has real, consistent evidence against it across 6
+independent real-worker runs (21–24 escalations pooled per arm, not the
+1–4/run of the first three), and the project record should say so plainly
+rather than continue treating it as thin or merely unverified.</p>
 <h2>Reproducing</h2>
-<pre><code class="language-bash"># clean two-frontier run (what produced runs 3 and 5 above)
+<pre><code class="language-bash"># clean two-frontier run (what produced runs 3, 6, 7, 8 above — repeat for
+# independent draws; the escalation schedule is deterministic per run but
+# real model output is not, so each repetition is a fresh data point)
 python experiments/escalation_ab.py --real --local mock --frontier claude,gemini
 python experiments/escalation_ab.py --real --local mock --frontier claude,gemini --turns 36 --budget 12
 

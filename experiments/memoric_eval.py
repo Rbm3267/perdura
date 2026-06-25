@@ -85,6 +85,21 @@ def experiment_1_hidden_disagreement(graph_json_path: str, merge_log: list) -> d
     - Primary metric: AUC of checkpoint scatter as a predictor of *future*
       contradiction. The final-state association AUC is reported for
       reference only.
+
+    Per docs/phase0-validation.md's exogeneity finding, --adversarial-every
+    contradictions are manufactured by a critic that attacks wherever it
+    boards, regardless of preceding scatter — by construction there is no
+    hidden-disagreement signal to predict there. The replay *label* (does a
+    contradiction eventually arrive) is restricted to contradicts edges NOT
+    tagged boarding_mode "adversarial" (organic worker turns and
+    --audit-every stance-auditor classifications both count, since neither
+    is exogenous). The replay *cutoff* — when a question stops being
+    "hidden" — uses the earliest contradicts edge of ANY boarding mode:
+    once an adversarial edge has already made a question's disagreement
+    explicit, later checkpoints aren't predicting hidden disagreement
+    anymore even if the organic edge being scored hasn't landed yet.
+    auc_replay_including_adversarial reports the old fully-unfiltered metric
+    for comparison.
     """
     with open(graph_json_path, encoding="utf-8") as f:
         graph_data = json.load(f)
@@ -94,30 +109,44 @@ def experiment_1_hidden_disagreement(graph_json_path: str, merge_log: list) -> d
     graph_start = min((n.get("created_at", 0) for n in nodes.values()),
                       default=0)
 
-    replay = []   # (scatter at pre-contradiction checkpoint, contradiction coming?)
-    final = []    # (final scatter, contradiction present?) — reference only
-    for question in [n for n in nodes.values() if n["type"] == "question"]:
-        qid = question["id"]
-        claims = _question_claims(qid, nodes, edges)
-        related_ids = {qid} | {n["id"] for n in claims}
-        if len(claims) < 2:
-            continue
+    def replay_and_final(exclude_adversarial):
+        replay = []   # (scatter at pre-contradiction checkpoint, contradiction coming?)
+        final = []    # (final scatter, contradiction present?) — reference only
+        for question in [n for n in nodes.values() if n["type"] == "question"]:
+            qid = question["id"]
+            claims = _question_claims(qid, nodes, edges)
+            related_ids = {qid} | {n["id"] for n in claims}
+            if len(claims) < 2:
+                continue
 
-        contra_times = sorted(
-            e.get("created_at", 0) for e in edges
-            if e["type"] == "contradicts"
-            and e["src"] in related_ids and e["dst"] in related_ids)
-        first_contra = contra_times[0] if contra_times else None
+            any_contra_times = sorted(
+                e.get("created_at", 0) for e in edges
+                if e["type"] == "contradicts"
+                and e["src"] in related_ids and e["dst"] in related_ids)
+            first_any_contra = any_contra_times[0] if any_contra_times else None
 
-        mbs = [_encode_node(n, graph_start) for n in claims]
-        final.append((embedding_scatter(mbs, graph_start), bool(contra_times)))
+            contra_times = sorted(
+                e.get("created_at", 0) for e in edges
+                if e["type"] == "contradicts"
+                and e["src"] in related_ids and e["dst"] in related_ids
+                and not (exclude_adversarial
+                         and e.get("boarding_mode", "organic") == "adversarial"))
+            first_contra = contra_times[0] if contra_times else None
 
-        for k in range(2, len(claims) + 1):
-            t = claims[k - 1].get("created_at", 0)
-            if first_contra is not None and first_contra <= t:
-                break  # contradiction is explicit from here on — nothing to predict
-            replay.append((embedding_scatter(mbs[:k], graph_start),
-                           first_contra is not None))
+            mbs = [_encode_node(n, graph_start) for n in claims]
+            final.append((embedding_scatter(mbs, graph_start), bool(contra_times)))
+
+            for k in range(2, len(claims) + 1):
+                t = claims[k - 1].get("created_at", 0)
+                if first_any_contra is not None and first_any_contra <= t:
+                    break  # some contradiction (organic or adversarial) is
+                           # already explicit from here on — no longer
+                           # hidden, regardless of which kind is being scored
+                replay.append((embedding_scatter(mbs[:k], graph_start),
+                               first_contra is not None))
+        return replay, final
+
+    replay, final = replay_and_final(exclude_adversarial=True)
 
     if len(replay) < 4:
         return {"status": "insufficient_data",
@@ -129,6 +158,7 @@ def experiment_1_hidden_disagreement(graph_json_path: str, merge_log: list) -> d
         return {"status": "insufficient_data",
                 "message": "Need both contended and uncontended questions"}
 
+    replay_all, _ = replay_and_final(exclude_adversarial=False)
     n_pos = sum(1 for _, c in replay if c)
     return {
         "status": "success",
@@ -141,6 +171,7 @@ def experiment_1_hidden_disagreement(graph_json_path: str, merge_log: list) -> d
             sum(s for s, c in replay if not c) / max(1, len(replay) - n_pos),
         "auc_replay": auc_replay,
         "auc_final_state_reference": _auc(final),
+        "auc_replay_including_adversarial": _auc(replay_all),
         "success_criteria_met": auc_replay > 0.7,
     }
 

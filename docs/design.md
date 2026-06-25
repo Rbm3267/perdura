@@ -37,6 +37,18 @@ the one before it.
    density rises in a subgraph or a high-stakes node is contested. Spend
    money where the graph disagrees with itself.
 
+*Status note (2026-06-25): claim 3's escalation **trigger** has been revised
+by data, not reversed. The real 6-run A/B (docs/phase3-ab-results.md) found
+contention-triggered escalation never beats periodic escalation on outcome
+flips at equal cost (5 losses, 1 tie). Cheap-by-default and
+frontier-summoned-to-bound-spend both still stand; what changed is which
+signal decides *when* to summon — the shipped router's recommended default
+is now a periodic cadence (`perdura_router.py`), with contention-triggered
+escalation kept as a fully supported research arm (its targeting precision —
+finding the hottest live disagreement — is confirmed; its economic payoff is
+not). See CLAUDE.md's claim 3 and docs/phase3-ab-results.md for the full
+record.*
+
 ## 3. Prior art positioning (what this is *not*)
 
 - **Blackboard systems (classic AI):** shared workspace, but workers were

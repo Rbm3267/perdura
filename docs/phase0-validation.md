@@ -211,17 +211,143 @@ research question #3) on contested seeds, with adversarial turns reserved
 for outcome generation, and experiment 1 scored only against
 contradictions arising on non-adversarial turns. `memoric_weight` stays 0.
 
+## Infra fix (2026-06-25): boarding_mode provenance
+
+"Experiment 1 scored only against contradictions arising on non-adversarial
+turns" above was a scoring requirement with no way to meet it: nothing on
+disk recorded *how* a node or edge boarded, only the worker name and
+timestamp — neither of which reliably separates protocols in a mixed-mode
+run (organic turns interleaved with `--adversarial-every` critic turns and,
+now, `--audit-every` stance-auditor turns).
+
+`Node` and `Edge` (`perdura.py`) now carry a `boarding_mode` field —
+`organic` (default), `adversarial`, or `audit` — stamped by the conductor
+in `merge_delta` from the boarding path that produced the delta in
+`run_turns`. The default keeps every pre-existing graph file loading
+unchanged (old dicts simply lack the key; the dataclass default backfills
+`organic`).
+
+This closes the gap for the two consumers that needed the split:
+
+- `experiments/memoric_eval.py` experiment 1 now scores `auc_replay`
+  against contradicts edges tagged `organic` or `audit` only. The old
+  unfiltered number is still reported, as `auc_replay_including_adversarial`,
+  for comparison.
+- `experiments/collision_probe.py` (the inversion-finding probe) now
+  splits contradicting pairs into organic+audit vs adversarial and reports
+  the per-metric AUCs and collision-band recall for each set separately,
+  alongside the pooled `all` figure. The 2026-06-12 calibration session
+  that produced the original collision-band numbers ran under
+  `--adversarial-every`, so those numbers describe exogenous contradiction;
+  whether the same band recalls *organic* disagreement was previously
+  unmeasured by construction, not just unfiltered.
+
+This is an infrastructure fix, not a new data point: graphs recorded before
+this change have no `boarding_mode` on disk, so the organic/adversarial
+split can't be recovered retroactively for the 2026-06-11 session above —
+its headline numbers (AUC 0.54/0.33, order preservation 0.56) stand as
+reported. What changes is what the *next* real-session run (organic,
+heterogeneous-worker contention, per "Path to lock" above) will be able to
+measure cleanly.
+
+## Real-session arm (2026-06-25): experiment 1's first real pass
+
+**Session:** 6 contested seed questions, 30 turns, Claude + Gemini, the
+first run to combine `--adversarial-every 3` and `--audit-every 5` and the
+first to exercise the `boarding_mode` infra fix above on fresh data. 58
+live nodes, 126 edges, final contention 0.372, **178/178 deltas accepted, 0
+rejected** across both workers. As in every prior real session, the two
+frontier workers spawned sub-questions faster than they answered seeds: 30
+turns only ever boarded against 2 of the 6 seeds (the 4-day-week and
+nuclear-decarbonization topics); the other four seeds never got a single
+claim. Bound question spawning (the 2026-06-10 finding's item 4) is still
+unresolved.
+
+| Experiment | Criterion | blake2b | simhash | Verdict |
+|---|---|---|---|---|
+| 1 — Hidden disagreement (organic+audit, real data) | AUC > 0.7 | 0.370 | **0.944** | ✅ **PASS (simhash only)** |
+| 2 — Track records in vector space | \|r\| > 0.6 | n/a | n/a | insufficient_data (0 decisions/supersessions) |
+| 3 — Compression / routing equivalence | > 0.9 order preservation | 0.764 | 0.868 | ❌ near-miss |
+
+**Experiment 1 passes for the first time on real model data — and settles
+open question 6 against blake2b.** Filtered to `organic`+`audit` contradicts
+edges (61 of 66 replay checkpoints precede one), simhash scatter
+discriminates almost perfectly (AUC 0.944; mean scatter 0.101 before a
+contradiction vs 0.084 with none). blake2b scores 0.370 — *worse than
+chance* — on the same checkpoints. This is consistent with blake2b being a
+cryptographic hash with no locality preservation: two semantically close
+claims hash to unrelated bit patterns, so any "scatter" computed from it is
+noise by construction. simhash is locality-preserving by design (similar
+text → similar hash), which is exactly what a disagreement-detection metric
+needs. The honest caveat: the "no contradiction" class has only 5 of 66
+checkpoints, so this AUC is on a small, imbalanced sample — encouraging,
+not yet a large-n result.
+
+**Experiment 3 narrows the gap but still misses.** simhash order
+preservation reaches 0.868 (vs 0.56 in the 2026-06-11 run, and approaching
+the 0.87 synthetic near-miss) — the top-3 contended-question ranking now
+matches the edge-only baseline exactly. blake2b stays well behind (0.764).
+Still short of the 0.9 bar; not enough to flip `memoric_weight`'s default.
+
+**Experiment 2 is blocked for the third real session in a row** — this run
+produced 0 `decision` nodes and 0 supersessions (the claim-outcome lineage
+shows 0 promoted for both workers). This is now a pattern, not bad luck:
+nothing in `run_turns`'s normal boarding protocol ever resolves a question
+into a decision or marks a claim superseded — that requires either a
+dedicated resolution boarding type or much longer runs that happen to
+trigger supersession logic incidentally. More turns or more contention will
+not unblock experiment 2 on their own.
+
+**`collision_probe.py` reconfirms the inversion finding on `boarding_mode`-tagged
+data for the first time** — 10 contradicting pairs (4 organic+audit, 6
+adversarial) vs 425 non-contradicting pairs:
+
+| metric | all | organic+audit | adversarial |
+|---|---|---|---|
+| semantic_blake2b | 0.520 | 0.688 | 0.408 |
+| semantic_simhash | 0.270 | 0.395 | 0.187 |
+| conf_delta | 0.608 | 0.388 | 0.754 |
+| epistemic_simhash | 0.536 | 0.398 | 0.628 |
+
+simhash distance is inverted for *both* boarding modes (<0.5: contradicting
+pairs are closer than random), confirming the 2026-06-12 inversion finding
+holds on genuinely organic disagreement, not just manufactured contention —
+organic+audit's inversion (0.395) is real but milder than adversarial's
+(0.187), where the devil's-advocate critic produces a near-paraphrase
+counter-claim by construction. The collision band (Hamming distance 8–17,
+the live threshold behind `--audit-every`) recalls 6/6 adversarial pairs
+but only **2/4 organic** ones — the stance-auditor mechanism that exists
+specifically to catch organic disagreement is currently missing half of it
+in this run.
+
+**What this run validates:** experiment 1 clears its bar on real data for
+the first time, decisively in favor of simhash over blake2b — the clearest
+evidence yet on open question 6. The inversion finding holds on organic,
+not just adversarial, contention.
+
+**What it doesn't:** spec lock requires 1 *and* 3, and experiment 3 is
+still a near-miss. Experiment 2 needs a different intervention (an
+explicit decision/supersession path), not just another run of this shape.
+The heterogeneous-worker gap (no local model reachable in any environment
+this has run in) remains completely untested — this is still two frontier
+models, now with audit and adversarial boarding layered in, not the
+local-vs-frontier divergence the original design calls for.
+
 ## Verdict
 
 | | |
 |---|---|
 | Mechanism (exp 1, synthetic) | **Validated** — scatter predicts contradiction before edges exist |
-| Delta pipeline (real models) | **Validated** — 120/120 deltas parsed and merged, 0 rejected |
-| Experiments on real data | **Blocked on protocol** — consensus collapse starves all three metrics |
-| Track records (exp 2) | Not yet testable — zero outcome nodes produced |
-| Routing equivalence (exp 3) | Synthetic near-miss (0.87); real arm 0.56 — confounded by exogenous contention |
+| Delta pipeline (real models) | **Validated** — 426/426 deltas parsed and merged across three real sessions, 0 rejected |
+| Hidden disagreement (exp 1, real data) | **PASS (2026-06-25, simhash only)** — AUC 0.944, organic+audit-filtered, on small/imbalanced n (5 of 66 checkpoints negative) |
+| Open question 6 (blake2b vs simhash) | **Settled toward simhash on real data** — blake2b AUC 0.370 (worse than chance) on the same checkpoints; not locality-preserving |
+| Track records (exp 2) | **Blocked three real sessions running** — 0 decision/supersession outcomes each time; needs a dedicated resolution path, not more turns |
+| Routing equivalence (exp 3) | Synthetic near-miss (0.87); real arm narrowed 0.56 → **0.868 (2026-06-25, simhash)** — still short of 0.9 |
 | Exogeneity finding | **Adversarial contention can't validate hidden-disagreement detection** — organic contention (heterogeneous workers) required |
+| Exogeneity fix | **Shipped (2026-06-25)** — boarding_mode on every node/edge; exp 1 and the inversion probe score organic+audit separately from adversarial |
+| Inversion finding | **Reconfirmed on organic data (2026-06-25)** — simhash distance inverted for both organic+audit (0.395) and adversarial (0.187) contradicting pairs; collision-band recall 2/4 organic, 6/6 adversarial |
 | Track records (Phase 2) | **First real differentiation** — gemini 0.667 vs claude 0.400 (rubric calibration open) |
-| Spec lock | **No** — re-run the real arm with the protocol fixes above |
-| memoric_weight default | stays **0** (issue #11 gate not cleared) |
-| Phase 1.5 | Proceeding — exp 1 is the signal Phase 1.5 consumes, and it holds |
+| Spec lock | **No** — exp 1 now passes (simhash); exp 3 still a near-miss; exp 2 structurally blocked |
+| memoric_weight default | stays **0** (issue #11 gate not cleared — needs exp 1 *and* 3) |
+| Heterogeneous workers | **Still untested** — no local model reachable in any environment this has run in; all three real sessions are frontier-only (Claude + Gemini) |
+| Phase 1.5 | Proceeding — exp 1 is the signal Phase 1.5 consumes, and it now holds on real data too |

@@ -33,6 +33,14 @@ def test_requires_zero_cost_worker():
         Router(registry=[ModelSpec("paid", 1.0, "local", _W("paid"))])
 
 
+def test_default_policy_is_periodic():
+    # Pivoted 2026-06-25 (docs/phase3-ab-results.md): the real A/B ran six
+    # clean times and contention-triggered escalation never beat periodic
+    # on outcome flips at equal cost, so periodic is now the recommended
+    # default; contention stays available as an explicit research arm.
+    assert Router(registry=_reg()).policy == "periodic"
+
+
 def test_calm_graph_stays_local(tmp_path):
     g = Graph(str(tmp_path / "g.json"))
     q = g.add_node("question", "Q?", created_by="user")

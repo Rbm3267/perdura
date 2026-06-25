@@ -82,6 +82,14 @@ class Node:
     created_at: float = 0.0
     status: str = "open"          # questions: open/resolved
     superseded_by: str = None     # temporal record, never delete
+    # Which boarding protocol produced this node: organic (default),
+    # adversarial (--adversarial-every critic), or audit (--audit-every
+    # stance auditor — never actually emits nodes, but kept symmetric with
+    # Edge). Lets analysis exclude exogenously-manufactured signal
+    # (docs/phase0-validation.md's exogeneity finding) without guessing
+    # from worker name or timing. Old graphs predate the field and load
+    # with the "organic" default via dataclass field defaults.
+    boarding_mode: str = "organic"
 
 
 @dataclass
@@ -92,6 +100,7 @@ class Edge:
     dst: str
     created_by: str = ""
     created_at: float = 0.0
+    boarding_mode: str = "organic"
 
 
 class Graph:
@@ -128,7 +137,7 @@ class Graph:
 
     # -- mutation (conductor-only) ------------------------------------------
     def add_node(self, type, text, created_by, confidence=0.5,
-                 domain_tags=None, status="open"):
+                 domain_tags=None, status="open", boarding_mode="organic"):
         nid = f"n_{uuid.uuid4().hex[:8]}"
         try:
             confidence = float(confidence)
@@ -138,13 +147,15 @@ class Graph:
             id=nid, type=type, text=text.strip(),
             domain_tags=domain_tags or [], created_by=created_by,
             confidence=max(0.0, min(1.0, confidence)),
-            created_at=time.time(), status=status)
+            created_at=time.time(), status=status,
+            boarding_mode=boarding_mode)
         return nid
 
-    def add_edge(self, type, src, dst, created_by):
+    def add_edge(self, type, src, dst, created_by, boarding_mode="organic"):
         eid = f"e_{uuid.uuid4().hex[:8]}"
         self.edges[eid] = Edge(id=eid, type=type, src=src, dst=dst,
-                               created_by=created_by, created_at=time.time())
+                               created_by=created_by, created_at=time.time(),
+                               boarding_mode=boarding_mode)
         return eid
 
     def supersede(self, old_id, new_id):
@@ -311,8 +322,28 @@ Existing edges among them:
 """
 
 
+def _collision_echoes(graph, shown, limit=4):
+    """Claims outside this briefing's selected set that lexically collide
+    (validated disagreement-locator, docs/phase0-validation.md) with one
+    already inside it — lets a freshly-boarded worker see latent
+    disagreement its retriever's neighborhood alone would miss, within the
+    same bounded budget (claim 1: onload without losing context)."""
+    from perdura_memoric import collision_candidates
+    pairs = collision_candidates(graph, limit=limit * 6)
+    out = []
+    for a, b in pairs:
+        if (a.id in shown) == (b.id in shown):
+            continue
+        anchor, echo = (a, b) if a.id in shown else (b, a)
+        out.append((anchor, echo))
+        if len(out) >= limit:
+            break
+    return out
+
+
 def build_briefing(graph: Graph, question: Node, retriever=None,
-                   mask_confidence=False, adversarial=False):
+                   mask_confidence=False, adversarial=False,
+                   memoric_briefing=False):
     # Phase 1.5: candidate selection is pluggable. Default reproduces the
     # Phase 1 behavior exactly (2-hop neighborhood + open questions).
     if retriever is None:
@@ -351,11 +382,33 @@ def build_briefing(graph: Graph, question: Node, retriever=None,
                 break
             edge_lines.append(line)
             eused += len(line)
-    return DELTA_PROMPT.format(
+    prompt = DELTA_PROMPT.format(
         adversarial=ADVERSARIAL_PREAMBLE if adversarial else "",
         question=f"{question.id}: {question.text}",
         nodes="\n".join(lines) or "(none yet)",
         edges="\n".join(edge_lines) or "(none yet)")
+    if memoric_briefing:
+        # Additive, opt-in (--memoric-briefings): default output stays
+        # byte-identical to Phase 1. Separate from --memoric-weight, which
+        # stays gated on exp 1 AND exp 3 passing (exp 3 is still a
+        # near-miss) — this only reuses the already-validated collision
+        # locator to widen what a worker sees, not the contention signal.
+        echo_lines, eused, budget = [], 0, BRIEFING_CHAR_BUDGET // 6
+        for anchor, echo in _collision_echoes(graph, shown):
+            text = " ".join((echo.text or "").split())
+            line = f"{echo.id} | close to {anchor.id} | {text}"
+            if eused + len(line) > budget:
+                break
+            echo_lines.append(line)
+            eused += len(line)
+        if echo_lines:
+            prompt += (
+                "\n\nEpistemically close, unlinked claims elsewhere in the "
+                "graph (lexical collision against a claim above — same "
+                "topic, possibly opposite stance; judge independently, may "
+                "be agreement, disagreement, or coincidence):\n"
+                + "\n".join(echo_lines))
+    return prompt
 
 
 def parse_delta(raw: str):
@@ -403,7 +456,7 @@ Previous reply:
 """
 
 
-def merge_delta(graph: Graph, delta: dict, worker: str):
+def merge_delta(graph: Graph, delta: dict, worker: str, boarding_mode="organic"):
     """Conductor: validate, attribute, merge. Returns (accepted, rejected)."""
     accepted, rejected = 0, 0
     ref_map = {}
@@ -421,7 +474,8 @@ def merge_delta(graph: Graph, delta: dict, worker: str):
         nid = graph.add_node(
             type=n["type"], text=n["text"], created_by=worker,
             confidence=n.get("confidence", 0.5),
-            domain_tags=n.get("domain_tags", []))
+            domain_tags=n.get("domain_tags", []),
+            boarding_mode=boarding_mode)
         ref = n.get("ref")
         ref_map[ref if isinstance(ref, str) else nid] = nid
         accepted += 1
@@ -437,7 +491,7 @@ def merge_delta(graph: Graph, delta: dict, worker: str):
             continue
         src, dst = resolve(e.get("src")), resolve(e.get("dst"))
         if e.get("type") in EDGE_TYPES and src and dst and src != dst:
-            graph.add_edge(e["type"], src, dst, worker)
+            graph.add_edge(e["type"], src, dst, worker, boarding_mode=boarding_mode)
             accepted += 1
         else:
             rejected += 1
@@ -476,7 +530,8 @@ def merge_delta(graph: Graph, delta: dict, worker: str):
                 if d < best_d:
                     best, best_d = oid, d
             if best and best_d <= NEAR_DUP_HAMMING and (nid, best) not in linked:
-                graph.add_edge("refines", nid, best, "conductor")
+                graph.add_edge("refines", nid, best, "conductor",
+                              boarding_mode=boarding_mode)
 
     graph.log.append({"ts": time.time(), "worker": worker,
                       "accepted": accepted, "rejected": rejected})
@@ -631,7 +686,7 @@ WORKER_FACTORIES = {
 
 def run_turns(graph: Graph, workers: list, turns: int, retriever=None,
               mask_confidence=False, adversarial_every=0, audit_every=0,
-              router=None):
+              router=None, memoric_briefing=False):
     """Worker boarding loop. Round-robin by default; with a router (Phase 3)
     each turn's worker is chosen by contention, track records, and budget."""
     for t in range(turns):
@@ -647,7 +702,7 @@ def run_turns(graph: Graph, workers: list, turns: int, retriever=None,
                 print(f"\n[turn {t+1}] {worker.name} boards as stance "
                       f"auditor ({len(pairs)} collision pairs)")
                 briefing = build_audit_briefing(pairs)
-                _board(graph, worker, briefing)
+                _board(graph, worker, briefing, boarding_mode="audit")
                 continue
 
         questions = graph.open_questions()
@@ -679,11 +734,13 @@ def run_turns(graph: Graph, workers: list, turns: int, retriever=None,
               f"{q.text[:60]}...")
         briefing = build_briefing(graph, q, retriever,
                                   mask_confidence=mask_confidence,
-                                  adversarial=adversarial)
-        _board(graph, worker, briefing)
+                                  adversarial=adversarial,
+                                  memoric_briefing=memoric_briefing)
+        _board(graph, worker, briefing,
+              boarding_mode="adversarial" if adversarial else "organic")
 
 
-def _board(graph: Graph, worker, briefing):
+def _board(graph: Graph, worker, briefing, boarding_mode="organic"):
     """Generate, parse (with one repair round), merge under lock."""
     try:
         raw = worker.generate(briefing)
@@ -702,7 +759,8 @@ def _board(graph: Graph, worker, briefing):
         with graph_write_lock(graph.path):
             fresh = Graph(graph.path)
             fresh.memoric_weight = graph.memoric_weight
-            acc, rej = merge_delta(fresh, delta, worker.name)
+            acc, rej = merge_delta(fresh, delta, worker.name,
+                                   boarding_mode=boarding_mode)
             fresh.save()
         graph.nodes, graph.edges, graph.log = (
             fresh.nodes, fresh.edges, fresh.log)
@@ -827,6 +885,16 @@ def main():
                         "to manufacture contention (0 = off). Counters the "
                         "consensus collapse seen with homogeneous workers — "
                         "see docs/phase0-validation.md")
+    p.add_argument("--memoric-briefings", action="store_true",
+                   help="append a bounded section of lexically-close, "
+                        "unlinked claims (collision_candidates) to every "
+                        "briefing, not just --audit-every turns — lets a "
+                        "freshly-boarded/swapped worker see latent "
+                        "disagreement its retriever's neighborhood would "
+                        "miss (claim 1: onload without losing context). "
+                        "Validated by exp 1 (docs/phase0-validation.md); "
+                        "does not change --memoric-weight's still-gated "
+                        "contention signal. Off by default")
     p.add_argument("--retriever", choices=["graph", "hybrid", "chroma"],
                    default="graph",
                    help="briefing candidate selection (Phase 1.5): graph = "
@@ -836,10 +904,15 @@ def main():
     p.add_argument("--route", choices=["contention", "periodic", "random",
                                        "cheap"], default=None,
                    help="Phase 3 router: replace round-robin worker "
-                        "selection with contention-driven escalation "
-                        "(local labor by default, frontier summoned where "
-                        "the graph disagrees with itself). periodic/random/"
-                        "cheap are the A/B control arms")
+                        "selection with budget-aware escalation (local "
+                        "labor by default, frontier summoned to bound "
+                        "spend). 'periodic' is the recommended arm — the "
+                        "real A/B (docs/phase3-ab-results.md) found it "
+                        "beats contention-triggered escalation on outcome "
+                        "flips at equal cost in 6/6 real-worker runs. "
+                        "'contention' remains available as a research arm "
+                        "(confirmed targeting precision, unconfirmed "
+                        "economic payoff); random/cheap are control arms")
     p.add_argument("--budget", type=float, default=float("inf"),
                    help="session budget in router cost units "
                         "(qwen 0, gemini 1, claude 3); spent budget falls "
@@ -909,7 +982,8 @@ def main():
                   mask_confidence=args.mask_confidence,
                   adversarial_every=args.adversarial_every,
                   audit_every=args.audit_every,
-                  router=router)
+                  router=router,
+                  memoric_briefing=args.memoric_briefings)
         if router:
             print("\n" + router.summary())
         show(graph)

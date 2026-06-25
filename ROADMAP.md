@@ -8,18 +8,32 @@ Perdura is a persistent knowledge graph where LLMs are ephemeral workers. The ro
 
 ## Phase 0: Memoric Binary (NOW)
 
-**Validation status (2026-06-10):** synthetic arm — experiment 1 (hidden
+**Validation status (2026-06-25):** synthetic arm — experiment 1 (hidden
 disagreement, temporal replay) passes; exp 3 near-miss (0.87); exp 2 needs
 real data. First real-session arm hit *consensus collapse* (two frontier
 models agree, 1 contradicts edge in 18 turns); fixed by adversarial
 boarding (`--adversarial-every N`), validated to lift contention 0→0.13 on
-real models. The spec-locking run is heterogeneous workers + adversarial
-boarding. Second real arm (contested seeds + adversarial): contention
+real models. Second real arm (contested seeds + adversarial): contention
 supply solved (12 contradicts edges), but adversarial contradictions are
 *exogenous* — unpredictable by scatter by construction — so exps 1/3 score
-at chance on them. Lock requires organic contention from heterogeneous
-workers (local Qwen). Spec not locked. Full results:
-docs/phase0-validation.md.
+at chance on them. **Inversion finding:** contradicting claims are
+lexically *closer* than random pairs, not farther — distance locates
+disagreement but can't measure it; `collision_candidates()` + stance-audit
+boarding (`--audit-every N`) is the repair. **Exogeneity fix (2026-06-25):**
+every `Node`/`Edge` now carries `boarding_mode` (organic/adversarial/audit),
+so exp 1 and the inversion probe (`collision_probe.py`) score organic+audit
+contradictions separately from manufactured ones. **Third real arm
+(2026-06-25, first to combine `--adversarial-every` and `--audit-every`):**
+experiment 1 passes on real data for the first time — AUC 0.944 (simhash,
+organic+audit-filtered) vs 0.370 for blake2b (worse than chance, settling
+open question 6 against it). Exp 3 narrows to a near-miss (0.868, up from
+0.56). Exp 2 stays blocked for the third real session running (0
+decisions/supersessions) — a structural protocol gap, not thin data. The
+inversion finding now holds on organic contention too (simhash AUC 0.395),
+not just adversarial (0.187). Spec still not locked (needs exp 1 *and* 3);
+heterogeneous workers (local Qwen vs frontier) remain completely
+untested — no local model has been reachable in any environment this has
+run in. Full results: docs/phase0-validation.md.
 
 **Goal:** Design, implement, and validate a 96-bit epistemic encoding that captures semantic content, node type, confidence, domain tags, temporal context, and supersession lineage.
 
@@ -73,9 +87,17 @@ local dashboard, the Station (`perdura.py ui`): real-time graph with
 feed, and track records. The mind map now draws `collision_candidates()`
 as dotted lines (lexically-close, unlinked claim pairs from different
 authors) and is servable live over HTTP (`GET /viz`, operator-only,
-`perdura_service.py`), not just as a static file. Remaining: memoric
-binary in briefings, learned dense embeddings, retrieval A/B on real
-sessions (research question #1).
+`perdura_service.py`), not just as a static file. **Update (2026-06-25):**
+memoric binary now reaches the actual briefing text — `--memoric-briefings`
+appends a bounded section of lexically-close, unlinked claims (the
+validated collision locator, `collision_candidates()`) to every worker's
+briefing, not just `--audit-every` turns, so a freshly-boarded or
+swapped-in model sees latent disagreement its retriever's neighborhood
+would miss within the same bounded budget — the concrete mechanism behind
+claim 1's "onload without losing context." Off by default; additive only,
+byte-identical output when unset (tests/test_briefing.py). Remaining:
+learned dense embeddings, retrieval A/B on real sessions (research
+question #1).
 
 **Goal:** Integrate memoric binary into the graph storage and briefing assembly.
 
@@ -84,7 +106,9 @@ sessions (research question #1).
 - Memoric binary per node — **derived on demand** via `encode_node`, never
   persisted (decision: docs/memoric-binary.md §6.1; persistence only ever
   as a versioned cache if ChromaDB integration needs it)
-- Assemble briefings with memoric binary included
+- Assemble briefings with memoric binary included — ✅ shipped
+  (`--memoric-briefings`, 2026-06-25): collision-band echoes appended to
+  every briefing, separate from the still-gated contention blend below
 - Contention blend `(1-w)*edge_signal + w*embedding_scatter` — implemented;
   **default w=0 (edge-only) until Phase 0 experiments 1+3 pass** (issue #11;
   the brief 2026-06-10 flip to 0.5 was reverted). Opt in with
@@ -97,7 +121,8 @@ sessions (research question #1).
 - Updated `perdura.py` with memoric binary computation
 - Retrieval index integration
 - Graph visualization (web or graphviz)
-- Updated briefing format to include memoric binary
+- Updated briefing format to include memoric binary — ✅ shipped
+  (`--memoric-briefings`)
 
 **Timeline:** 2–3 weeks post-Phase 0 validation
 
@@ -144,20 +169,27 @@ synthetic positive control: at equal spend and equal flips, mean contention
 at escalation separates the arms (0.48 contention-routed vs 0.31 random vs
 0.14 periodic) — frontier spend lands on actual disagreement.
 
-**Update (2026-06-25):** the `--real` mode has now actually run, multiple
-times, against real Claude/Gemini calls (`--local mock` standing in for an
+**Update (2026-06-25):** the `--real` mode has now actually run six clean
+times against real Claude/Gemini calls (`--local mock` standing in for an
 unavailable local model). Full record: `docs/phase3-ab-results.md`.
-Targeting precision holds on real data (contention-routing finds the
-hottest live disagreement every clean run, 2–7× periodic's mean contention
-at escalation). But on the metric the thesis was supposed to win on —
-outcome flips at equal cost — contention-routing trailed periodic in all
-three clean real-worker runs (0 vs 1, 1 vs 4, 1 vs 3 flips). A real
-confound was found (this seed graph's contention dilutes with graph size
-regardless of budget, capping the contention arm's sample at ~4
-escalations no matter how long the run goes), and a real open question
-(raw flip-counting may not credit *resolving* a dispute, only creating new
-ones — supported once, ambiguous once). Neither rescues the headline
-number; both are honestly unresolved. The local-tier half of the thesis
+Targeting precision holds on real data and strengthens with the larger
+pool (contention-routing finds the hottest live disagreement every clean
+run; pooled, escalation-weighted mean contention at escalation 0.348
+contention vs 0.154 periodic vs 0.226 random). But on the metric the
+thesis was supposed to win on — outcome flips at equal cost —
+contention-routing has not beaten periodic escalation once across all six
+clean real-worker runs (5 losses, 1 tie; pooled 5 vs 20 flips over 21
+equal-cost escalations). A real confound was found and reconfirmed (this
+seed graph's contention dilutes with graph size regardless of budget,
+capping the contention arm's sample at ~4 escalations per run no matter
+how long the run goes — runs 6–8 repeat run 3's exact count), and a real
+open question (raw flip-counting may not credit *resolving* a dispute,
+only creating new ones) now holds modestly at the pooled level — the
+contention arm's mean final contention is the lowest of the three
+escalating arms across all 6 runs — but isn't yet separable from the
+dilution effect. Neither rescues the headline number; pooling six
+independent runs (21–24 escalations/arm pooled, not 1–4/run) makes the
+direction more settled, not less. The local-tier half of the thesis
 ("cheap-by-default is good enough most of the time") remains completely
 untested — no real cheap model has been available in any environment this
 has been built in. See `docs/phase3-ab-results.md` for the full data and
@@ -226,11 +258,14 @@ never displaces the research focus.
   control had run. The operator explicitly chose to override the gate and
   build E2 ahead of it; see `docs/enterprise.md` §1/§7 for the full record.
   **Update (2026-06-25):** the real A/B has since run
-  (`docs/phase3-ab-results.md`) — three clean runs, all against the
-  thesis on outcome flips at equal cost, though n is thin and one real
-  confound (contention dilution) was found. The override is no longer
-  covering an untested claim; it is covering a claim that has been tested
-  and has not, so far, supported the routing thesis.
+  (`docs/phase3-ab-results.md`) — six clean runs, all against the
+  thesis on outcome flips at equal cost (contention has never beaten
+  periodic; 5 losses, 1 tie), with one real confound (contention
+  dilution) reconfirmed across runs. The pooled sample (21–24
+  escalations/arm) is no longer thin in the way the first three runs
+  were. The override is no longer covering an untested claim; it is
+  covering a claim that has been tested repeatedly and has not supported
+  the routing thesis.
 - **E3 — ingestion adapters** ✅ (2026-06-17, gate overridden):
   `perdura_ingest.py` — `adr_delta`/`incident_delta`/`ticket_delta`/
   `pr_review_delta` map a structured item (already-fetched, no live API
