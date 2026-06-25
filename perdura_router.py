@@ -2,14 +2,23 @@
 perdura_router.py — Phase 3 kernel: the epistemic router.
 
 The thesis made executable: cheap local models are the default labor force,
-and frontier models are summoned only where the graph disagrees with
-itself. The router owns WORKER selection (question selection stays with
-the conductor loop); it is deterministic operator-side code — nothing here
-touches the validate/merge path.
+and frontier models are summoned to bound spend. The router owns WORKER
+selection (question selection stays with the conductor loop); it is
+deterministic operator-side code — nothing here touches the validate/merge
+path.
+
+Default policy is `periodic`, not `contention` (pivoted 2026-06-25 — see
+docs/phase3-ab-results.md). The decisive A/B (experiments/escalation_ab.py)
+ran six clean times against real Claude/Gemini calls: contention-triggered
+escalation confirmed its targeting precision (it reliably finds the
+hottest live disagreement, every run) but never once beat periodic
+escalation on the metric the bet actually rides on — outcome flips at
+equal cost (5 losses, 1 tie across 6 runs). `policy="contention"` is still
+fully supported as a research arm; it is no longer the recommended default.
 
 Routing decision (ROADMAP Phase 3):
 
-    escalate?           policy decides (contention / periodic / random)
+    escalate?           policy decides (periodic / contention / random)
     which frontier?     argmax reliability/cost among affordable ones,
                         reliability = live track records (perdura_track),
                         0.5 (no evidence) when a worker has no history
@@ -75,7 +84,7 @@ def hottest_contention(graph) -> float:
 @dataclass
 class Router:
     registry: list
-    policy: str = "contention"      # contention | periodic | random | cheap
+    policy: str = "periodic"        # periodic | contention | random | cheap
     budget: float = float("inf")    # session budget, in cost units
     escalate_at: float = DEFAULT_ESCALATE_AT   # contention threshold
     every: int = 3                  # escalate each Nth turn (periodic policy)

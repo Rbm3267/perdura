@@ -851,10 +851,15 @@ def main():
     p.add_argument("--route", choices=["contention", "periodic", "random",
                                        "cheap"], default=None,
                    help="Phase 3 router: replace round-robin worker "
-                        "selection with contention-driven escalation "
-                        "(local labor by default, frontier summoned where "
-                        "the graph disagrees with itself). periodic/random/"
-                        "cheap are the A/B control arms")
+                        "selection with budget-aware escalation (local "
+                        "labor by default, frontier summoned to bound "
+                        "spend). 'periodic' is the recommended arm — the "
+                        "real A/B (docs/phase3-ab-results.md) found it "
+                        "beats contention-triggered escalation on outcome "
+                        "flips at equal cost in 6/6 real-worker runs. "
+                        "'contention' remains available as a research arm "
+                        "(confirmed targeting precision, unconfirmed "
+                        "economic payoff); random/cheap are control arms")
     p.add_argument("--budget", type=float, default=float("inf"),
                    help="session budget in router cost units "
                         "(qwen 0, gemini 1, claude 3); spent budget falls "

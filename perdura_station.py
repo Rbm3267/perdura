@@ -43,10 +43,12 @@ def payload(graph_path: str) -> dict:
                           if n.id in hood and n.type == "claim"),
         })
     questions.sort(key=lambda r: -r["contention"])
-    # Conductor panel: a read-only routing preview. What the contention
-    # policy would do right now — local by default, frontier where the
-    # graph disagrees with itself past the threshold. Derived from the
-    # graph + the router's cost model; no ledger is persisted.
+    # Conductor panel: a read-only preview of the `contention` research
+    # arm specifically (not the recommended default, which is `periodic`
+    # — see docs/phase3-ab-results.md). What contention-triggered
+    # escalation would do right now — local by default, frontier where
+    # the graph disagrees with itself past the threshold. Derived from
+    # the graph + the router's cost model; no ledger is persisted.
     from perdura_router import (DEFAULT_COSTS, DEFAULT_TIERS,
                                 DEFAULT_ESCALATE_AT)
     routing = {
@@ -383,8 +385,8 @@ function drawTrack(){
 function drawConductor(){
   const R=G.routing;
   if(!R){panel.innerHTML='<div class="empty">Router preview unavailable.</div>';return}
-  let h="<h3>Conductor — routing preview</h3>";
-  h+=`<div class="td" style="margin-bottom:12px">Local labor by default; a frontier worker is summoned where a question's contention reaches ${R.threshold}.</div>`;
+  let h="<h3>Conductor — contention policy preview</h3>";
+  h+=`<div class="td" style="margin-bottom:12px">Local labor by default; previews the <code>--route contention</code> research arm — a frontier worker is summoned where a question's contention reaches ${R.threshold}. (The recommended default arm is <code>--route periodic</code>; see docs/phase3-ab-results.md.)</div>`;
   h+="<div class='tk'><div class='tw'>Model registry</div>"+R.registry.map(m=>
     `<div class="td">${esc(m.name)} · <span style="color:${m.tier==="frontier"?"#ffb454":"#3ddc97"}">${m.tier}</span> · cost ${m.cost}</div>`).join("")+"</div>";
   if(!R.preview.length){h+='<div class="empty">No open questions to route.</div>';panel.innerHTML=h;return}

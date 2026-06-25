@@ -25,8 +25,13 @@ mid-task with zero loss. The mind survives every model that ever powered it.
    the graph learns which models are reliable in which domains. The memory
    evaluates its workers.
 3. **Contention-driven economics.** Cheap local models are the default labor
-   force. Frontier and specialist models are summoned only where
-   contradiction density rises in the graph.
+   force. Frontier and specialist models are summoned to bound spend — by
+   default on a validated periodic cadence, not contradiction density: the
+   real 6-run A/B ([docs/phase3-ab-results.md](docs/phase3-ab-results.md))
+   found contention-triggered escalation never beats periodic escalation on
+   outcome flips at equal cost. `--route contention` stays available as a
+   research arm (confirmed targeting precision; unconfirmed economic
+   payoff).
 
 ## Quickstart
 
@@ -58,7 +63,7 @@ Per-model reliability scorecard: `python perdura.py track`
 Surface latent disagreement (stance audit every 4th turn): `--audit-every 4`
 **Live dashboard** (watch a session land in real time): `python perdura.py ui` → http://127.0.0.1:8800
 SQLite storage (multi-process, transactional — see below): `--graph perdura.db`
-**The router** (Phase 3 — local labor by default, frontier summoned on contention): `--route contention --budget 6`
+**The router** (Phase 3 — local labor by default, frontier summoned on a schedule): `--route periodic --budget 6` (recommended; `--route contention` remains available as a research arm)
 
 ## How it works
 
@@ -156,26 +161,35 @@ multi-model sessions and a synthetic ground-truth arm have actually shown:
   disagreement separately from manufactured `--adversarial-every`
   contradictions instead of pooling them.
 
-**The decisive experiment has run.** Does contention-triggered escalation
-flip outcomes more often than random or periodic escalation at equal
-cost? The router (`--route contention|periodic|random|cheap`, hard
-budgets, escalation by live track records) and the A/B harness
-(`experiments/escalation_ab.py`) shipped with a synthetic positive control
-showing the targeting separation — at equal spend and equal flips, mean
-contention at the moment of escalation is 0.48 (contention-routed) vs 0.31
-(random) vs 0.14 (periodic). The harness's `--real` mode has since run
-three clean times against real Claude/Gemini calls (`--local mock`
-standing in for an unavailable local model): targeting precision holds on
-real data too (2–7× periodic's mean contention at escalation, every run),
-but on the metric that actually decides the bet — outcome flips at equal
-cost — **contention-routing trailed periodic escalation in all three
-clean runs** (0 vs 1, 1 vs 4, 1 vs 3 flips). The sample is thin (1–4
-escalations/arm/run) and one real confound was found (this seed graph's
-contention dilutes with size regardless of budget, capping the contention
-arm's own sample no matter how long the run goes) — so this isn't being
-called a closed case, but it is a real, consistent signal against the
-routing thesis as currently measured, not an absence of evidence. Full
-data and analysis: [docs/phase3-ab-results.md](docs/phase3-ab-results.md).
+**The decisive experiment has run — and the router has been repointed by
+its result.** Does contention-triggered escalation flip outcomes more
+often than random or periodic escalation at equal cost? The router
+(`--route contention|periodic|random|cheap`, hard budgets, escalation by
+live track records) and the A/B harness (`experiments/escalation_ab.py`)
+shipped with a synthetic positive control showing the targeting
+separation — at equal spend and equal flips, mean contention at the
+moment of escalation is 0.48 (contention-routed) vs 0.31 (random) vs 0.14
+(periodic). The harness's `--real` mode has since run **six** clean times
+against real Claude/Gemini calls (`--local mock` standing in for an
+unavailable local model): targeting precision holds and strengthens on
+real data — pooled, escalation-weighted mean contention at escalation is
+0.348 (contention) vs 0.226 (random) vs 0.154 (periodic), contention ahead
+in 6/6 runs. But on the metric that actually decides the bet — outcome
+flips at equal cost — **contention-routing has not beaten periodic
+escalation once across all six runs** (5 losses, 1 tie; pooled 5 vs 20
+flips over 21 equal-cost escalations). A real confound was found and
+reconfirmed (this seed graph's contention dilutes with size regardless of
+budget, capping the contention arm's sample at ~4 escalations/run no
+matter how long the run goes) and an open alternate reading (raw
+flip-counting may not credit *resolving* a dispute, only creating new
+ones) holds modestly at the pooled level — but neither rescues the
+headline number, and pooling six independent runs makes the direction more
+settled, not less. **`perdura_router.py`'s default policy is now
+`periodic`**, not `contention`; `--route contention` remains fully
+supported as a research arm (its targeting precision is real — it
+reliably finds the hottest live disagreement — its economic payoff is
+not). Full data and analysis:
+[docs/phase3-ab-results.md](docs/phase3-ab-results.md).
 
 ```bash
 python experiments/escalation_ab.py --real --local mock --frontier claude,gemini
@@ -306,7 +320,7 @@ with no token or network call.
 | 0 | Memoric binary: 96-bit epistemic encoding + validation experiments | 🔬 validating |
 | 1.5 | Pluggable retrieval (`--retriever graph\|hybrid\|chroma`, BM25 + dense + graph expansion) and force-directed mind-map viz (`perdura.py viz`) | 🛠️ in progress |
 | 2 | Attribution analytics: per-model, per-domain track records from claim outcomes (`perdura.py track`) | 🛠️ engine shipped — accumulating real outcome data |
-| 3 | The epistemic router: registry, contention-driven escalation, cost budgets, specialist summoning | 🛠️ kernel shipped (`--route`) — real A/B run, result currently against the thesis (see [docs/phase3-ab-results.md](docs/phase3-ab-results.md)) |
+| 3 | The epistemic router: registry, escalation policies, cost budgets, specialist summoning | 🛠️ kernel shipped (`--route`) — real 6-run A/B against the thesis on outcome flips; **default policy pivoted to `periodic`**, `contention` kept as a research arm (see [docs/phase3-ab-results.md](docs/phase3-ab-results.md)) |
 
 ## Repository layout
 
@@ -315,7 +329,7 @@ perdura.py            Phase 1 implementation (graph, conductor, workers, CLI)
 docs/design.md        Full design document (thesis, schema, requirements, risks)
 docs/overview.html    Visual overview — architecture as a transit map
 docs/phase0-validation.md  Phase 0 validation results (synthetic + real arms)
-docs/phase3-ab-results.md  Real escalation A/B results — gate tested, result against
+docs/phase3-ab-results.md  Real escalation A/B results (6-run pool) — periodic now default
 docs/enterprise.md    Enterprise deployment plan (integration planes, tiers)
 perdura_memoric.py    Memoric binary encoder/decoder (Phase 0)
 perdura_store.py      Pluggable persistence: JSON file / SQLite WAL / Postgres (E0, E2)
@@ -325,7 +339,7 @@ perdura_ingest.py     PR/ADR/incident/ticket ingestion adapters -> merge_delta (
 perdura_connectors.py Live GitHub PR connector -> pr_review_delta (E3)
 perdura_retrieval.py  Pluggable retrieval layer (Phase 1.5)
 perdura_track.py      Per-model/per-domain track records (Phase 2)
-perdura_router.py     The epistemic router — contention-driven escalation (Phase 3)
+perdura_router.py     The epistemic router — periodic/contention/random/cheap escalation (Phase 3)
 perdura_viz.py        Force-directed mind-map renderer (Phase 1.5)
 perdura_station.py    The Station — live local dashboard (perdura.py ui)
 perdura_server.py     MCP station — any MCP client can board as a worker

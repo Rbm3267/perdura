@@ -144,20 +144,27 @@ synthetic positive control: at equal spend and equal flips, mean contention
 at escalation separates the arms (0.48 contention-routed vs 0.31 random vs
 0.14 periodic) — frontier spend lands on actual disagreement.
 
-**Update (2026-06-25):** the `--real` mode has now actually run, multiple
-times, against real Claude/Gemini calls (`--local mock` standing in for an
+**Update (2026-06-25):** the `--real` mode has now actually run six clean
+times against real Claude/Gemini calls (`--local mock` standing in for an
 unavailable local model). Full record: `docs/phase3-ab-results.md`.
-Targeting precision holds on real data (contention-routing finds the
-hottest live disagreement every clean run, 2–7× periodic's mean contention
-at escalation). But on the metric the thesis was supposed to win on —
-outcome flips at equal cost — contention-routing trailed periodic in all
-three clean real-worker runs (0 vs 1, 1 vs 4, 1 vs 3 flips). A real
-confound was found (this seed graph's contention dilutes with graph size
-regardless of budget, capping the contention arm's sample at ~4
-escalations no matter how long the run goes), and a real open question
-(raw flip-counting may not credit *resolving* a dispute, only creating new
-ones — supported once, ambiguous once). Neither rescues the headline
-number; both are honestly unresolved. The local-tier half of the thesis
+Targeting precision holds on real data and strengthens with the larger
+pool (contention-routing finds the hottest live disagreement every clean
+run; pooled, escalation-weighted mean contention at escalation 0.348
+contention vs 0.154 periodic vs 0.226 random). But on the metric the
+thesis was supposed to win on — outcome flips at equal cost —
+contention-routing has not beaten periodic escalation once across all six
+clean real-worker runs (5 losses, 1 tie; pooled 5 vs 20 flips over 21
+equal-cost escalations). A real confound was found and reconfirmed (this
+seed graph's contention dilutes with graph size regardless of budget,
+capping the contention arm's sample at ~4 escalations per run no matter
+how long the run goes — runs 6–8 repeat run 3's exact count), and a real
+open question (raw flip-counting may not credit *resolving* a dispute,
+only creating new ones) now holds modestly at the pooled level — the
+contention arm's mean final contention is the lowest of the three
+escalating arms across all 6 runs — but isn't yet separable from the
+dilution effect. Neither rescues the headline number; pooling six
+independent runs (21–24 escalations/arm pooled, not 1–4/run) makes the
+direction more settled, not less. The local-tier half of the thesis
 ("cheap-by-default is good enough most of the time") remains completely
 untested — no real cheap model has been available in any environment this
 has been built in. See `docs/phase3-ab-results.md` for the full data and
@@ -226,11 +233,14 @@ never displaces the research focus.
   control had run. The operator explicitly chose to override the gate and
   build E2 ahead of it; see `docs/enterprise.md` §1/§7 for the full record.
   **Update (2026-06-25):** the real A/B has since run
-  (`docs/phase3-ab-results.md`) — three clean runs, all against the
-  thesis on outcome flips at equal cost, though n is thin and one real
-  confound (contention dilution) was found. The override is no longer
-  covering an untested claim; it is covering a claim that has been tested
-  and has not, so far, supported the routing thesis.
+  (`docs/phase3-ab-results.md`) — six clean runs, all against the
+  thesis on outcome flips at equal cost (contention has never beaten
+  periodic; 5 losses, 1 tie), with one real confound (contention
+  dilution) reconfirmed across runs. The pooled sample (21–24
+  escalations/arm) is no longer thin in the way the first three runs
+  were. The override is no longer covering an untested claim; it is
+  covering a claim that has been tested repeatedly and has not supported
+  the routing thesis.
 - **E3 — ingestion adapters** ✅ (2026-06-17, gate overridden):
   `perdura_ingest.py` — `adr_delta`/`incident_delta`/`ticket_delta`/
   `pr_review_delta` map a structured item (already-fetched, no live API
