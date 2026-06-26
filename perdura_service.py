@@ -119,6 +119,12 @@ class _RateLimiter:
             return True
         now = time.monotonic()
         with self._lock:
+            if len(self._windows) > 10000:
+                # Opportunistic sweep of expired windows -- bounds memory
+                # against an attacker rotating through bogus keys, without
+                # a background thread or per-key TTL bookkeeping.
+                self._windows = {k: v for k, v in self._windows.items()
+                                if now - v[0] < 60.0}
             start, count = self._windows.get(key, (now, 0))
             if now - start >= 60.0:
                 start, count = now, 0
@@ -240,15 +246,25 @@ def make_handler(graph_path: str = None, tokens: dict = None,
         def _record(self, code, bytes_out):
             elapsed_ms = (time.monotonic()
                          - getattr(self, "_req_start", time.monotonic())) * 1000
-            route = getattr(self, "_route_sub", None) or self.path
+            route_sub = getattr(self, "_route_sub", None)
+            log_route = route_sub or self.path
             tenant_id = getattr(self, "_tenant_id", None) or ""
             role = getattr(self, "_role", None)
             logger.info(
                 "%s %s tenant=%s role=%s status=%s bytes_in=%d bytes_out=%d "
-                "elapsed_ms=%.1f", self.command, route, tenant_id or "-",
+                "elapsed_ms=%.1f", self.command, log_route, tenant_id or "-",
                 role or "-", code, getattr(self, "_bytes_in", 0), bytes_out,
                 elapsed_ms)
-            USAGE.record(tenant_id, route, code,
+            # USAGE must stay bounded against attacker-controlled input, so
+            # unlike the log line above it never keys on the raw URL: it
+            # buckets by the credential's *own* tenant (set only once a
+            # token resolves, never the tenant segment an unauthenticated
+            # or wrong-tenant request put in the URL) and collapses any
+            # unmatched route -- the only case route_sub can be an
+            # attacker-chosen string -- to one shared key.
+            meter_tenant = getattr(self, "_token_tenant", None) or ""
+            meter_route = log_route if (route_sub and code != 404) else "invalid"
+            USAGE.record(meter_tenant, meter_route, code,
                         bytes_in=getattr(self, "_bytes_in", 0),
                         bytes_out=bytes_out,
                         accepted=getattr(self, "_delta_accepted", 0),
@@ -328,6 +344,7 @@ def make_handler(graph_path: str = None, tokens: dict = None,
                 return None
             role, token_tenant = resolved
             self._role = role
+            self._token_tenant = token_tenant
             if _RANK[role] < _RANK[need]:
                 self._send(403, {"error": f"{need} role required"})
                 return None

@@ -150,6 +150,17 @@ def test_tenant_config_round_trip_and_isolation(two_tenants):
     assert sb.get_tenant_config()["domain_budgets"] == {}
 
 
+def test_ping_does_not_leak_pool_connections(two_tenants):
+    # ping() borrows a connection through the same pooled _connect() every
+    # other method uses (pool.connection(), not a raw psycopg.connect());
+    # if it ever failed to return the connection, the pool (max_size=10)
+    # would exhaust well before this loop finishes.
+    dsn_a, _ = two_tenants
+    s = store_for(dsn_a)
+    for _ in range(25):
+        assert s.ping() is True
+
+
 def test_graph_class_round_trips_through_postgres(two_tenants):
     dsn_a, _ = two_tenants
     g = Graph(dsn_a)

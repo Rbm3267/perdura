@@ -97,8 +97,13 @@ class JSONFileStore:
         return _file_lock(self.path + ".lock")
 
     def ping(self) -> bool:
-        """Cheap readiness probe: can a save actually land here?"""
-        d = os.path.dirname(os.path.abspath(self.path)) or "."
+        """Cheap readiness probe: can a save actually land here? Checks the
+        file's own writability when it already exists -- the directory
+        alone isn't enough if the file itself is read-only."""
+        path = os.path.abspath(self.path)
+        if os.path.exists(path):
+            return os.access(path, os.W_OK)
+        d = os.path.dirname(path) or "."
         return os.path.isdir(d) and os.access(d, os.W_OK)
 
 

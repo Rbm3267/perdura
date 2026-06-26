@@ -1,6 +1,8 @@
 """Storage tier — JSON and SQLite stores must be behaviorally identical:
 same round-trip, append-only log, supersession surviving reload."""
 
+import os
+
 import pytest
 
 from perdura import Graph
@@ -60,3 +62,23 @@ def test_log_is_append_only_across_saves(tmp_path, ext):
 def test_missing_file_is_empty_graph(tmp_path):
     g = Graph(str(tmp_path / "does_not_exist.json"))
     assert g.nodes == {} and g.edges == {} and g.log == []
+
+
+@pytest.mark.skipif(os.geteuid() == 0,
+                    reason="root bypasses file permission bits")
+def test_ping_checks_existing_file_writability_not_just_directory(tmp_path):
+    # A writable directory isn't sufficient once the file itself exists and
+    # is read-only -- ping() must catch that case, not just probe the dir.
+    path = tmp_path / "g.json"
+    JSONFileStore(str(path)).save([], [], [])
+    assert JSONFileStore(str(path)).ping() is True
+    os.chmod(path, 0o444)
+    try:
+        assert JSONFileStore(str(path)).ping() is False
+    finally:
+        os.chmod(path, 0o644)  # restore so tmp_path cleanup can remove it
+
+
+def test_ping_checks_directory_when_file_does_not_exist_yet(tmp_path):
+    assert JSONFileStore(str(tmp_path / "fresh.json")).ping() is True
+    assert JSONFileStore(str(tmp_path / "missing-dir" / "g.json")).ping() is False

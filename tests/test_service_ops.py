@@ -13,6 +13,7 @@ from types import SimpleNamespace
 import pytest
 
 from perdura import Graph
+import perdura_service as svc
 from perdura_service import make_handler
 
 WTOK, OTOK = "worker-token", "operator-token"
@@ -137,6 +138,21 @@ def test_rate_limit_is_keyed_per_token(tmp_path):
         httpd.server_close()
 
 
+def test_rate_limiter_prunes_expired_windows_past_cap(monkeypatch):
+    # An attacker rotating through bogus keys (forged tokens, spoofed IPs)
+    # must not grow _windows forever -- once over the cap, the next call
+    # sweeps anything whose 60s window has already lapsed.
+    rl = svc._RateLimiter(limit_per_minute=5)
+    now = [1000.0]
+    monkeypatch.setattr(svc.time, "monotonic", lambda: now[0])
+    for i in range(10005):
+        rl.allow(f"key-{i}")
+    assert len(rl._windows) == 10005   # still-active windows aren't dropped early
+    now[0] += 61.0
+    rl.allow("fresh-key")
+    assert len(rl._windows) == 1   # the 61s-old windows got swept on this call
+
+
 def test_health_and_ready_are_exempt_from_rate_limiting(tmp_path):
     gp = str(tmp_path / "g.json")
     Graph(gp).save()
@@ -178,6 +194,45 @@ def test_usage_tracks_delta_accept_reject_counts(service):
     _, _, body = call(service.base, "GET", "/usage", token=OTOK)
     assert body["deltas_accepted"] == 1
     assert body["deltas_rejected"] == 0
+
+
+def test_usage_collapses_unmatched_routes_instead_of_keying_on_raw_path(service):
+    # An attacker probing many distinct bogus paths must not grow by_route
+    # by one key per attempt -- they all collapse to a single "invalid" key.
+    for i in range(5):
+        call(service.base, "GET", f"/nonsense-{i}?x={i}", token=WTOK)
+    code, _, body = call(service.base, "GET", "/usage", token=OTOK)
+    assert code == 200
+    assert body["by_route"]["invalid"] == 5
+    assert all(not k.startswith("/nonsense") for k in body["by_route"])
+
+
+def test_usage_attributes_by_credential_tenant_not_url_tenant(tmp_path):
+    # Cross-tenant probing with a real credential must be metered against
+    # that credential's own tenant, not whatever tenant string the URL
+    # asked for -- otherwise one valid token lets an attacker grow a usage
+    # bucket per guessed tenant id. No real Postgres is touched: every
+    # request below is rejected (403) before any store access happens.
+    tokens = {"worker-acme-tok": {"role": "worker", "tenant": "acme"},
+             "operator-acme-tok": {"role": "operator", "tenant": "acme"}}
+    httpd = ThreadingHTTPServer(
+        ("127.0.0.1", 0),
+        make_handler(pg_dsn="postgresql://unused/perdura", tokens=tokens))
+    threading.Thread(target=httpd.serve_forever, daemon=True).start()
+    try:
+        base = f"http://127.0.0.1:{httpd.server_address[1]}"
+        for i in range(5):
+            code, _, _ = call(base, "GET", f"/graphs/guessed-tenant-{i}/questions",
+                              token="worker-acme-tok")
+            assert code == 403
+        code, _, body = call(base, "GET", "/graphs/acme/usage",
+                            token="operator-acme-tok")
+        assert code == 200
+        assert body["by_status"]["403"] == 5
+        assert body["by_route"]["/questions"] == 5
+    finally:
+        httpd.shutdown()
+        httpd.server_close()
 
 
 def test_usage_resets_per_server_instance(tmp_path):
