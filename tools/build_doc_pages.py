@@ -21,6 +21,7 @@ PAGES = [
     ("docs/phase0-validation.md", "validation.html", "Phase 0 Validation"),
     ("docs/phase3-ab-results.md", "phase3-ab-results.html", "Escalation A/B Results"),
     ("docs/enterprise.md", "enterprise.html", "Enterprise Plan"),
+    ("docs/api.md", "api.html", "API Reference"),
 ]
 
 TEMPLATE = """<!DOCTYPE html>

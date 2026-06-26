@@ -1,0 +1,296 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Perdura — API Reference</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,400;0,9..144,600;0,9..144,700;1,9..144,400&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<script defer src="/_vercel/speed-insights/script.js"></script>
+<script defer src="/_vercel/insights/script.js"></script>
+<style>
+  :root { --ink:#0a0e1f; --ink-2:#0e1430; --ink-3:#131a3d; --paper:#f0f3fa;
+    --muted:#97a3c4; --faint:#5b6688; --cyan:#2dd9ff; --amber:#ffb454;
+    --line:rgba(151,163,196,0.16); }
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body { background:var(--ink); color:var(--paper);
+    font-family:"IBM Plex Sans",-apple-system,sans-serif; font-size:16.5px;
+    line-height:1.7; -webkit-font-smoothing:antialiased; }
+  ::selection { background:var(--cyan); color:var(--ink); }
+  nav { position:sticky; top:0; z-index:50; background:rgba(10,14,31,0.85);
+    backdrop-filter:blur(12px); border-bottom:1px solid var(--line); }
+  .nav-inner { max-width:880px; margin:0 auto; padding:0 28px; height:60px;
+    display:flex; align-items:center; justify-content:space-between; }
+  .wordmark { font-family:"Fraunces",serif; font-weight:700; font-size:1.25rem;
+    color:var(--paper); text-decoration:none; }
+  .wordmark .dot { color:var(--cyan); }
+  nav .links a { color:var(--muted); text-decoration:none; font-size:0.88rem;
+    margin-left:20px; }
+  nav .links a:hover { color:var(--cyan); }
+  main { max-width:880px; margin:0 auto; padding:64px 28px 96px; }
+  .doc-kicker { font-family:"IBM Plex Mono",monospace; font-size:0.78rem;
+    letter-spacing:0.18em; text-transform:uppercase; color:var(--cyan);
+    margin-bottom:10px; }
+  h1,h2,h3,h4 { font-family:"Fraunces",Georgia,serif; font-weight:600;
+    line-height:1.2; margin:2.2em 0 0.6em; }
+  h1 { font-size:2.3rem; margin-top:0; }
+  h2 { font-size:1.6rem; border-bottom:1px solid var(--line);
+    padding-bottom:0.35em; }
+  h3 { font-size:1.25rem; } h4 { font-size:1.05rem; }
+  p, ul, ol { margin:0.9em 0; color:var(--muted); }
+  li { margin:0.35em 0; } ul, ol { padding-left:1.4em; }
+  strong { color:var(--paper); } em { color:var(--paper); }
+  a { color:var(--cyan); }
+  blockquote { border-left:3px solid var(--amber); padding:0.4em 1.1em;
+    margin:1.2em 0; background:var(--ink-2); border-radius:0 8px 8px 0; }
+  code { font-family:"IBM Plex Mono",monospace; font-size:0.85em;
+    color:var(--cyan); background:var(--ink-3); padding:2px 6px;
+    border-radius:4px; }
+  pre { background:var(--ink-2); border:1px solid var(--line);
+    border-radius:10px; padding:18px 20px; overflow-x:auto; margin:1.2em 0; }
+  pre code { background:none; padding:0; color:var(--paper);
+    font-size:0.84rem; line-height:1.6; }
+  table { border-collapse:collapse; width:100%; margin:1.2em 0;
+    font-size:0.92rem; }
+  th, td { border:1px solid var(--line); padding:9px 13px; text-align:left;
+    color:var(--muted); }
+  th { color:var(--paper); background:var(--ink-2);
+    font-family:"IBM Plex Mono",monospace; font-size:0.8rem; }
+  hr { border:none; border-top:1px solid var(--line); margin:2.4em 0; }
+  footer { max-width:880px; margin:0 auto; padding:0 28px 56px;
+    font-family:"IBM Plex Mono",monospace; font-size:0.78rem;
+    color:var(--faint); }
+</style></head><body>
+<nav><div class="nav-inner">
+  <a class="wordmark" href="index.html">perdura<span class="dot">.</span></a>
+  <div class="links"><a href="design.html">Design</a> <a href="memoric-binary.html">Memoric</a> <a href="roadmap.html">Roadmap</a> <a href="validation.html">Phase</a> <a href="phase3-ab-results.html">Escalation</a> <a href="enterprise.html">Enterprise</a> <a href="api.html">API</a> <a href="index.html#access">Request access</a></div>
+</div></nav>
+<main><div class="doc-kicker">Documentation</div>
+<h1>perdura_service.py — HTTP API reference</h1>
+<p>This is the route-by-route reference for the enterprise E1 (single-tenant)
+and E2 (multi-tenant) HTTP service. For the narrative version — why these
+three planes exist, the auth model, the deployment plan — see
+<a href="enterprise.md">enterprise.md</a>. This document exists to be looked things up
+in, not read top to bottom.</p>
+<h2>Starting the service</h2>
+<pre><code class="language-bash"># E1 — single tenant, one graph file (or SQLite/Postgres DSN)
+python perdura_service.py --graph /abs/perdura_graph.json --port 8900
+
+# E2 — multi-tenant, one Postgres database, RLS-isolated per tenant
+python perdura_service.py --pg-dsn postgresql://host/perdura --port 8900
+</code></pre>
+<p><code>--host</code> defaults to <code>127.0.0.1</code>. Bearer tokens are the only auth, so if you
+bind beyond localhost, put TLS or a trusted network in front of it — the
+service itself does not terminate TLS.</p>
+<h2>Auth</h2>
+<p>Every route except <code>/health</code> and <code>/ready</code> requires <code>Authorization: Bearer
+&lt;token&gt;</code>. A request is authorized if either layer below recognizes the
+token; SSO is tried first, static tokens are the fallback (so they work as
+break-glass alongside SSO, not just instead of it):</p>
+<ul>
+<li><strong>SSO</strong> — a JWT issued by your IdP, verified against its JWKS. Configure
+  via <code>PERDURA_OIDC_*</code> env vars (see <code>perdura_sso.SSOConfig.from_env()</code>).
+  Role and tenant come from claims the IdP vouched for.</li>
+<li><strong>Static tokens</strong> — <code>PERDURA_WORKER_TOKEN</code> / <code>PERDURA_OPERATOR_TOKEN</code> in
+  E1 (tenant-less), or <code>PERDURA_STATIC_TOKENS</code> in E2: a JSON map of
+  <code>token -&gt; {"role": ..., "tenant": ...}</code>. Generated randomly at startup
+  and printed once if you don't set them — fine for a quick local run, not
+  for anything you'll come back to.</li>
+</ul>
+<p>Three roles, each ranked above and inheriting the one below: <code>worker</code> &lt;
+<code>operator</code> &lt; <code>admin</code>. In E2, a token's <code>tenant</code> claim must also match the
+<code>{tenant_id}</code> in the URL, or the request gets <code>403</code> — Postgres row-level
+security is the backstop behind that check, not a substitute for it.</p>
+<p>Failure modes: <code>401</code> for a missing/unrecognized token, <code>403</code> for a token
+that's valid but under-ranked or wrong-tenant.</p>
+<h2>Route prefix: E1 vs E2</h2>
+<p>E1 routes are unprefixed (<code>/questions</code>, <code>/deltas</code>, ...). E2 routes gain a
+<code>/graphs/{tenant_id}/</code> prefix in front of every route below <strong>except</strong>
+<code>/health</code> and <code>/ready</code>, which describe the service process, not a tenant's
+data, in both modes. An E1-shaped request (no tenant prefix) against an E2
+server returns <code>404</code>, and vice versa.</p>
+<h2>Operations routes (no tenant prefix, either mode)</h2>
+<table>
+<thead>
+<tr>
+<th>Route</th>
+<th>Method</th>
+<th>Auth</th>
+<th>Notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>/health</code></td>
+<td>GET</td>
+<td>none</td>
+<td>Always <code>200 {"status": "ok"}</code>. Liveness only — does not touch the store.</td>
+</tr>
+<tr>
+<td><code>/ready</code></td>
+<td>GET</td>
+<td>none</td>
+<td>Pings the configured store (<code>ping()</code> — directory writability for a JSON file, <code>SELECT 1</code> for SQLite/Postgres). <code>200 {"status": "ready"}</code> or <code>503 {"status": "unavailable"}</code>. Exempt from rate limiting, so infra probes aren't throttled.</td>
+</tr>
+</tbody>
+</table>
+<p>Use <code>/health</code> for "is the process up" and <code>/ready</code> for "can it actually
+serve a request right now" — the distinction matters most right after
+startup or during a Postgres failover.</p>
+<h2>Worker plane (role: worker+)</h2>
+<table>
+<thead>
+<tr>
+<th>Route</th>
+<th>Method</th>
+<th>Notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>/questions</code></td>
+<td>GET</td>
+<td>Open questions, sorted by contention descending. Each entry: <code>id</code>, <code>text</code>, <code>domain_tags</code>, <code>contention</code>, <code>claims</code> (count in its 2-hop neighborhood).</td>
+</tr>
+<tr>
+<td><code>/contention</code></td>
+<td>GET</td>
+<td><code>{"global": &lt;float&gt;, "per_question": [...]}</code>.</td>
+</tr>
+<tr>
+<td><code>/briefing</code></td>
+<td>GET</td>
+<td>The bounded 2-hop briefing for one question — attribution stripped. <code>?question=&lt;id&gt;</code> picks a specific open question; omitted, it picks the most contended one. <code>404</code> if the id isn't an open question, <code>409</code> if there are no open questions at all.</td>
+</tr>
+<tr>
+<td><code>/deltas</code></td>
+<td>POST</td>
+<td>Submit a worker delta. Body: <code>{"worker": "&lt;name&gt;", "delta": {...} | "&lt;json-string&gt;"}</code>. Merges through the same conductor path as an LLM worker turn (lock, validate, attribute, save). Returns <code>{"status": "merged", "accepted": &lt;n&gt;, "rejected": &lt;n&gt;, "global_contention": &lt;float&gt;}</code>.</td>
+</tr>
+</tbody>
+</table>
+<p><code>/briefing</code>'s response also includes <code>question_id</code>, <code>question</code>,
+<code>contention</code> (for that question), <code>global_contention</code>, and
+<code>briefing_prompt</code> — the actual bounded text a worker would receive.</p>
+<h2>Operator plane (role: operator+)</h2>
+<table>
+<thead>
+<tr>
+<th>Route</th>
+<th>Method</th>
+<th>Notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>/track</code></td>
+<td>GET</td>
+<td><code>{"track_records": [...]}</code> — per-model, per-domain reliability (Laplace-smoothed claim outcomes).</td>
+</tr>
+<tr>
+<td><code>/graph</code></td>
+<td>GET</td>
+<td>The full graph, attributed (<code>by</code> on every node/edge). Operator-only specifically because it un-hides authorship.</td>
+</tr>
+<tr>
+<td><code>/viz</code></td>
+<td>GET</td>
+<td>Live force-directed mind-map as HTML (<code>Content-Type: text/html</code>), same renderer as <code>perdura.py viz</code>. Strips attribution like <code>/briefing</code>, but operator-only anyway because it has no 2-hop bound — it renders the entire graph's text.</td>
+</tr>
+<tr>
+<td><code>/usage</code></td>
+<td>GET</td>
+<td>In-memory metering snapshot for this tenant (E1: the whole process) since the server started. See below.</td>
+</tr>
+</tbody>
+</table>
+<h3><code>/usage</code> response shape</h3>
+<pre><code class="language-json">{
+  &quot;requests&quot;: 42,
+  &quot;by_route&quot;: {&quot;/questions&quot;: 30, &quot;/deltas&quot;: 12},
+  &quot;by_status&quot;: {&quot;200&quot;: 40, &quot;403&quot;: 2},
+  &quot;bytes_in&quot;: 4096,
+  &quot;bytes_out&quot;: 51200,
+  &quot;deltas_accepted&quot;: 10,
+  &quot;deltas_rejected&quot;: 2
+}
+</code></pre>
+<p>This is <strong>a foundation for billing visibility, not billing-grade
+infrastructure</strong>: it's in-memory, per-process, resets on restart, and is
+never persisted. Good for "is this tenant calling us at all, and through
+which routes" during a pilot; not a substitute for a real metering
+pipeline if you need invoices.</p>
+<h2>Admin plane (role: admin, E2 only)</h2>
+<table>
+<thead>
+<tr>
+<th>Route</th>
+<th>Method</th>
+<th>Notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>/config</code></td>
+<td>GET</td>
+<td><code>{"domain_budgets": {...}}</code> for this tenant.</td>
+</tr>
+<tr>
+<td><code>/config</code></td>
+<td>PUT</td>
+<td>Body: <code>{"domain_budgets": {"&lt;domain&gt;": &lt;float&gt;, ...}}</code>. Replaces the tenant's router budgets; returns the new config.</td>
+</tr>
+</tbody>
+</table>
+<p>Both return <code>400</code> if called against an E1 (single-tenant, <code>--graph</code>)
+server — tenant config only exists where there's a tenant.</p>
+<h2>Errors</h2>
+<p>All error bodies are <code>{"error": "&lt;message&gt;"}</code>. Status codes used across the
+API: <code>400</code> (malformed body/header), <code>401</code> (no/unknown token), <code>403</code>
+(under-ranked role, or wrong tenant), <code>404</code> (no such route, or — for
+<code>/briefing?question=</code>— not an open question), <code>409</code> (no open questions),
+<code>413</code> (request body over the 10MB cap), <code>429</code> (rate limited), <code>503</code>
+(<code>/ready</code> only — store unreachable).</p>
+<h2>Operational env vars</h2>
+<table>
+<thead>
+<tr>
+<th>Var</th>
+<th>Default</th>
+<th>Effect</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>PERDURA_LOG_LEVEL</code></td>
+<td><code>INFO</code></td>
+<td>Verbosity for the <code>perdura.service</code> logger. One structured <code>INFO</code> line per request (method, route, tenant, role, status, bytes in/out, elapsed ms); raw HTTP request lines log at <code>DEBUG</code>.</td>
+</tr>
+<tr>
+<td><code>PERDURA_RATE_LIMIT_PER_MINUTE</code></td>
+<td><code>0</code> (disabled)</td>
+<td>Fixed-window per-credential rate limit (also settable via <code>--rate-limit-per-minute</code>). Keyed by bearer token, or client IP if no token was presented. <code>/health</code> and <code>/ready</code> are exempt. Violations return <code>429</code> with <code>Retry-After: 60</code>.</td>
+</tr>
+<tr>
+<td><code>PERDURA_OIDC_*</code></td>
+<td>unset</td>
+<td>SSO configuration — see <code>perdura_sso.SSOConfig.from_env()</code>.</td>
+</tr>
+<tr>
+<td><code>PERDURA_STATIC_TOKENS</code></td>
+<td>unset</td>
+<td>E2 static token map, JSON.</td>
+</tr>
+<tr>
+<td><code>PERDURA_WORKER_TOKEN</code>, <code>PERDURA_OPERATOR_TOKEN</code></td>
+<td>random at startup</td>
+<td>E1 static tokens.</td>
+</tr>
+</tbody>
+</table>
+<h2>Deployment</h2>
+<p>A <code>Dockerfile</code> (multi-stage, non-root) and <code>docker-compose.yml</code> (service +
+Postgres, healthchecked against <code>/ready</code>) are at the repo root — see the
+top of <code>docker-compose.yml</code> for the one-command demo of the full E2 path.</p>
+</main>
+<footer>© 2026 Perdura · perdura.network · MIT licensed · open research — content will change</footer>
+</body></html>

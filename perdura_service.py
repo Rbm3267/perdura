@@ -23,6 +23,22 @@ instead of a CLI flag:
 
     GET/PUT /graphs/{tenant_id}/config      admin only   (domain_budgets)
 
+Operations, both modes, no `/graphs/{tenant_id}` prefix even in E2 (these
+describe the service process, not a tenant's data):
+
+    GET /health    unauthenticated liveness probe (always 200)
+    GET /ready     unauthenticated readiness probe — pings the configured
+                   store (file/dir writability, or a real SELECT 1 against
+                   Postgres) and returns 503 if it can't be reached
+
+Plus one operator route for usage visibility (`/usage` in E1, same
+`/graphs/{tenant_id}/usage` prefix as every other tenant route in E2):
+
+    GET /usage     operator+   in-memory request/byte/status/delta counters
+                   for this process since it started — a foundation for
+                   billing, not billing-grade itself (resets on restart,
+                   single process, not persisted)
+
 Auth has two layers, and either can carry role + tenant:
   - **SSO** (perdura_sso.SSOConfig.from_env()): bearer tokens are JWTs
     issued by the org's IdP, verified against its JWKS. This is how E2
@@ -43,20 +59,33 @@ Stdlib only for E1 (same as the Station); E2 needs the `enterprise` extra
 (`pip install -e ".[enterprise]"`) for psycopg + PyJWT. Writes use the same
 advisory lock + reload-merge-save discipline as every other writer.
 
+Every request is logged structurally (method, route, tenant, role, status,
+bytes, elapsed) through the standard `logging` module under the
+`perdura.service` logger; verbosity is set by `PERDURA_LOG_LEVEL`
+(default INFO). Optional per-credential rate limiting (fixed window,
+requests/minute) is off by default; set `PERDURA_RATE_LIMIT_PER_MINUTE`
+(or `--rate-limit-per-minute`) to enable it — violations get 429 with a
+`Retry-After` header.
+
     python perdura_service.py --graph /abs/perdura_graph.json --port 8900
     python perdura_service.py --pg-dsn postgresql://host/perdura --port 8900
 """
 
 import argparse
 import json
+import logging
 import os
 import secrets
 import sys
+import threading
+import time
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from urllib.parse import parse_qs, urlencode, urlparse, urlsplit, urlunsplit
 
 from perdura import Graph, build_briefing, merge_delta, parse_delta, graph_write_lock
 from perdura_store import store_for
+
+logger = logging.getLogger("perdura.service")
 
 # role rank: each role inherits everything ranked below it
 _RANK = {"worker": 1, "operator": 2, "admin": 3}
@@ -64,6 +93,81 @@ _RANK = {"worker": 1, "operator": 2, "admin": 3}
 # caps a worker-controlled Content-Length before it's used to size a read,
 # so a forged header can't be used to force an oversized in-memory buffer
 _MAX_BODY_SIZE = 10 * 1024 * 1024  # 10MB
+
+
+def _configure_logging():
+    level = getattr(logging, os.environ.get("PERDURA_LOG_LEVEL", "INFO").upper(),
+                    logging.INFO)
+    if not logging.getLogger().handlers:
+        logging.basicConfig(level=level,
+                            format="%(asctime)s %(levelname)s %(name)s %(message)s")
+    logger.setLevel(level)
+
+
+class _RateLimiter:
+    """Fixed-window counter per key (bearer token, or client IP when none
+    was presented). limit_per_minute <= 0 disables it entirely -- the
+    default, so existing single-credential test/CLI traffic is unaffected."""
+
+    def __init__(self, limit_per_minute: int):
+        self.limit = limit_per_minute
+        self._lock = threading.Lock()
+        self._windows = {}   # key -> (window_start, count)
+
+    def allow(self, key: str) -> bool:
+        if self.limit <= 0:
+            return True
+        now = time.monotonic()
+        with self._lock:
+            if len(self._windows) > 10000:
+                # Opportunistic sweep of expired windows -- bounds memory
+                # against an attacker rotating through bogus keys, without
+                # a background thread or per-key TTL bookkeeping.
+                self._windows = {k: v for k, v in self._windows.items()
+                                if now - v[0] < 60.0}
+            start, count = self._windows.get(key, (now, 0))
+            if now - start >= 60.0:
+                start, count = now, 0
+            count += 1
+            self._windows[key] = (start, count)
+            return count <= self.limit
+
+
+class _UsageMeter:
+    """In-memory, per-tenant ("" for E1) request/byte/status/delta counters
+    for this process's lifetime -- a foundation for billing visibility, not
+    billing-grade infrastructure: resets on restart, single process, never
+    persisted."""
+
+    def __init__(self):
+        self._lock = threading.Lock()
+        self._tenants = {}
+
+    def _bucket(self, tenant_id):
+        return self._tenants.setdefault(tenant_id, {
+            "requests": 0, "by_route": {}, "by_status": {},
+            "bytes_in": 0, "bytes_out": 0,
+            "deltas_accepted": 0, "deltas_rejected": 0})
+
+    def record(self, tenant_id, route, status, bytes_in=0, bytes_out=0,
+              accepted=0, rejected=0):
+        with self._lock:
+            b = self._bucket(tenant_id)
+            b["requests"] += 1
+            b["by_route"][route] = b["by_route"].get(route, 0) + 1
+            b["by_status"][str(status)] = b["by_status"].get(str(status), 0) + 1
+            b["bytes_in"] += bytes_in
+            b["bytes_out"] += bytes_out
+            b["deltas_accepted"] += accepted
+            b["deltas_rejected"] += rejected
+
+    def snapshot(self, tenant_id):
+        with self._lock:
+            b = self._tenants.get(tenant_id)
+            return json.loads(json.dumps(b)) if b else {
+                "requests": 0, "by_route": {}, "by_status": {},
+                "bytes_in": 0, "bytes_out": 0,
+                "deltas_accepted": 0, "deltas_rejected": 0}
 
 
 def _dsn_for_tenant(base_dsn: str, tenant_id: str) -> str:
@@ -103,23 +207,68 @@ def _contention(g):
 
 
 def make_handler(graph_path: str = None, tokens: dict = None,
-                 pg_dsn: str = None, sso=None):
+                 pg_dsn: str = None, sso=None, rate_limit_per_minute: int = None):
     """Exactly one of graph_path (E1, single tenant) or pg_dsn (E2,
     multi-tenant, `/graphs/{tenant_id}/...`) must be set. `tokens` maps
     bearer-token string -> role string (E1, tenant-less) or
     -> {"role", "tenant"} (E2 static tokens). `sso` is an
-    perdura_sso.SSOConfig, tried before the static map when given."""
+    perdura_sso.SSOConfig, tried before the static map when given.
+    `rate_limit_per_minute` defaults to PERDURA_RATE_LIMIT_PER_MINUTE (or 0,
+    disabled, if that's unset too)."""
     if (graph_path is None) == (pg_dsn is None):
         raise ValueError("make_handler needs exactly one of graph_path/pg_dsn")
     tokens = tokens or {}
+    if rate_limit_per_minute is None:
+        rate_limit_per_minute = int(os.environ.get(
+            "PERDURA_RATE_LIMIT_PER_MINUTE", "0") or 0)
+    RATE_LIMITER = _RateLimiter(rate_limit_per_minute)
+    USAGE = _UsageMeter()
 
     class _Handler(BaseHTTPRequestHandler):
-        def log_message(self, *a):           # keep the terminal quiet
-            pass
+        def log_message(self, format, *args):   # raw HTTP line -> DEBUG only;
+            logger.debug("%s - - " + format, self.client_address[0], *args)
+            # _record() below emits the structured per-request log line
 
         # -- helpers --------------------------------------------------------
         def _graph_path_for(self, tenant_id):
             return _dsn_for_tenant(PG_DSN, tenant_id) if PG_DSN else GRAPH_PATH
+
+        def _check_rate_limit(self):
+            auth = self.headers.get("Authorization", "")
+            key = (auth[len("Bearer "):].strip() if auth.startswith("Bearer ")
+                  else self.client_address[0])
+            if RATE_LIMITER.allow(key):
+                return True
+            self._send(429, {"error": "rate limit exceeded"},
+                      extra_headers={"Retry-After": "60"})
+            return False
+
+        def _record(self, code, bytes_out):
+            elapsed_ms = (time.monotonic()
+                         - getattr(self, "_req_start", time.monotonic())) * 1000
+            route_sub = getattr(self, "_route_sub", None)
+            log_route = route_sub or self.path
+            tenant_id = getattr(self, "_tenant_id", None) or ""
+            role = getattr(self, "_role", None)
+            logger.info(
+                "%s %s tenant=%s role=%s status=%s bytes_in=%d bytes_out=%d "
+                "elapsed_ms=%.1f", self.command, log_route, tenant_id or "-",
+                role or "-", code, getattr(self, "_bytes_in", 0), bytes_out,
+                elapsed_ms)
+            # USAGE must stay bounded against attacker-controlled input, so
+            # unlike the log line above it never keys on the raw URL: it
+            # buckets by the credential's *own* tenant (set only once a
+            # token resolves, never the tenant segment an unauthenticated
+            # or wrong-tenant request put in the URL) and collapses any
+            # unmatched route -- the only case route_sub can be an
+            # attacker-chosen string -- to one shared key.
+            meter_tenant = getattr(self, "_token_tenant", None) or ""
+            meter_route = log_route if (route_sub and code != 404) else "invalid"
+            USAGE.record(meter_tenant, meter_route, code,
+                        bytes_in=getattr(self, "_bytes_in", 0),
+                        bytes_out=bytes_out,
+                        accepted=getattr(self, "_delta_accepted", 0),
+                        rejected=getattr(self, "_delta_rejected", 0))
 
         def _resolve_token(self):
             """Returns (role, tenant) or None. tenant is None for E1
@@ -145,14 +294,17 @@ def make_handler(graph_path: str = None, tokens: dict = None,
                 return entry, None
             return entry["role"], entry["tenant"]
 
-        def _send(self, code, obj):
+        def _send(self, code, obj, extra_headers=None):
             body = json.dumps(obj).encode()
             self.send_response(code)
             self.send_header("Content-Type", "application/json")
             self.send_header("Content-Length", str(len(body)))
             self.send_header("Cache-Control", "no-store")
+            for k, v in (extra_headers or {}).items():
+                self.send_header(k, v)
             self.end_headers()
             self.wfile.write(body)
+            self._record(code, len(body))
 
         def _send_html(self, code, html):
             body = html.encode()
@@ -162,6 +314,7 @@ def make_handler(graph_path: str = None, tokens: dict = None,
             self.send_header("Cache-Control", "no-store")
             self.end_headers()
             self.wfile.write(body)
+            self._record(code, len(body))
 
         def _read_body(self):
             """Returns the request body bytes, or None after sending 400/413
@@ -179,7 +332,9 @@ def make_handler(graph_path: str = None, tokens: dict = None,
             if length > _MAX_BODY_SIZE:
                 self._send(413, {"error": "request entity too large"})
                 return None
-            return self.rfile.read(length)
+            data = self.rfile.read(length)
+            self._bytes_in = len(data)
+            return data
 
         def _authorize(self, need, tenant_id):
             """Return the caller's role, or None after sending 401/403."""
@@ -188,6 +343,8 @@ def make_handler(graph_path: str = None, tokens: dict = None,
                 self._send(401, {"error": "missing or unknown bearer token"})
                 return None
             role, token_tenant = resolved
+            self._role = role
+            self._token_tenant = token_tenant
             if _RANK[role] < _RANK[need]:
                 self._send(403, {"error": f"{need} role required"})
                 return None
@@ -202,14 +359,28 @@ def make_handler(graph_path: str = None, tokens: dict = None,
             if the path doesn't belong to this server's mode."""
             if PG_DSN is not None:
                 tenant_id, sub = _parse_tenant_route(path)
+                self._tenant_id, self._route_sub = tenant_id, sub
                 return (None, None) if tenant_id is None else (tenant_id, sub)
+            self._tenant_id, self._route_sub = "", path
             return ("", path)
 
         def do_GET(self):
+            self._req_start = time.monotonic()
             u = urlparse(self.path)
             path, qs = u.path, parse_qs(u.query)
             if path == "/health":
                 return self._send(200, {"status": "ok"})
+            if path == "/ready":
+                self._route_sub = "/ready"
+                store = store_for(GRAPH_PATH if PG_DSN is None else PG_DSN)
+                try:
+                    ok = store.ping()
+                except Exception:
+                    ok = False
+                return self._send(200 if ok else 503,
+                                  {"status": "ready" if ok else "unavailable"})
+            if not self._check_rate_limit():
+                return
             tenant_id, sub = self._route(path)
             if tenant_id is None:
                 return self._send(404, {"error": "no such route"})
@@ -236,6 +407,11 @@ def make_handler(graph_path: str = None, tokens: dict = None,
                     return self._send_html(200, render(g))   # unattributed
                 return self._send(200, self._full_graph(g))   # attributed
 
+            if sub == "/usage":
+                if not self._authorize("operator", tenant_id):
+                    return
+                return self._send(200, USAGE.snapshot(tenant_id))
+
             if sub == "/config":
                 if not self._authorize("admin", tenant_id):
                     return
@@ -248,6 +424,9 @@ def make_handler(graph_path: str = None, tokens: dict = None,
             self._send(404, {"error": "no such route"})
 
         def do_PUT(self):
+            self._req_start = time.monotonic()
+            if not self._check_rate_limit():
+                return
             tenant_id, sub = self._route(urlparse(self.path).path)
             if tenant_id is None or sub != "/config":
                 return self._send(404, {"error": "no such route"})
@@ -302,6 +481,9 @@ def make_handler(graph_path: str = None, tokens: dict = None,
                 "global_contention": g.contention()}
 
         def do_POST(self):
+            self._req_start = time.monotonic()
+            if not self._check_rate_limit():
+                return
             tenant_id, sub = self._route(urlparse(self.path).path)
             if tenant_id is None or sub != "/deltas":
                 return self._send(404, {"error": "no such route"})
@@ -327,6 +509,7 @@ def make_handler(graph_path: str = None, tokens: dict = None,
                 result = {"status": "merged", "accepted": accepted,
                           "rejected": rejected,
                           "global_contention": g.contention()}
+            self._delta_accepted, self._delta_rejected = accepted, rejected
             self._send(200, result)
 
     GRAPH_PATH = graph_path
@@ -336,9 +519,10 @@ def make_handler(graph_path: str = None, tokens: dict = None,
 
 
 def serve(graph_path=None, port=8900, host="127.0.0.1", tokens=None,
-         pg_dsn=None, sso=None):
+         pg_dsn=None, sso=None, rate_limit_per_minute=None):
     if (graph_path is None) == (pg_dsn is None):
         raise ValueError("serve() needs exactly one of graph_path/pg_dsn")
+    _configure_logging()
     if sso is None:
         from perdura_sso import SSOConfig
         sso = SSOConfig.from_env()
@@ -359,7 +543,8 @@ def serve(graph_path=None, port=8900, host="127.0.0.1", tokens=None,
     if graph_path is not None and not os.path.exists(graph_path):
         Graph(graph_path).save()
     httpd = ThreadingHTTPServer(
-        (host, port), make_handler(graph_path, tokens, pg_dsn=pg_dsn, sso=sso))
+        (host, port), make_handler(graph_path, tokens, pg_dsn=pg_dsn, sso=sso,
+                                   rate_limit_per_minute=rate_limit_per_minute))
     if pg_dsn is not None:
         print(f"Perdura service (multi-tenant): http://{host}:{port}  "
               f"(routes: /graphs/{{tenant_id}}/...)")
@@ -373,6 +558,8 @@ def serve(graph_path=None, port=8900, host="127.0.0.1", tokens=None,
               f"(graph: {os.path.abspath(graph_path)})")
         for tok, role in tokens.items():
             print(f"  {role:>8} token: {tok}")
+    logger.info("serving on %s:%s graph_path=%s pg_dsn=%s", host, port,
+               graph_path, bool(pg_dsn))
     try:
         httpd.serve_forever()
     except KeyboardInterrupt:
@@ -393,7 +580,12 @@ if __name__ == "__main__":
     p.add_argument("--host", default="127.0.0.1",
                    help="default 127.0.0.1; tokens are the only auth, so "
                         "expose beyond localhost only behind TLS/a trusted net")
+    p.add_argument("--rate-limit-per-minute", type=int, default=None,
+                   help="requests/minute per bearer token (or client IP when "
+                        "none was presented); default PERDURA_RATE_LIMIT_PER_MINUTE "
+                        "or 0 (disabled)")
     args = p.parse_args()
     graph_path = args.graph or (None if args.pg_dsn else "perdura_graph.json")
     sys.exit(serve(graph_path=graph_path, pg_dsn=args.pg_dsn,
-                   port=args.port, host=args.host))
+                   port=args.port, host=args.host,
+                   rate_limit_per_minute=args.rate_limit_per_minute))

@@ -44,9 +44,12 @@ perdura_connectors.py   Live GitHub PR connector -> pr_review_delta (E3)
 docs/design.md         Full design doc and rationale
 docs/overview.html     Transit-map architecture visual
 docs/enterprise.md     Enterprise deployment plan (track E0–E3)
+docs/api.md            perdura_service.py HTTP API reference (E4)
 docs/phase3-ab-results.md  Real escalation A/B results (2026-06-25) — gate
                         tested, contention-routing trailed periodic on
                         outcome flips in all 3 clean runs
+Dockerfile, docker-compose.yml  Container image + E2 deployment demo (E4)
+CHANGELOG.md           Version history
 experiments/debate.py  Precursor multi-model debate loop
 
 ## Phase roadmap
@@ -118,6 +121,15 @@ Full detail in ROADMAP.md; docs/memoric-binary.md is the Phase 0 RFC.
   turn. adapter:<source> attribution makes cross-stream collision audits
   and per-stream track records fall out of existing machinery for free.
   See docs/enterprise.md §1/§6/§7.
+- Enterprise E4 SHIPPED (2026-06-25, v0.2.0) — operational hardening, no
+  gate question involved (pure ops, not a routing-thesis claim): structured
+  logging (PERDURA_LOG_LEVEL), per-credential rate limiting
+  (PERDURA_RATE_LIMIT_PER_MINUTE / --rate-limit-per-minute), a /ready probe
+  backed by real store.ping() (vs /health's always-200), an operator-only
+  /usage meter (in-memory per-tenant counters — foundation for billing
+  visibility, not billing-grade), Dockerfile + docker-compose.yml for the
+  E2 path. Full reference: docs/api.md. Paired decision: local-model work
+  (LM Studio/Ollama) is shelved, not abandoned — see "Key decisions" below.
 
 ## Session conventions
 - Every major change updates README.md AND index.html in the same commit —
@@ -217,3 +229,27 @@ Full detail in ROADMAP.md; docs/memoric-binary.md is the Phase 0 RFC.
   pooling has to live above the instance. `lock()`'s advisory-lock
   connection deliberately stays outside the pool: it's held for an entire
   reload-merge-save cycle, not one query
+- **Local-model support is shelved, not abandoned (2026-06-25, direct
+  operator instruction).** Most prospective deployments — consumer and
+  enterprise alike — run frontier models (Claude/Gemini) only; further
+  local-model engineering (LM Studio/Ollama testing, heterogeneous-worker
+  validation) is deferred until the product has real usage to justify it,
+  not pursued speculatively ahead of that. `LMStudioWorker`/`QwenWorker`
+  stay in the tree and work (`--workers lmstudio`/`qwen`) — this is a
+  prioritization call, not a removal. Do not read the recurring "no local
+  model server reachable in this environment" notes elsewhere (Phase 0/3
+  validation records) as an active blocking gap to go close; they're
+  accurate background, not a to-do. Revisit once there's a viable product
+  with users, per the operator's framing ("pivot to local once this is a
+  viable product").
+- **Productization direction (2026-06-25): companies adopting a multi-LLM
+  setup are expected to care most about the memoric binary and a "quick
+  connect" onboarding path for wiring up multiple models, not about local
+  model support.** This reframes what "viable product" (above) should
+  optimize for next, once the current engineering pass lands: the memoric
+  binary's validated contention/track-record signal is the differentiator,
+  and friction in adding/swapping LLM providers (today: editing CLI flags
+  and env vars per `WORKER_FACTORIES` entry in `perdura.py`) is the
+  adoption blocker to remove. No specific "quick connect" mechanism has
+  been scoped or built yet — this is a stated priority, not a shipped
+  feature.

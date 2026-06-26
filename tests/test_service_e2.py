@@ -115,6 +115,30 @@ def test_health_needs_no_auth(service):
     assert call(service.base, "GET", "/health")[0] == 200
 
 
+def test_ready_needs_no_auth_and_reports_postgres_reachable(service):
+    code, body = call(service.base, "GET", "/ready")
+    assert code == 200 and body["status"] == "ready"
+
+
+def test_usage_is_scoped_per_tenant(service):
+    base, ta, tb = service.base, service.tenant_a, service.tenant_b
+    call(base, "GET", f"/graphs/{ta}/questions", token=_tok("worker", ta))
+    call(base, "GET", f"/graphs/{ta}/questions", token=_tok("worker", ta))
+    call(base, "GET", f"/graphs/{tb}/questions", token=_tok("worker", tb))
+
+    code, body = call(base, "GET", f"/graphs/{ta}/usage", token=_tok("operator", ta))
+    assert code == 200 and body["by_route"]["/questions"] == 2
+
+    code, body = call(base, "GET", f"/graphs/{tb}/usage", token=_tok("operator", tb))
+    assert code == 200 and body["by_route"]["/questions"] == 1
+
+
+def test_usage_requires_operator_in_multitenant_mode(service):
+    code, _ = call(service.base, "GET", f"/graphs/{service.tenant_a}/usage",
+                   token=_tok("worker", service.tenant_a))
+    assert code == 403
+
+
 def test_unprefixed_route_is_404_in_multitenant_mode(service):
     code, _ = call(service.base, "GET", "/questions",
                    token=_tok("worker", service.tenant_a))
