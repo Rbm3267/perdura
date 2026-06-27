@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "perdura"
-version = "0.2.0"
+version = "0.3.0"
 description = "The mind that outlives its models — a persistent knowledge graph with ephemeral LLM workers"
 readme = "README.md"
 requires-python = ">=3.11"
@@ -35,4 +35,4 @@ Repository = "https://github.com/Rbm3267/perdura"
 py-modules = ["perdura", "perdura_memoric", "perdura_retrieval", "perdura_viz",
               "perdura_track", "perdura_station", "perdura_store",
               "perdura_router", "perdura_service", "perdura_sso",
-              "perdura_ingest", "perdura_connectors"]
+              "perdura_ingest", "perdura_connectors", "perdura_providers"]

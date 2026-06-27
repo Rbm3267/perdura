@@ -808,6 +808,20 @@
            frontier models only, so further local-model engineering waits for real usage to
            justify it.</p>
       </div>
+      <div class="t-item now reveal">
+        <h4>Quick connect: provider config <span class="t-tag">v0.3.0 · CONFIG, NOT CODE</span></h4>
+        <p>The "quick connect" half of the productization call: wiring up a new model or
+           vendor is now a config-file edit, not a <code>perdura.py</code> change.
+           <code>perdura_providers.py</code> adds named workers from a JSON (or YAML) file on
+           top of the built-in set, each entry naming a <em>protocol</em> perdura already
+           speaks — <code>anthropic</code>, <code>google-genai</code>, <code>openai</code> for
+           any OpenAI-compatible endpoint, <code>lmstudio-native</code>, <code>mock</code> — so
+           OpenRouter, Together, Groq, Fireworks, or a self-hosted vLLM/Ollama server are all
+           just config entries; only a genuinely new wire format needs code. Cost/tier
+           overrides feed the Phase 3 router, so a config-defined vendor escalates like a real
+           frontier worker. API keys are always read from an environment variable named in the
+           config, never written into the file itself; no config file present changes nothing.</p>
+      </div>
     </div>
   </div>
 </section>

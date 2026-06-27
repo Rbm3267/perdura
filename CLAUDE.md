@@ -36,6 +36,7 @@ supports · contradicts · refines · answers · depends_on
 
 ## Repo layout
 perdura.py             Phase 1 implementation
+perdura_providers.py   Pluggable LLM provider config -- quick connect (config, not code)
 perdura_store.py       Pluggable persistence (JSON / SQLite / Postgres multi-tenant, E0+E2)
 perdura_sso.py         SSO bearer tokens — JWT verified against an IdP's JWKS (E2)
 perdura_service.py     Authenticated HTTP service — three planes, single + multi-tenant (E1+E2)
@@ -130,6 +131,17 @@ Full detail in ROADMAP.md; docs/memoric-binary.md is the Phase 0 RFC.
   visibility, not billing-grade), Dockerfile + docker-compose.yml for the
   E2 path. Full reference: docs/api.md. Paired decision: local-model work
   (LM Studio/Ollama) is shelved, not abandoned — see "Key decisions" below.
+- Productization: pluggable provider config SHIPPED (2026-06-27, v0.3.0) —
+  perdura_providers.py: a JSON/YAML file adds named workers (any protocol
+  perdura already speaks: anthropic/google-genai/openai/lmstudio-native/
+  mock) on top of perdura.py's built-in WORKER_FACTORIES, selected via
+  --workers same as always; --provider-config PATH or an auto-discovered
+  ./perdura_providers.json. cost/tier overrides feed registry_from_workers
+  so a config-defined vendor escalates like a real frontier worker. API
+  keys are always read from an env var named in api_key_env, never written
+  into the config file. This is the "quick connect" mechanism the
+  productization-direction decision below called for; see that bullet for
+  the framing and tests/test_providers.py + tests/test_cli.py for coverage.
 
 ## Session conventions
 - Every major change updates README.md AND index.html in the same commit —
@@ -250,6 +262,9 @@ Full detail in ROADMAP.md; docs/memoric-binary.md is the Phase 0 RFC.
   binary's validated contention/track-record signal is the differentiator,
   and friction in adding/swapping LLM providers (today: editing CLI flags
   and env vars per `WORKER_FACTORIES` entry in `perdura.py`) is the
-  adoption blocker to remove. No specific "quick connect" mechanism has
-  been scoped or built yet — this is a stated priority, not a shipped
-  feature.
+  adoption blocker to remove. **SHIPPED 2026-06-27 (v0.3.0):**
+  `perdura_providers.py` is the "quick connect" mechanism this called
+  for — see the Phase roadmap bullet above. The memoric-binary half of
+  this priority (a more product-facing surface for the validated
+  contention/track-record signal, beyond `perdura.py track`) remains
+  unscoped.
