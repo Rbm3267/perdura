@@ -113,18 +113,22 @@ class _RateLimiter:
         self.limit = limit_per_minute
         self._lock = threading.Lock()
         self._windows = {}   # key -> (window_start, count)
+        self._last_sweep = 0.0
 
     def allow(self, key: str) -> bool:
         if self.limit <= 0:
             return True
         now = time.monotonic()
         with self._lock:
-            if len(self._windows) > 10000:
+            if len(self._windows) > 10000 and now - self._last_sweep > 60.0:
                 # Opportunistic sweep of expired windows -- bounds memory
                 # against an attacker rotating through bogus keys, without
-                # a background thread or per-key TTL bookkeeping.
+                # a background thread or per-key TTL bookkeeping. Throttled
+                # to once/60s so a sustained flood that keeps the count
+                # above the cap can't force this O(N) sweep on every request.
                 self._windows = {k: v for k, v in self._windows.items()
                                 if now - v[0] < 60.0}
+                self._last_sweep = now
             start, count = self._windows.get(key, (now, 0))
             if now - start >= 60.0:
                 start, count = now, 0

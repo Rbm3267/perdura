@@ -69,7 +69,7 @@ def load_config(path=None) -> dict:
     built-in workers.
     """
     explicit = path is not None
-    path = path or DEFAULT_CONFIG_PATH
+    path = str(path) if explicit else DEFAULT_CONFIG_PATH
     if not os.path.exists(path):
         if explicit:
             raise FileNotFoundError(f"provider config not found: {path}")

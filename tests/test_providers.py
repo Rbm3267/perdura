@@ -61,6 +61,13 @@ def test_load_config_valid_file_returns_workers_dict(tmp_path):
     assert providers.load_config(str(path)) == cfg["workers"]
 
 
+def test_load_config_accepts_pathlib_path(tmp_path):
+    path = tmp_path / "providers.json"
+    cfg = {"workers": {"w": {"protocol": "mock"}}}
+    path.write_text(json.dumps(cfg))
+    assert providers.load_config(path) == cfg["workers"]   # Path, not str
+
+
 def test_load_config_no_workers_key_returns_empty(tmp_path):
     path = tmp_path / "providers.json"
     path.write_text(json.dumps({}))
