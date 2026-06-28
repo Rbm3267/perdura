@@ -87,6 +87,26 @@ def test_registry_from_workers_assigns_tiers():
     assert tiers["claude"] == "frontier" and tiers["gemini"] == "frontier"
 
 
+def test_registry_from_workers_applies_cost_and_tier_overrides():
+    # e.g. from perdura_providers.cost_tier_overrides() for a config-defined
+    # vendor that isn't in DEFAULT_COSTS/DEFAULT_TIERS at all.
+    reg = registry_from_workers([_W("qwen"), _W("openrouter-deepseek")],
+                                costs={"openrouter-deepseek": 0.5},
+                                tiers={"openrouter-deepseek": "frontier"})
+    specs = {s.name: s for s in reg}
+    assert specs["qwen"].cost == 0.0 and specs["qwen"].tier == "local"
+    assert specs["openrouter-deepseek"].cost == 0.5
+    assert specs["openrouter-deepseek"].tier == "frontier"
+
+
+def test_registry_from_workers_overrides_win_over_builtin_defaults():
+    # An override for a name that *is* in DEFAULT_COSTS/DEFAULT_TIERS still
+    # wins -- an operator pinning a different cost for "claude" sticks.
+    reg = registry_from_workers([_W("claude")], costs={"claude": 5.0})
+    assert reg[0].cost == 5.0
+    assert reg[0].tier == "frontier"   # untouched DEFAULT_TIERS entry
+
+
 def test_ledger_records_every_decision(tmp_path):
     g = _contested(tmp_path)
     r = Router(registry=_reg(), policy="contention")

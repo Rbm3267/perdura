@@ -65,6 +65,7 @@ Onload a swapped-in worker with latent disagreement its own neighborhood would m
 **Live dashboard** (watch a session land in real time): `python perdura.py ui` → http://127.0.0.1:8800
 SQLite storage (multi-process, transactional — see below): `--graph perdura.db`
 **The router** (Phase 3 — local labor by default, frontier summoned on a schedule): `--route periodic --budget 6` (recommended; `--route contention` remains available as a research arm)
+Add a model/vendor without touching code: `perdura_providers.json` + `--provider-config` (see "Quick connect" below)
 
 ## How it works
 
@@ -89,6 +90,44 @@ Visual overview: [docs/overview.html](docs/overview.html) ·
 Validation results: [docs/phase0-validation.md](docs/phase0-validation.md) ·
 Real escalation A/B results: [docs/phase3-ab-results.md](docs/phase3-ab-results.md) ·
 Enterprise plan: [docs/enterprise.md](docs/enterprise.md)
+
+## Quick connect: provider config
+
+Wiring up a new model or vendor is a config-file edit, not a `perdura.py`
+change. `perdura_providers.py` adds named workers from a JSON (or YAML, if
+`pyyaml` is installed) file, layered on top of the built-in
+`qwen`/`claude`/`gemini`/`lmstudio`/`mock` set:
+
+```json
+{
+  "workers": {
+    "openrouter-deepseek": {
+      "protocol": "openai",
+      "model": "deepseek/deepseek-chat",
+      "base_url": "https://openrouter.ai/api/v1",
+      "api_key_env": "OPENROUTER_API_KEY",
+      "cost": 0.5,
+      "tier": "frontier"
+    }
+  }
+}
+```
+
+```bash
+python perdura.py run --workers openrouter-deepseek,qwen
+# auto-discovers ./perdura_providers.json; or pass --provider-config path.json
+```
+
+Each entry names a `protocol` — a wire format perdura already speaks
+(`anthropic`, `google-genai`, `openai` for any OpenAI-compatible
+chat-completions endpoint, `lmstudio-native`, `mock`) — so any OpenRouter,
+Together, Groq, Fireworks, or self-hosted vLLM/Ollama vendor is just a
+config entry; only a genuinely new wire format needs a code change.
+`cost`/`tier` feed straight into the router (`--route`), so a config-defined
+vendor escalates like a real frontier worker instead of defaulting to
+free/local. API keys are always read from an environment variable named in
+`api_key_env`, never written into the config file itself. No config file
+present changes nothing — the built-in worker set behaves exactly as before.
 
 ## Beyond the experiment: storage tiers and compliance
 
@@ -374,6 +413,7 @@ with no token or network call.
 
 ```
 perdura.py            Phase 1 implementation (graph, conductor, workers, CLI)
+perdura_providers.py  Pluggable provider config -- quick connect, config not code
 docs/design.md        Full design document (thesis, schema, requirements, risks)
 docs/overview.html    Visual overview — architecture as a transit map
 docs/phase0-validation.md  Phase 0 validation results (synthetic + real arms)

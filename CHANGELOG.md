@@ -3,6 +3,37 @@
 All notable changes to Perdura are documented here. Format loosely follows
 [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
+## [0.3.0] — 2026-06-27
+
+"Quick connect": wiring up a new LLM provider or vendor is now a
+config-file edit, not a `perdura.py` code change — the productization
+priority recorded 2026-06-25.
+
+### Added
+- `perdura_providers.py` — loads named workers from a JSON (or YAML, if
+  `pyyaml` is installed) config file, layered on top of the built-in
+  `qwen`/`claude`/`gemini`/`lmstudio`/`mock` set. Each entry names a
+  `protocol` perdura already speaks (`anthropic`, `google-genai`, `openai`
+  for any OpenAI-compatible chat-completions endpoint, `lmstudio-native`,
+  `mock`), so any OpenRouter/Together/Groq/Fireworks/self-hosted
+  vLLM/Ollama vendor is a config entry; only a genuinely new wire format
+  needs code.
+- `--provider-config PATH` CLI flag (`perdura.py run`); auto-discovers
+  `./perdura_providers.json` when omitted. A missing default path changes
+  nothing; an explicitly-named missing/malformed path fails loudly.
+- `registry_from_workers(workers, costs=None, tiers=None)` — optional
+  cost/tier override params so a config-defined vendor escalates through
+  the Phase 3 router (`--route`) like a real frontier worker instead of
+  the free/local default.
+- `QwenWorker` gains an `api_key` constructor param (default `"local"`),
+  used by the `openai` protocol to pass a real key for hosted
+  OpenAI-compatible vendors. API keys are always resolved from an
+  environment variable named in a config entry's `api_key_env`, never
+  written into the config file itself.
+- `tests/test_providers.py` (config loading, per-protocol construction,
+  the `.name` override, cost/tier extraction) and new `--provider-config`
+  CLI coverage in `tests/test_cli.py`.
+
 ## [0.2.0] — 2026-06-25
 
 Productization pass: the E1/E2 HTTP service gains the observability and

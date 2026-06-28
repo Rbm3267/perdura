@@ -153,6 +153,27 @@ def test_rate_limiter_prunes_expired_windows_past_cap(monkeypatch):
     assert len(rl._windows) == 1   # the 61s-old windows got swept on this call
 
 
+def test_rate_limiter_sweep_is_throttled_to_once_per_60s(monkeypatch):
+    # A sustained flood that keeps _windows above the cap must not force
+    # the O(N) sweep on every single request -- only at most once/60s.
+    rl = svc._RateLimiter(limit_per_minute=5)
+    now = [1000.0]
+    monkeypatch.setattr(svc.time, "monotonic", lambda: now[0])
+    for i in range(10005):
+        rl.allow(f"key-{i}")
+    first_sweep = rl._last_sweep
+    assert first_sweep == 1000.0   # swept once already, mid-flood
+
+    now[0] += 30.0
+    rl.allow("extra-key")
+    assert rl._last_sweep == first_sweep   # too soon -- no re-sweep
+    assert len(rl._windows) == 10006       # so nothing got pruned yet
+
+    now[0] += 31.0   # 61s past first_sweep
+    rl.allow("another-key")
+    assert rl._last_sweep != first_sweep   # 60s elapsed -- re-swept
+
+
 def test_health_and_ready_are_exempt_from_rate_limiting(tmp_path):
     gp = str(tmp_path / "g.json")
     Graph(gp).save()

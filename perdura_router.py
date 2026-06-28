@@ -54,12 +54,16 @@ class ModelSpec:
     worker: object     # instantiated worker (has .name / .generate)
 
 
-def registry_from_workers(workers) -> list:
-    """Build a registry from already-instantiated workers, with default
-    cost/tier per known name (unknown names: free local)."""
+def registry_from_workers(workers, costs=None, tiers=None) -> list:
+    """Build a registry from already-instantiated workers. `costs`/`tiers`
+    (e.g. from perdura_providers.cost_tier_overrides) layer on top of
+    DEFAULT_COSTS/DEFAULT_TIERS for config-defined names; any name in
+    neither mapping defaults to free local."""
+    costs = {**DEFAULT_COSTS, **(costs or {})}
+    tiers = {**DEFAULT_TIERS, **(tiers or {})}
     return [ModelSpec(name=w.name,
-                      cost=DEFAULT_COSTS.get(w.name, 0.0),
-                      tier=DEFAULT_TIERS.get(w.name, "local"),
+                      cost=costs.get(w.name, 0.0),
+                      tier=tiers.get(w.name, "local"),
                       worker=w)
             for w in workers]
 

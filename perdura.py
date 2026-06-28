@@ -572,16 +572,21 @@ class GeminiWorker:
 
 
 class QwenWorker:
-    """Local model via any OpenAI-compatible server.
+    """Worker for any OpenAI-compatible chat-completions endpoint -- local
+    or hosted.
 
     Defaults target LM Studio (http://localhost:1234/v1, model "qwen3-14b").
     For Ollama: --qwen-url http://localhost:11434/v1 --qwen-model qwen3:14b
+    `api_key` defaults to the placeholder "local" servers ignore; the
+    "openai" protocol in perdura_providers.py passes a real key for hosted
+    OpenAI-compatible vendors (OpenRouter, Together, Groq, ...).
     """
     name = "qwen"
 
-    def __init__(self, model=DEFAULT_QWEN_MODEL, base_url=DEFAULT_QWEN_URL):
+    def __init__(self, model=DEFAULT_QWEN_MODEL, base_url=DEFAULT_QWEN_URL,
+                api_key="local"):
         from openai import OpenAI
-        self.client = OpenAI(base_url=base_url, api_key="local")
+        self.client = OpenAI(base_url=base_url, api_key=api_key)
         self.model = model
 
     def generate(self, prompt):
@@ -852,7 +857,15 @@ def main():
                    help="port for the Station dashboard (for `ui`)")
     p.add_argument("--turns", type=int, default=6)
     p.add_argument("--workers", default="qwen,claude,gemini",
-                   help="comma list: qwen,claude,gemini,lmstudio,mock")
+                   help="comma list: qwen,claude,gemini,lmstudio,mock, plus "
+                        "any name defined in --provider-config")
+    p.add_argument("--provider-config", default=None, metavar="PATH",
+                   help="JSON (or YAML, if pyyaml is installed) file adding "
+                        "or overriding --workers entries -- wire up a new "
+                        "model/provider by editing this file instead of "
+                        "perdura.py. Auto-discovered at "
+                        "./perdura_providers.json if omitted; see "
+                        "perdura_providers.py for the schema")
     p.add_argument("--claude-model", default=DEFAULT_CLAUDE_MODEL)
     p.add_argument("--gemini-model", default=DEFAULT_GEMINI_MODEL)
     p.add_argument("--qwen-model", default=DEFAULT_QWEN_MODEL,
@@ -961,8 +974,18 @@ def main():
         print(f"Boarded new question {qid}: {args.text}")
 
     elif args.command == "run":
+        from perdura_providers import (load_config, worker_factories,
+                                       cost_tier_overrides,
+                                       DEFAULT_CONFIG_PATH)
+        provider_cfg = load_config(args.provider_config)
+        factories = {**WORKER_FACTORIES, **worker_factories(provider_cfg)}
         names = [w.strip() for w in args.workers.split(",")]
-        workers = [WORKER_FACTORIES[n](args) for n in names]
+        unknown = [n for n in names if n not in factories]
+        if unknown:
+            sys.exit(f"Unknown worker(s) {unknown}. Available: "
+                     f"{sorted(factories)} (add more via --provider-config "
+                     f"/ {DEFAULT_CONFIG_PATH})")
+        workers = [factories[n](args) for n in names]
         router = None
         if args.route:
             from perdura_router import Router, registry_from_workers
@@ -972,7 +995,8 @@ def main():
                 if not _:
                     sys.exit(f"--domain-budget wants TAG=AMOUNT, got {spec!r}")
                 domain_budgets[tag] = float(amount)
-            router = Router(registry=registry_from_workers(workers),
+            costs, tiers = cost_tier_overrides(provider_cfg)
+            router = Router(registry=registry_from_workers(workers, costs, tiers),
                             policy=args.route, budget=args.budget,
                             escalate_at=args.escalate_at,
                             domain_budgets=domain_budgets)

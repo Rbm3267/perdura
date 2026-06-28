@@ -301,6 +301,24 @@ never displaces the research focus.
   abandoned — most prospective deployments run frontier models only, so
   further local-model engineering waits for real usage to justify it
   (`CLAUDE.md`, "Key decisions already made").
+- **Productization — pluggable provider config** ✅ (2026-06-27, v0.3.0):
+  `perdura_providers.py` answers the "quick connect" priority from the
+  2026-06-25 productization-direction call — wiring up a new model or
+  vendor is now a config-file edit (JSON, or YAML if `pyyaml` is
+  installed), not a `perdura.py` code change. Each entry names a
+  `protocol` (`anthropic`, `google-genai`, `openai` for any
+  OpenAI-compatible chat-completions endpoint, `lmstudio-native`, `mock`)
+  — a wire format perdura already speaks — so OpenRouter, Together, Groq,
+  Fireworks, or a self-hosted vLLM/Ollama server are all just config
+  entries; only a genuinely new wire format needs code. Config-defined
+  names merge into the existing `WORKER_FACTORIES` namespace (selected via
+  the same `--workers` flag) and `cost`/`tier` overrides feed
+  `registry_from_workers` so a config-defined vendor escalates through the
+  Phase 3 router like a real frontier worker. `--provider-config PATH`, or
+  auto-discovered `./perdura_providers.json`; no config file present
+  changes nothing. API keys are always resolved from an environment
+  variable named in `api_key_env`, never written into the config file
+  itself.
 
 -----
 
