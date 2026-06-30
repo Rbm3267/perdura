@@ -60,7 +60,12 @@ fossilizes in stale wikis. The same three claims, at org altitude:
    scarcest enterprise resource is not frontier-model tokens, it is senior
    engineering time. A contention metric over a cross-department graph
    routes design reviews to where the org measurably disagrees with itself,
-   instead of by org chart or volume.
+   instead of by org chart or volume. This is a distinct, untested
+   extension — the LLM-spend version of contention-triggered routing has
+   been measured (§ above, docs/phase3-ab-results.md) and its targeting
+   precision holds, but the *attention*-routing analogy has not itself been
+   run as an A/B; treat it as a hypothesis the org-altitude pitch leads
+   with, not a result.
 
 The cross-department failure mode Perdura is uniquely shaped for: two teams
 building on contradicting assumptions that nobody notices until integration.
