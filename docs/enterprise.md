@@ -62,7 +62,7 @@ fossilizes in stale wikis. The same three claims, at org altitude:
    routes design reviews to where the org measurably disagrees with itself,
    instead of by org chart or volume. This is a distinct, untested
    extension — the LLM-spend version of contention-triggered routing has
-   been measured (§ above, docs/phase3-ab-results.md) and its targeting
+   been measured (the Status note above, docs/phase3-ab-results.md) and its targeting
    precision holds, but the *attention*-routing analogy has not itself been
    run as an A/B; treat it as a hypothesis the org-altitude pitch leads
    with, not a result.
