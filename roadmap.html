@@ -335,6 +335,24 @@ never displaces the research focus.</p>
   abandoned — most prospective deployments run frontier models only, so
   further local-model engineering waits for real usage to justify it
   (<code>CLAUDE.md</code>, "Key decisions already made").</li>
+<li><strong>Productization — pluggable provider config</strong> ✅ (2026-06-27, v0.3.0):
+  <code>perdura_providers.py</code> answers the "quick connect" priority from the
+  2026-06-25 productization-direction call — wiring up a new model or
+  vendor is now a config-file edit (JSON, or YAML if <code>pyyaml</code> is
+  installed), not a <code>perdura.py</code> code change. Each entry names a
+  <code>protocol</code> (<code>anthropic</code>, <code>google-genai</code>, <code>openai</code> for any
+  OpenAI-compatible chat-completions endpoint, <code>lmstudio-native</code>, <code>mock</code>)
+  — a wire format perdura already speaks — so OpenRouter, Together, Groq,
+  Fireworks, or a self-hosted vLLM/Ollama server are all just config
+  entries; only a genuinely new wire format needs code. Config-defined
+  names merge into the existing <code>WORKER_FACTORIES</code> namespace (selected via
+  the same <code>--workers</code> flag) and <code>cost</code>/<code>tier</code> overrides feed
+  <code>registry_from_workers</code> so a config-defined vendor escalates through the
+  Phase 3 router like a real frontier worker. <code>--provider-config PATH</code>, or
+  auto-discovered <code>./perdura_providers.json</code>; no config file present
+  changes nothing. API keys are always resolved from an environment
+  variable named in <code>api_key_env</code>, never written into the config file
+  itself.</li>
 </ul>
 <hr />
 <h2>Phase 4: Multi-Model Collaborative Routing (Optional)</h2>
@@ -431,7 +449,7 @@ Phase 3 (PLANNED)
 <ol>
 <li><strong>Inverted persistence claim:</strong> A model can be swapped mid-session; graph state survives unharmed. ✓ (testable in Phase 1)</li>
 <li><strong>Epistemic track records claim:</strong> Per-model reliability measurable from embedding space and merge history. ✓ (testable in Phase 2)</li>
-<li><strong>Contention-driven economics claim:</strong> Cheap models handle low-contention subgraphs; expensive models see only where disagreement clusters. ✓ (measurable in Phase 3)</li>
+<li><strong>Contention-driven economics claim:</strong> Cheap models handle low-contention subgraphs; expensive models see only where disagreement clusters. Measured in Phase 3, real 6-run A/B (docs/phase3-ab-results.md): targeting precision ✓, but contention-triggered escalation never beat periodic on outcome flips at equal cost (5 losses, 1 tie) — ✗ on the gate metric. Router default is now periodic; <code>--route contention</code> ships as a research arm.</li>
 </ol>
 <hr />
 <h2>Next Steps</h2>

@@ -1,8 +1,11 @@
 # Perdura — context for Claude Code sessions
 
 ## Thesis
-A persistent knowledge graph that hires and fires LLMs based on what it has
-learned about them — spending money only where it disagrees with itself.
+A persistent knowledge graph that outlives every model that works it,
+building an attributed, per-model track record of which LLMs to trust — in
+which domains — as it goes. (Spend-by-contention was the original headline
+framing; claim 3 below records why the pitch now leads with persistence and
+track records instead.)
 
 ## Three claims (do not change without discussion)
 1. **Inverted persistence** — the graph is the system of record; models are

@@ -2,9 +2,11 @@
 
 **The mind that outlives its models.**
 
-Perdura is a persistent knowledge graph that hires and fires LLMs based on
-what it has learned about them — spending money only where it disagrees with
-itself.
+Perdura is a persistent knowledge graph that outlives every model that works
+it. Models — Claude, Gemini, local models, or anything else wired in via a
+quick-connect provider config — are stateless, swappable labor; the graph
+builds an attributed, per-model track record of which ones to trust, in
+which domains, as it goes.
 
 Conventional multi-agent systems treat agents as persistent and memory as
 incidental. Perdura inverts this: **memory is the persistent entity; LLMs are

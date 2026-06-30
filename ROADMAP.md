@@ -407,7 +407,7 @@ By end of Phase 3, Perdura should exhibit:
 
 1. **Inverted persistence claim:** A model can be swapped mid-session; graph state survives unharmed. ✓ (testable in Phase 1)
 1. **Epistemic track records claim:** Per-model reliability measurable from embedding space and merge history. ✓ (testable in Phase 2)
-1. **Contention-driven economics claim:** Cheap models handle low-contention subgraphs; expensive models see only where disagreement clusters. ✓ (measurable in Phase 3)
+1. **Contention-driven economics claim:** Cheap models handle low-contention subgraphs; expensive models see only where disagreement clusters. Measured in Phase 3, real 6-run A/B (docs/phase3-ab-results.md): targeting precision ✓, but contention-triggered escalation never beat periodic on outcome flips at equal cost (5 losses, 1 tie) — ✗ on the gate metric. Router default is now periodic; `--route contention` ships as a research arm.
 
 -----
 
